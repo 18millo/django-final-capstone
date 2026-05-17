@@ -19,12 +19,18 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      await login(form.login, form.password)
-      navigate('/')
+      const data = await login(form.login, form.password)
+      if (data.requires_2fa) {
+        navigate('/verify-login', { state: { email: data.email } })
+      } else if (data.requires_access_code) {
+        navigate('/verify-access-code', { state: { email: data.email } })
+      } else {
+        navigate('/')
+      }
     } catch (err) {
       playError()
       const data = err.response?.data
-      const msg = data?.detail || data?.non_field_errors?.[0] || 'Login failed'
+      const msg = data?.detail || data?.non_field_errors?.[0] || data?.error || 'Login failed'
       setError(msg)
     } finally {
       setLoading(false)

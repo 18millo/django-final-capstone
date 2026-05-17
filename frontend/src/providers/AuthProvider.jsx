@@ -26,17 +26,53 @@ export function AuthProvider({ children }) {
 
   const login = async (login, password) => {
     const { data } = await api.post('/auth/login/', { login, password })
+    if (data.requires_2fa || data.requires_access_code) {
+      return data
+    }
     localStorage.setItem('access_token', data.tokens.access)
     localStorage.setItem('refresh_token', data.tokens.refresh)
     setUser(data.user)
     return data
   }
 
-  const register = async (email, username, password, role) => {
-    const { data } = await api.post('/auth/register/', { email, username, password, role })
+  const verifyLogin = async (email, code) => {
+    const { data } = await api.post('/auth/verify-login/', { email, code })
     localStorage.setItem('access_token', data.tokens.access)
     localStorage.setItem('refresh_token', data.tokens.refresh)
     setUser(data.user)
+    return data
+  }
+
+  const verifyAccessCode = async (email, code) => {
+    const { data } = await api.post('/auth/verify-access-code/', { email, code })
+    if (data.requires_2fa) {
+      return data
+    }
+    localStorage.setItem('access_token', data.tokens.access)
+    localStorage.setItem('refresh_token', data.tokens.refresh)
+    setUser(data.user)
+    return data
+  }
+
+  const register = async (payload) => {
+    const { data } = await api.post('/auth/register/', payload)
+    return data
+  }
+
+  const setupTotp = async () => {
+    const { data } = await api.post('/auth/2fa/setup/')
+    return data
+  }
+
+  const verifyTotp = async (code) => {
+    const { data } = await api.post('/auth/2fa/verify/', { code })
+    setUser((prev) => ({ ...prev, totp_enabled: true }))
+    return data
+  }
+
+  const disableTotp = async (code) => {
+    const { data } = await api.post('/auth/2fa/disable/', { code })
+    setUser((prev) => ({ ...prev, totp_enabled: false }))
     return data
   }
 
@@ -64,7 +100,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, googleLogin, setUsername, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, verifyLogin, verifyAccessCode, register, googleLogin, setUsername, logout, updateUser, setupTotp, verifyTotp, disableTotp }}>
       {children}
     </AuthContext.Provider>
   )

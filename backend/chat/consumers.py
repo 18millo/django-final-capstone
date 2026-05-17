@@ -3,8 +3,9 @@ from urllib.parse import parse_qs
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken
-from accounts.models import Message
+from accounts.models import Message, Profile
 
 User = get_user_model()
 
@@ -95,11 +96,37 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             )
 
+        elif data.get('type') == 'typing':
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'user_typing',
+                    'user_id': self.user.id,
+                }
+            )
+
+        elif data.get('type') == 'stop_typing':
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'user_stop_typing',
+                    'user_id': self.user.id,
+                }
+            )
+
     async def chat_message(self, event):
         await self.send(text_data=json.dumps(event))
 
     async def messages_read(self, event):
         await self.send(text_data=json.dumps(event))
+
+    async def user_typing(self, event):
+        if event['user_id'] != self.user.id:
+            await self.send(text_data=json.dumps(event))
+
+    async def user_stop_typing(self, event):
+        if event['user_id'] != self.user.id:
+            await self.send(text_data=json.dumps(event))
 
     @database_sync_to_async
     def get_user_by_id(self, user_id):
@@ -143,6 +170,8 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
 
+        await self.mark_online()
+
         self.notif_group_name = f'user_{self.user.id}_notifications'
         await self.channel_layer.group_add(self.notif_group_name, self.channel_name)
         await self.accept()
@@ -156,6 +185,10 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
     async def notify_follow(self, event):
         await self.send(text_data=json.dumps(event))
+
+    @database_sync_to_async
+    def mark_online(self):
+        Profile.objects.filter(user=self.user).update(last_seen=timezone.now())
 
     @database_sync_to_async
     def get_user_by_id(self, user_id):

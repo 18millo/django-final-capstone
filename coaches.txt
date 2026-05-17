@@ -1,0 +1,53 @@
+CombatHub Sample Coach Accounts
+========================================
+
+Name:     John Kavanagh
+Gym:      SBG Ireland
+Email:    john.kavanagh@combathub.io
+Password: Kajmcch18fm4
+
+Name:     Firas Zahabi
+Gym:      Tristar Gym
+Email:    firas.zahabi@combathub.io
+Password: 2RHaAz3wu2V6
+
+Name:     Javier Mendez
+Gym:      AKA
+Email:    javier.mendez@combathub.io
+Password: nnYX9wH7S05k
+
+Name:     Greg Jackson
+Gym:      Jackson Wink MMA
+Email:    greg.jackson@combathub.io
+Password: uZdbbWljOdpN
+
+Name:     Henri Hooft
+Gym:      Blackzilians
+Email:    henri.hooft@combathub.io
+Password: TRy2RgESZ89n
+
+Name:     Rafael Cordeiro
+Gym:      Kings MMA
+Email:    rafael.cordeiro@combathub.io
+Password: Ua1XxXH0QsOP
+
+Name:     Marcos Parrumpinha
+Gym:      American Top Team
+Email:    marcos.parrumpinha@combathub.io
+Password: ROwkYEPED3em
+
+Name:     Duke Roufus
+Gym:      Roufusport
+Email:    duke.roufus@combathub.io
+Password: O7j816WlUhGu
+
+Name:     Trevor Wittman
+Gym:      ONX Sports
+Email:    trevor.wittman@combathub.io
+Password: bqQsPUhi4DcS
+
+Name:     Eric Nicksick
+Gym:      Xtreme Couture
+Email:    eric.nicksick@combathub.io
+Password: w6od5EiSTp3x
+

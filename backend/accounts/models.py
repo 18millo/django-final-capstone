@@ -1,7 +1,9 @@
+import random
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.dispatch import receiver
 from django.db.models.signals import post_save
+from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
@@ -38,6 +40,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    totp_secret = models.CharField(max_length=64, blank=True)
+    totp_enabled = models.BooleanField(default=False)
 
     objects = UserManager()
 
@@ -76,6 +80,21 @@ class Profile(models.Model):
     stance = models.CharField(max_length=20, choices=Stance.choices, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    last_seen = models.DateTimeField(null=True, blank=True)
+
+    # vendor fields
+    business_name = models.CharField(max_length=200, blank=True)
+    business_location = models.CharField(max_length=300, blank=True)
+    business_description = models.TextField(blank=True)
+    latitude = models.FloatField(blank=True, null=True)
+    longitude = models.FloatField(blank=True, null=True)
+
+    # coach fields
+    specialization = models.CharField(max_length=200, blank=True)
+    certifications = models.TextField(blank=True)
+
+    # vendor access code used during registration
+    vendor_access_code = models.CharField(max_length=50, blank=True)
 
     def __str__(self):
         return f"{self.user.email}'s profile"
@@ -140,7 +159,46 @@ class SiteContent(models.Model):
         return self.title
 
 
+class EmailVerificationCode(models.Model):
+    class Type(models.TextChoices):
+        SIGNUP = 'signup', 'Signup Verification'
+        LOGIN = 'login', 'Login Verification'
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='verification_codes')
+    code = models.CharField(max_length=6)
+    type = models.CharField(max_length=10, choices=Type.choices)
+    is_used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.user.email} - {self.type} - {self.code}'
+
+    @classmethod
+    def generate(cls, user, type):
+        code = ''.join(random.choices('0123456789', k=6))
+        expires_at = timezone.now() + timezone.timedelta(minutes=10)
+        return cls.objects.create(user=user, code=code, type=type, expires_at=expires_at)
+
+    @property
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
         Profile.objects.create(user=instance)
+
+
+class VendorAccessCode(models.Model):
+    code = models.CharField(max_length=50, unique=True)
+    description = models.CharField(max_length=200, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.code

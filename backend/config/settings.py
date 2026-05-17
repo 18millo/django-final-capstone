@@ -9,6 +9,7 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -18,7 +19,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'channels',
-    'ckeditor',
+    'django_ckeditor_5',
     'django_filters',
     'accounts',
     'products',
@@ -121,6 +122,8 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = config('FRONTEND_URL', default='http://localhost:5173').split(',')
 CORS_ALLOW_CREDENTIALS = True
 
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173').split(',')[0]
+
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels.layers.InMemoryChannelLayer',
@@ -128,11 +131,20 @@ CHANNEL_LAYERS = {
 }
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.sendgrid.net'
-EMAIL_PORT = 587
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'apikey'
-EMAIL_HOST_PASSWORD = config('SENDGRID_API_KEY')
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+
 DEFAULT_FROM_EMAIL = config('FROM_EMAIL')
 
 GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID')
+
+CKEDITOR_5_CONFIGS = {
+    'default': {
+        'toolbar': ['heading', '|', 'bold', 'italic', 'link', 'bulletedList', 'numberedList', 'blockQuote'],
+    },
+}
+
+CKEDITOR_5_FILE_STORAGE = None

@@ -23,9 +23,19 @@ export default function MainLayout() {
   const [showNotifs, setShowNotifs] = useState(false)
   const notifRef = useRef(null)
   const notifWsRef = useRef(null)
+  const [msgUnreadCount, setMsgUnreadCount] = useState(0)
 
   useEffect(() => {
     window.scrollTo(0, 0)
+  }, [])
+
+  useEffect(() => {
+    const handler = () => {
+      setMsgUnreadCount(0)
+      setNotifications((prev) => prev.filter((n) => typeof n.id !== 'string' || (!n.id.startsWith('msg_') && !n.id.startsWith('follow_'))))
+    }
+    window.addEventListener('chat-opened', handler)
+    return () => window.removeEventListener('chat-opened', handler)
   }, [])
 
   useEffect(() => {
@@ -43,26 +53,39 @@ export default function MainLayout() {
 
   useEffect(() => {
     if (!user) return
-    const fetch = () => {
+    let stopped = false
+    const fetchNotifs = () => {
+      if (stopped) return
       api.get('/auth/notifications/unread-count/')
         .then((res) => setNotifCount(res.data.count))
         .catch(() => {})
     }
-    fetch()
-    const interval = setInterval(fetch, 15000)
-    return () => clearInterval(interval)
+    const fetchMsgs = () => {
+      if (stopped) return
+      api.get('/auth/conversations/')
+        .then((res) => {
+          const total = (res.data || []).reduce((sum, c) => sum + (c.unread || 0), 0)
+          setMsgUnreadCount(total)
+        })
+        .catch(() => {})
+    }
+    fetchNotifs()
+    fetchMsgs()
+    const interval = setInterval(() => { fetchNotifs(); fetchMsgs() }, 5000)
+    return () => { stopped = true; clearInterval(interval) }
   }, [user])
 
   useEffect(() => {
     if (!user) return
-    const token = localStorage.getItem('access_token')
-    if (!token) return
 
     let reconnectTimer = null
     let stopped = false
 
     const connect = () => {
-      const ws = new WebSocket(`${WS_BASE}/ws/notifications/?token=${token}`)
+      const token = localStorage.getItem('access_token')
+      if (!token) return
+
+      const ws = new WebSocket(`${WS_BASE}/ws/notifications/?token=${encodeURIComponent(token)}`)
       notifWsRef.current = ws
 
       ws.onmessage = (e) => {
@@ -71,10 +94,20 @@ export default function MainLayout() {
           if (data.type === 'notify_message') {
             toast(`💬 ${data.sender_name}: ${data.content}`, 'info', 5000)
             setNotifCount((p) => p + 1)
+            setMsgUnreadCount((p) => p + 1)
+            setNotifications((prev) => [
+              { id: 'msg_' + Date.now(), notification_type: 'message', message: `💬 ${data.sender_name}: ${data.content}`, read: false, created_at: new Date().toISOString() },
+              ...prev,
+            ])
+            window.dispatchEvent(new CustomEvent('new-message', { detail: { sender: data.sender } }))
             playSuccess()
           } else if (data.type === 'notify_follow') {
             toast(`👊 ${data.actor_name} started following you!`, 'success', 5000)
             setNotifCount((p) => p + 1)
+            setNotifications((prev) => [
+              { id: 'follow_' + Date.now(), notification_type: 'follow', message: `👊 ${data.actor_name} started following you.`, read: false, created_at: new Date().toISOString() },
+              ...prev,
+            ])
             playSuccess()
           }
         } catch {}
@@ -107,7 +140,15 @@ export default function MainLayout() {
     setShowNotifs((p) => !p)
     if (!showNotifs) {
       api.get('/auth/notifications/')
-        .then((res) => setNotifications(res.data.results || res.data))
+        .then((res) => {
+          const serverNotifs = res.data.results || res.data
+          setNotifications((prev) => {
+            const wsNotifs = prev.filter((n) => typeof n.id === 'string' && (n.id.startsWith('msg_') || n.id.startsWith('follow_')))
+            const ids = new Set(wsNotifs.map((n) => n.id))
+            const merged = [...wsNotifs, ...serverNotifs.filter((n) => !ids.has('msg_' + n.id) && !ids.has('follow_' + n.id))]
+            return merged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          })
+        })
         .catch(() => {})
     }
   }
@@ -146,22 +187,31 @@ export default function MainLayout() {
               <span className={'font-black text-lg tracking-widest uppercase ' + (isLight ? 'text-nike-black' : '')} style={!isLight ? { color: 'var(--color-nike-white)' } : {}}>CombatHub</span>
             </Link>
             <div className="hidden md:flex items-center gap-1">
-              {[
-                { to: '/', label: 'Home' },
-                ...(user ? [{ to: '/community', label: 'Community' }] : []),
-                { to: '/about', label: 'About' },
-              ].map((link) => (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  onClick={() => playWhoosh()}
-                  className={'relative text-sm tracking-widest uppercase font-medium px-4 py-2 rounded-full transition-all duration-300 group ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-black' : 'hover:bg-white/5')}
-                  style={!isLight ? { color: 'var(--color-nike-light)' } : {}}
-                >
-                  {link.label}
-                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-nike-red rounded-full group-hover:w-1/2 transition-all duration-300" />
-                </Link>
-              ))}
+              {user?.role === 'vendor' ? (
+                <>
+                  {[{ to: '/', label: 'Home' }, { to: '/vendor', label: 'Vendor' }].map((link) => (
+                    <Link key={link.to} to={link.to} onClick={() => playWhoosh()} className={'relative text-sm tracking-widest uppercase font-medium px-4 py-2 rounded-full transition-all duration-300 group ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-black' : 'hover:bg-white/5')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>
+                      {link.label}
+                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-nike-red rounded-full group-hover:w-1/2 transition-all duration-300" />
+                    </Link>
+                  ))}
+                </>
+              ) : (
+                <>
+                  {[
+                    { to: '/', label: 'Home' },
+                    ...(user ? [{ to: '/community', label: 'Community' }] : []),
+                    { to: '/shop', label: 'Shop' },
+                    ...(user?.role === 'coach' ? [{ to: '/coach', label: 'Coach' }] : []),
+                    { to: '/about', label: 'About' },
+                  ].map((link) => (
+                    <Link key={link.to} to={link.to} onClick={() => playWhoosh()} className={'relative text-sm tracking-widest uppercase font-medium px-4 py-2 rounded-full transition-all duration-300 group ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-black' : 'hover:bg-white/5')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>
+                      {link.label}
+                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-nike-red rounded-full group-hover:w-1/2 transition-all duration-300" />
+                    </Link>
+                  ))}
+                </>
+              )}
             </div>
             <div className="flex items-center gap-3">
               {user ? (
@@ -174,6 +224,19 @@ export default function MainLayout() {
                       title="Messages"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                      {msgUnreadCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-nike-red rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-lg shadow-nike-red/50">{msgUnreadCount}</span>
+                      )}
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <button
+                      onClick={() => { playClick(); navigate('/cart') }}
+                      className={'relative p-2 rounded-xl transition-all duration-200 ' + (isLight ? 'hover:bg-nike-gray/30' : 'hover:bg-white/5')}
+                      style={{ color: 'var(--color-nike-light)' }}
+                      title="Cart"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
                     </button>
                   </div>
                   <div className="relative" ref={notifRef}>
@@ -223,7 +286,7 @@ export default function MainLayout() {
                               )}
                               {notifCount > 0 && (
                                 <button
-                                  onClick={() => { api.post('/auth/notifications/read-all/').then(() => { setNotifications((prev) => prev.map((n) => ({ ...n, read: true }))); setNotifCount(0) }).catch(() => {}) }}
+                                  onClick={() => { setMsgUnreadCount(0); api.post('/auth/notifications/read-all/').then(() => { setNotifications((prev) => prev.map((n) => ({ ...n, read: true }))); setNotifCount(0) }).catch(() => {}) }}
                                   className={'w-full px-5 py-2.5 text-xs tracking-widest uppercase font-bold text-center transition-colors border-t ' + (isLight ? 'text-nike-red border-nike-gray hover:bg-nike-red/5' : 'text-nike-red border-white/5 hover:bg-nike-red/10')}
                                 >
                                   Mark all as read
@@ -299,7 +362,7 @@ export default function MainLayout() {
                                     )}
                                   >
                                     <span className="text-base shrink-0 mt-0.5">
-                                      {n.notification_type === 'follow' ? '👊' : '🔔'}
+                                    {n.notification_type === 'follow' ? '👊' : n.notification_type === 'message' ? '💬' : '🔔'}
                                     </span>
                                     <div className="min-w-0">
                                       <p className={n.read ? '' : 'font-bold'}>{n.message}</p>
@@ -332,6 +395,26 @@ export default function MainLayout() {
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                         Messages
+                      </Link>
+
+                      <Link
+                        to="/shop"
+                        onClick={() => setMenuOpen(false)}
+                        className={'flex items-center gap-3 px-5 py-3 text-sm transition-colors ' + (isLight ? 'text-nike-black hover:bg-nike-gray/30' : '')}
+                        style={!isLight ? { color: 'var(--color-nike-light)' } : {}}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                        Shop
+                      </Link>
+
+                      <Link
+                        to="/orders"
+                        onClick={() => setMenuOpen(false)}
+                        className={'flex items-center gap-3 px-5 py-3 text-sm transition-colors ' + (isLight ? 'text-nike-black hover:bg-nike-gray/30' : '')}
+                        style={!isLight ? { color: 'var(--color-nike-light)' } : {}}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                        Orders
                       </Link>
 
                       <Link
@@ -397,6 +480,7 @@ export default function MainLayout() {
           </div>
           <div className={'flex items-center gap-4 ' + (isLight ? 'text-nike-light' : '')}>
             <Link to="/about" className={'transition-colors ' + (isLight ? 'hover:text-nike-black' : 'hover:text-white')}>About</Link>
+            <Link to="/guidelines" className={'transition-colors ' + (isLight ? 'hover:text-nike-black' : 'hover:text-white')}>Guidelines</Link>
             <Link to="/about" className={'transition-colors ' + (isLight ? 'hover:text-nike-black' : 'hover:text-white')}>Privacy</Link>
             <Link to="/about" className={'transition-colors ' + (isLight ? 'hover:text-nike-black' : 'hover:text-white')}>Terms</Link>
           </div>

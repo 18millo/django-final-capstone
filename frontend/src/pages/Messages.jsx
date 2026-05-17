@@ -57,8 +57,11 @@ export default function Messages() {
   const reconnectTimeoutRef = useRef(null)
   const [wsConnected, setWsConnected] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [typing, setTyping] = useState(false)
+  const typingTimeoutRef = useRef(null)
 
   useEffect(() => {
+    window.dispatchEvent(new CustomEvent('chat-opened'))
     api.get('/auth/conversations/')
       .then((res) => setConversations(res.data))
       .catch(() => {})
@@ -87,7 +90,12 @@ export default function Messages() {
     if (activeId) {
       setChatLoading(true)
       api.get('/auth/conversations/' + activeId + '/')
-        .then((res) => setMessages(res.data))
+        .then((res) => setMessages((prev) => {
+          const fresh = res.data
+          const existingIds = new Set(prev.map((m) => m.id))
+          const merged = [...fresh.filter((m) => !existingIds.has(m.id)), ...prev]
+          return merged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        }))
         .catch(() => {})
         .finally(() => setChatLoading(false))
     }
@@ -100,6 +108,24 @@ export default function Messages() {
   }, [activeId, messages])
 
   useEffect(() => {
+    if (!activeId) return
+    const handler = (e) => {
+      if (e.detail.sender === activeId) {
+        api.get('/auth/conversations/' + activeId + '/')
+          .then((res) => setMessages((prev) => {
+            const fresh = res.data
+            const existingIds = new Set(prev.map((m) => m.id))
+            const merged = [...fresh.filter((m) => !existingIds.has(m.id)), ...prev]
+            return merged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          }))
+          .catch(() => {})
+      }
+    }
+    window.addEventListener('new-message', handler)
+    return () => window.removeEventListener('new-message', handler)
+  }, [activeId])
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
@@ -107,7 +133,7 @@ export default function Messages() {
     if (!activeId || !user) return
     const token = localStorage.getItem('access_token')
     if (!token) return
-    const url = WS_BASE + '/ws/chat/' + activeId + '/?token=' + token
+    const url = WS_BASE + '/ws/chat/' + activeId + '/?token=' + encodeURIComponent(token)
 
     if (wsRef.current) {
       wsRef.current.onclose = null
@@ -125,7 +151,13 @@ export default function Messages() {
         if (data.type === 'chat_message') {
           setMessages((prev) => {
             if (prev.some((m) => m.id === data.id)) return prev
-            return [{ id: data.id, sender: data.sender, content: data.content, created_at: data.created_at, read: data.read }, ...prev]
+            const tempIdx = prev.findIndex((m) => m.id?.toString().startsWith('temp_') && m.content === data.content && m.sender === data.sender)
+            if (tempIdx !== -1) {
+              const next = [...prev]
+              next[tempIdx] = data
+              return next
+            }
+            return [data, ...prev]
           })
           if (data.sender !== user.id) {
             playSuccess()
@@ -142,6 +174,10 @@ export default function Messages() {
           setMessages((prev) => prev.map((m) =>
             m.sender === data.read_by ? { ...m, read: true } : m
           ))
+        } else if (data.type === 'user_typing') {
+          if (data.user_id !== user.id) setTyping(true)
+        } else if (data.type === 'user_stop_typing') {
+          if (data.user_id !== user.id) setTyping(false)
         }
       } catch {}
     }
@@ -200,6 +236,18 @@ export default function Messages() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
   }
 
+  const handleInputChange = (e) => {
+    setInput(e.target.value)
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return
+    wsRef.current.send(JSON.stringify({ type: 'typing' }))
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+    typingTimeoutRef.current = setTimeout(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'stop_typing' }))
+      }
+    }, 2000)
+  }
+
   const insertEmoji = (emoji) => {
     const ta = textareaRef.current
     if (ta) {
@@ -244,7 +292,7 @@ export default function Messages() {
     if (!conversations.find((c) => c.user_id === uid)) {
       const u = contacts.find((c) => c.id === uid)
       if (u) {
-        setConversations((prev) => [{ user_id: u.id, username: u.username || u.display_name || 'User', avatar: u.profile?.avatar, unread: 0 }, ...prev])
+        setConversations((prev) => [{ user_id: u.id, username: u.username || u.display_name || 'User', avatar: u.profile?.avatar, unread: 0, online: false }, ...prev])
       }
     }
   }
@@ -321,12 +369,12 @@ export default function Messages() {
                         )}
                       </div>
                       {c.unread > 0 && (
-                        <>
-                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-nike-red rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-lg shadow-nike-red/30">
-                            {c.unread > 9 ? '9+' : c.unread}
-                          </div>
-                          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 shadow-lg" style={{ borderColor: isLight ? 'white' : 'var(--color-nike-dark)' }} />
-                        </>
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-nike-red rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-lg shadow-nike-red/30">
+                          {c.unread > 9 ? '9+' : c.unread}
+                        </div>
+                      )}
+                      {c.online && (
+                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 shadow-lg" style={{ borderColor: isLight ? 'white' : 'var(--color-nike-dark)' }} />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -363,15 +411,17 @@ export default function Messages() {
                       </div>
                     )}
                   </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 shadow-lg" style={{ borderColor: isLight ? 'white' : 'var(--color-nike-dark)' }} />
+                  {activeConv?.online && (
+                    <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 shadow-lg" style={{ borderColor: isLight ? 'white' : 'var(--color-nike-dark)' }} />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className={'text-sm font-bold truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{activeConv?.username || 'User'}</p>
-                    <div className={'w-1.5 h-1.5 rounded-full ' + (wsConnected ? 'bg-green-500' : 'bg-red-500')} />
+                    <div className={'w-1.5 h-1.5 rounded-full ' + (activeConv?.online ? 'bg-green-500' : 'bg-red-500')} />
                   </div>
-                  <p className={'text-[10px] ' + (wsConnected ? (isLight ? 'text-green-600' : 'text-green-400') : (isLight ? 'text-red-500' : 'text-red-400'))}>
-                    {wsConnected ? '● Real-time connected' : '○ Reconnecting…'}
+                  <p className={'text-[10px] ' + (typing ? (isLight ? 'text-green-600' : 'text-green-400') : (activeConv?.online ? (isLight ? 'text-green-600' : 'text-green-400') : (isLight ? 'text-red-500' : 'text-red-400')))}>
+                    {typing ? '● Typing…' : (activeConv?.online ? '● Online' : '○ Offline')}
                   </p>
                 </div>
               </div>
@@ -412,10 +462,13 @@ export default function Messages() {
                               </svg>
                             )}
                             {isMe && item.read && (
-                              <svg viewBox="0 0 20 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-[14px] h-3 text-blue-400">
-                                <path d="M2 6.5l3 3 5-5" opacity="0.4"/>
-                                <path d="M10 6.5l3 3 5-5"/>
-                              </svg>
+                              <>
+                                <svg viewBox="0 0 20 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-[14px] h-3 text-blue-400">
+                                  <path d="M2 6.5l3 3 5-5" opacity="0.4"/>
+                                  <path d="M10 6.5l3 3 5-5"/>
+                                </svg>
+                                <span className="text-[9px] text-blue-400 font-bold ml-0.5">Read</span>
+                              </>
                             )}
                           </div>
                         </div>
@@ -443,7 +496,7 @@ export default function Messages() {
                   <textarea
                     ref={textareaRef}
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
+                    onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
                     placeholder="Type a message…"
                     rows={1}

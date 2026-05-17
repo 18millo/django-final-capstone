@@ -3,7 +3,8 @@ djangorestframework
 djangorestframework-simplejwt
 django-cors-headers
 channels
-django-ckeditor
+django-ckeditor-5
+dnspython
 django-filter
 django-allauth
 google-auth

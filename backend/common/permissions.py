@@ -11,6 +11,18 @@ class IsCoach(permissions.BasePermission):
         return request.user.is_authenticated and request.user.role == 'coach'
 
 
+class IsVendor(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == 'vendor'
+
+
+class IsVendorOrReadOnly(permissions.BasePermission):
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return request.user.is_authenticated and request.user.role == 'vendor' and request.user.is_active
+
+
 class IsPremiumOrHigher(permissions.BasePermission):
     def has_permission(self, request, view):
         if not request.user.is_authenticated:

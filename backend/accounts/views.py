@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import models
+from django.utils import timezone
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from rest_framework import status, generics, permissions
@@ -10,6 +11,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 import jwt
+import pyotp
 
 from .models import User, SiteContent, Follow, Notification, Message
 from .serializers import (
@@ -17,7 +19,8 @@ from .serializers import (
     SetUsernameSerializer, PasswordResetSerializer,
     PasswordResetConfirmSerializer, UserSerializer, SiteContentSerializer,
     PublicUserSerializer, FollowSerializer, NotificationSerializer, MessageSerializer,
-    ConversationSerializer,
+    ConversationSerializer, TotpSetupSerializer, TotpVerifySerializer, TotpLoginSerializer,
+    AccessCodeLoginSerializer, RetrieveAccessCodeSerializer,
 )
 
 
@@ -29,18 +32,22 @@ def get_tokens_for_user(user):
     }
 
 
+ACCESS_CODE_ROLES = {'vendor', 'coach', 'gym_owner'}
+
+
 class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        tokens = get_tokens_for_user(user)
-        return Response({
-            'user': UserSerializer(user).data,
-            'tokens': tokens,
-        }, status=status.HTTP_201_CREATED)
+        serializer.save()
+
+        resp = {'detail': 'Account created successfully.'}
+        if serializer.instance.role in ACCESS_CODE_ROLES:
+            resp['vendor_access_code'] = serializer.instance.profile.vendor_access_code
+
+        return Response(resp, status=status.HTTP_201_CREATED)
 
 
 class LoginView(APIView):
@@ -50,11 +57,169 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
+
+        if not user.is_active:
+            return Response({'error': 'Account is disabled.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if user.role in ACCESS_CODE_ROLES and user.profile.vendor_access_code:
+            return Response({
+                'requires_access_code': True,
+                'email': user.email,
+            })
+
+        if user.totp_enabled:
+            return Response({
+                'requires_2fa': True,
+                'email': user.email,
+            })
+
         tokens = get_tokens_for_user(user)
         return Response({
             'user': UserSerializer(user).data,
             'tokens': tokens,
         })
+
+
+class AccessCodeVerifyView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = AccessCodeLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+
+        if not user.is_active:
+            return Response({'error': 'Account is disabled.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if user.totp_enabled:
+            return Response({
+                'requires_2fa': True,
+                'email': user.email,
+            })
+
+        tokens = get_tokens_for_user(user)
+        return Response({
+            'user': UserSerializer(user).data,
+            'tokens': tokens,
+        })
+
+
+class RetrieveAccessCodeView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = RetrieveAccessCodeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+
+        code = user.profile.vendor_access_code
+
+        try:
+            send_mail(
+                subject='Your CombatHub Access Code',
+                message=(
+                    f'Hi {user.username or user.email},\n\n'
+                    f'Your access code for your {user.role.replace("_", " ")} account is:\n\n'
+                    f'   {code}\n\n'
+                    f'Keep this code safe. You will need it to sign in.\n\n'
+                    f'- The CombatHub Team'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+            return Response({'detail': f'Access code sent to {user.email}.'})
+        except Exception as e:
+            return Response(
+                {'error': 'Failed to send email. Please try again later.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class TotpSetupView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = TotpSetupSerializer
+
+    def post(self, request):
+        user = request.user
+        if user.totp_enabled:
+            return Response({'error': '2FA is already enabled.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        secret = pyotp.random_base32()
+        user.totp_secret = secret
+        user.save()
+
+        issuer = 'CombatHub'
+        uri = pyotp.totp.TOTP(secret).provisioning_uri(name=user.email, issuer_name=issuer)
+
+        return Response({
+            'secret': secret,
+            'uri': uri,
+        })
+
+
+class TotpVerifyView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if user.totp_enabled:
+            return Response({'error': '2FA is already enabled.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not user.totp_secret:
+            return Response({'error': 'No TOTP secret found. Call /auth/2fa/setup/ first.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = TotpVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        totp = pyotp.TOTP(user.totp_secret)
+        if not totp.verify(serializer.validated_data['code'], valid_window=1):
+            return Response({'error': 'Invalid code. Try again.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.totp_enabled = True
+        user.save()
+
+        return Response({
+            'detail': '2FA enabled successfully.',
+            'totp_enabled': True,
+        })
+
+
+class TotpLoginView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = TotpLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+
+        tokens = get_tokens_for_user(user)
+        return Response({
+            'user': UserSerializer(user).data,
+            'tokens': tokens,
+        })
+
+
+class TotpDisableView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if not user.totp_enabled:
+            return Response({'error': '2FA is not enabled.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = TotpVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        totp = pyotp.TOTP(user.totp_secret)
+        if not totp.verify(serializer.validated_data['code'], valid_window=1):
+            return Response({'error': 'Invalid code.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.totp_secret = ''
+        user.totp_enabled = False
+        user.save()
+
+        return Response({'detail': '2FA disabled.'})
 
 
 class GoogleAuthView(APIView):
@@ -129,7 +294,7 @@ class PasswordResetView(APIView):
                 message=f'Click here to reset your password: {reset_link}',
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[email],
-                fail_silently=True,
+                fail_silently=False,
             )
         except User.DoesNotExist:
             pass
@@ -175,6 +340,43 @@ class UserListView(generics.ListAPIView):
         return {'request': self.request}
 
 
+class CoachListView(generics.ListAPIView):
+    queryset = User.objects.filter(is_active=True, role='coach')
+    serializer_class = PublicUserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+
+class VendorListView(generics.ListAPIView):
+    queryset = User.objects.filter(is_active=True, role='vendor')
+    serializer_class = PublicUserSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+
+class VendorDetailView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk, role='vendor', is_active=True)
+        except User.DoesNotExist:
+            return Response({'error': 'Vendor not found'}, status=404)
+
+        from products.serializers import ProductListSerializer
+        products = user.products.all()
+        product_serializer = ProductListSerializer(products, many=True, context={'request': request})
+
+        return Response({
+            'vendor': PublicUserSerializer(user, context={'request': request}).data,
+            'products': product_serializer.data,
+        })
+
+
 class PublicProfileView(generics.RetrieveAPIView):
     queryset = User.objects.filter(is_active=True).exclude(role='admin')
     serializer_class = PublicUserSerializer
@@ -188,6 +390,9 @@ class FollowUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, user_id):
+        if request.user.role == 'vendor':
+            return Response({'error': 'Vendors cannot follow users'}, status=status.HTTP_403_FORBIDDEN)
+
         try:
             target = User.objects.get(id=user_id, is_active=True)
         except User.DoesNotExist:
@@ -207,14 +412,15 @@ class FollowUserView(APIView):
         actor_name = request.user.username or request.user.email or 'Someone'
         try:
             channel_layer = get_channel_layer()
-            async_to_sync(channel_layer.group_send)(
-                f'user_{target.id}_notifications',
-                {
-                    'type': 'notify_follow',
-                    'actor': request.user.id,
-                    'actor_name': actor_name,
-                }
-            )
+            if channel_layer:
+                async_to_sync(channel_layer.group_send)(
+                    f'user_{target.id}_notifications',
+                    {
+                        'type': 'notify_follow',
+                        'actor': request.user.id,
+                        'actor_name': actor_name,
+                    }
+                )
         except Exception:
             pass
 
@@ -225,6 +431,9 @@ class UnfollowUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, user_id):
+        if request.user.role == 'vendor':
+            return Response({'error': 'Vendors cannot unfollow users'}, status=status.HTTP_403_FORBIDDEN)
+
         try:
             target = User.objects.get(id=user_id, is_active=True)
         except User.DoesNotExist:
@@ -324,9 +533,12 @@ class ConversationListView(APIView):
             ).first()
             unread = Message.objects.filter(sender=partner, recipient=user, read=False).count()
             avatar = None
+            online = False
             try:
                 if partner.profile.avatar:
                     avatar = partner.profile.avatar.url
+                if partner.profile.last_seen and (timezone.now() - partner.profile.last_seen).total_seconds() < 60:
+                    online = True
             except:
                 pass
             conversations.append({
@@ -336,6 +548,7 @@ class ConversationListView(APIView):
                 'last_message': last.content[:100] if last else '',
                 'last_message_time': last.created_at if last else None,
                 'unread': unread,
+                'online': online,
             })
         conversations.sort(key=lambda c: c['last_message_time'] or '', reverse=True)
         return Response(conversations)

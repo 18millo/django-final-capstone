@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Reveal from '../components/ui/Reveal'
 import { useTheme } from '../providers/ThemeProvider'
 import { useAuth } from '../providers/AuthProvider'
+import api from '../utils/api'
 import { mediaUrl } from '../utils/media'
 import { playAmbient, stopAmbient, playBell, isAmbientEnabled, toggleAmbient as toggleAmbientSound } from '../utils/sounds'
 import { ROLE_ICONS, ROLE_LABELS, ROLE_COLORS } from '../utils/roles'
@@ -26,11 +27,33 @@ const IMAGES = {
   },
 }
 
+const TESTIMONIALS = [
+  { name: 'Alex "The Axe" M.', role: 'Pro MMA Fighter', quote: 'CombatHub changed how I prepare for fights. The gear quality is unmatched, and I found my coach here.', avatar: 'A' },
+  { name: 'Sarah K.', role: 'BJJ Black Belt', quote: 'Booking gym sessions and coaching has never been easier. This is exactly what the combat sports community needed.', avatar: 'S' },
+  { name: 'Marcus D.', role: 'Boxing Coach', quote: 'I\'ve built my entire online coaching business through this platform. The tools are incredible for trainers.', avatar: 'M' },
+]
+
+const BRANDS = ['Venum', 'Hayabusa', 'Everlast', 'Nike', 'Fairtex', 'Twins', 'Rival', 'Cleto Reyes']
+
+const FEATURED_GEAR = [
+  { id: 1, name: 'Pro Gloves', brand: 'Venum', price: 60, images: ['https://images.pexels.com/photos/4752858/pexels-photo-4752858.jpeg?auto=compress&cs=tinysrgb&w=600'], limited_edition: false },
+  { id: 2, name: 'Thai Shorts', brand: 'Fairtex', price: 45, images: ['https://images.pexels.com/photos/6456142/pexels-photo-6456142.jpeg?auto=compress&cs=tinysrgb&w=600'], limited_edition: true },
+  { id: 3, name: 'Speed Rope', brand: 'Everlast', price: 20, images: ['https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?auto=format&fit=crop&w=600&q=80'], limited_edition: false },
+  { id: 4, name: 'Mouthguard', brand: 'Nike', price: 15, images: ['https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=600&q=80'], limited_edition: false },
+]
+
 function HomeMarketing() {
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const img = IMAGES[theme]
   const [soundOn, setSoundOn] = useState(isAmbientEnabled())
+  const [featuredProducts, setFeaturedProducts] = useState([])
+
+  useEffect(() => {
+    api.get('/products/?limit=4').then((res) => {
+      setFeaturedProducts(res.data.results || res.data || [])
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (isAmbientEnabled()) playAmbient()
@@ -105,7 +128,7 @@ function HomeMarketing() {
         </div>
       </section>
 
-      <section className="relative py-20 overflow-hidden">
+      <section className="relative py-14 overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat bg-fixed"
           style={{ backgroundImage: 'url(' + img.stats + ')' }}
@@ -130,16 +153,16 @@ function HomeMarketing() {
         </div>
       </section>
 
-      <section className={'py-28 ' + (isLight ? 'bg-white' : 'bg-nike-black')}>
+      <section className={'py-16 md:py-20 ' + (isLight ? 'bg-white' : 'bg-nike-black')}>
         <div className="max-w-7xl mx-auto px-6">
           <Reveal>
-            <div className="text-center mb-20">
+            <div className="text-center mb-12">
               <span className="text-nike-red text-xs tracking-widest uppercase font-bold">The Ecosystem</span>
-              <h2 className="text-4xl md:text-5xl font-black tracking-tight mt-3">Everything. One Platform.</h2>
-              <p className={'mt-4 max-w-xl mx-auto ' + (isLight ? 'text-nike-light' : 'text-white/40')}>From the gym to the octagon, we've got you covered at every step of your journey.</p>
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight mt-2">Everything. One Platform.</h2>
+              <p className={'mt-3 max-w-xl mx-auto text-sm ' + (isLight ? 'text-nike-light' : 'text-white/40')}>From the gym to the octagon, we've got you covered at every step of your journey.</p>
             </div>
           </Reveal>
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-6">
             {[
               {
                 title: 'Premium Gear',
@@ -165,20 +188,20 @@ function HomeMarketing() {
             ].map((item, i) => (
               <Reveal key={item.title} delay={i * 150}>
                 <div className={'group relative rounded-2xl overflow-hidden transition-all duration-500 ' + (isLight ? 'bg-nike-dark border-nike-gray shadow-sm hover:shadow-md border hover:border-nike-red/30' : 'bg-nike-dark border-white/5 hover:border-white/20 border')}>
-                  <div className="h-48 overflow-hidden">
+                  <div className="h-40 overflow-hidden">
                     <img
                       src={item.image}
                       alt={item.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                     />
                   </div>
-                  <div className="p-8">
-                    <div className={'w-12 h-12 ' + item.badge + ' rounded-xl flex items-center justify-center text-xl mb-6'}>
+                  <div className="p-6">
+                    <div className={'w-10 h-10 ' + item.badge + ' rounded-xl flex items-center justify-center text-lg mb-4'}>
                       {item.icon}
                     </div>
-                    <h3 className={'text-xl font-bold mb-3 ' + (isLight ? 'text-nike-black' : 'text-white')}>{item.title}</h3>
+                    <h3 className={'text-lg font-bold mb-2 ' + (isLight ? 'text-nike-black' : 'text-white')}>{item.title}</h3>
                     <p className={'text-sm leading-relaxed ' + (isLight ? 'text-nike-light' : 'text-white/40')}>{item.desc}</p>
-                    <div className={'mt-6 flex items-center gap-2 text-xs tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light group-hover:text-nike-red' : 'text-white/20 group-hover:text-nike-red')}>
+                    <div className={'mt-4 flex items-center gap-2 text-xs tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light group-hover:text-nike-red' : 'text-white/20 group-hover:text-nike-red')}>
                       Explore <span>→</span>
                     </div>
                   </div>
@@ -189,7 +212,100 @@ function HomeMarketing() {
         </div>
       </section>
 
-      <section className={'relative py-28 overflow-hidden border-t ' + (isLight ? 'border-nike-gray' : 'border-white/5')}>
+      {/* Testimonials */}
+      <section className={'py-16 md:py-20 ' + (isLight ? 'bg-white' : 'bg-nike-black')}>
+        <div className="max-w-7xl mx-auto px-6">
+          <Reveal>
+            <div className="text-center mb-10">
+              <span className="text-nike-red text-xs tracking-widest uppercase font-bold">Testimonials</span>
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight mt-2">Trusted by Fighters</h2>
+              <p className={'mt-2 max-w-xl mx-auto text-sm ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Hear from athletes and coaches who level up with CombatHub every day.</p>
+            </div>
+          </Reveal>
+          <div className="grid md:grid-cols-3 gap-5">
+            {TESTIMONIALS.map((t, i) => (
+              <Reveal key={t.name} delay={i * 150}>
+                <div className={'relative p-6 rounded-2xl border transition-all duration-300 hover:scale-[1.02] ' + (isLight
+                  ? 'bg-white border-nike-gray shadow-sm'
+                  : 'bg-nike-dark border-white/5'
+                )}>
+                  <div className={'text-3xl mb-3 ' + (isLight ? 'text-nike-red/20' : 'text-nike-red/20')}>❝</div>
+                  <p className={'text-sm leading-relaxed mb-4 ' + (isLight ? 'text-nike-light' : 'text-white/50')}>"{t.quote}"</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-nike-red/20 flex items-center justify-center text-sm font-bold text-nike-red">{t.avatar}</div>
+                    <div>
+                      <p className={'text-xs font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{t.name}</p>
+                      <p className={'text-[10px] ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{t.role}</p>
+                    </div>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Gear */}
+      <section className={'py-16 md:py-20 border-t ' + (isLight ? 'bg-nike-gray/20 border-nike-gray' : 'bg-nike-dark/50 border-white/5')}>
+        <div className="max-w-7xl mx-auto px-6">
+          <Reveal>
+            <div className="flex items-end justify-between mb-8">
+              <div>
+                <span className="text-nike-red text-xs tracking-widest uppercase font-bold">Featured Gear</span>
+                <h2 className="text-3xl md:text-4xl font-black tracking-tight mt-1">Top Rated Equipment</h2>
+              </div>
+              <Link to="/shop" className={'hidden md:flex items-center gap-2 text-xs tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')}>
+                View All <span>→</span>
+              </Link>
+            </div>
+          </Reveal>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            {featuredProducts.map((p, i) => (
+              <Reveal key={p.id} delay={i * 100}>
+                <Link to={'/shop/' + p.id} className={'group relative rounded-2xl overflow-hidden border transition-all duration-300 hover:scale-[1.02] ' + (isLight
+                  ? 'bg-white border-nike-gray shadow-sm'
+                  : 'bg-nike-dark border-white/5'
+                )}>
+                  <div className="aspect-[4/3] overflow-hidden bg-nike-gray/20">
+                    <img src={p.images?.[0] || ''} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                  </div>
+                  <div className="p-3">
+                    {p.limited_edition && (
+                      <span className="inline-block bg-nike-red/10 text-nike-red text-[9px] tracking-widest uppercase font-bold px-2 py-0.5 rounded-full mb-1.5">Limited</span>
+                    )}
+                    <p className={'text-xs font-bold truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.name}</p>
+                    <p className={'text-[10px] ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{p.brand}</p>
+                    <p className="text-sm font-black text-nike-red mt-1">${parseFloat(p.price).toFixed(2)}</p>
+                  </div>
+                </Link>
+              </Reveal>
+            ))}
+          </div>
+          <div className="mt-8 text-center md:hidden">
+            <Link to="/shop" className="inline-flex items-center gap-2 bg-nike-red text-white hover:bg-white hover:text-nike-black px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">
+              View All Gear <span>→</span>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Trusted Brands */}
+      <section className={'py-10 border-t ' + (isLight ? 'border-nike-gray bg-white' : 'border-white/5 bg-nike-black')}>
+        <div className="max-w-7xl mx-auto px-6">
+          <Reveal>
+            <p className={'text-center text-[10px] tracking-widest uppercase font-bold mb-6 ' + (isLight ? 'text-nike-light' : 'text-white/20')}>Trusted by Leading Brands</p>
+            <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
+              {BRANDS.map((brand) => (
+                <span key={brand} className={'text-lg md:text-xl font-black tracking-tight transition-colors hover:text-nike-red ' + (isLight ? 'text-nike-gray/60' : 'text-white/10')}>
+                  {brand}
+                </span>
+              ))}
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      <section className={'relative py-20 overflow-hidden border-t ' + (isLight ? 'border-nike-gray' : 'border-white/5')}>
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat bg-fixed"
           style={{ backgroundImage: 'url(' + img.cta + ')' }}
@@ -221,11 +337,31 @@ function HomeMarketing() {
 
 function HomeDashboard() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const { theme, appVersion } = useTheme()
   const isLight = theme === 'light'
   const p = user?.profile || {}
   const img = IMAGES[theme]
   const [bellRung, setBellRung] = useState(false)
+  const [conversations, setConversations] = useState([])
+  const [products, setProducts] = useState([])
+  const [loadingProducts, setLoadingProducts] = useState(false)
+  const isVendor = user?.role === 'vendor'
+
+  useEffect(() => {
+    api.get('/auth/conversations/')
+      .then((res) => setConversations((res.data || []).slice(0, 3)))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    setLoadingProducts(true)
+    const url = isVendor ? '/vendor/products/' : '/products/?limit=4'
+    api.get(url)
+      .then((res) => setProducts(res.data.results || res.data || []))
+      .catch(() => {})
+      .finally(() => setLoadingProducts(false))
+  }, [isVendor])
 
   useEffect(() => {
     if (!bellRung) {
@@ -351,6 +487,83 @@ function HomeDashboard() {
               </Reveal>
             ))}
           </div>
+
+          {/* Messages Preview */}
+          {conversations.length > 0 && (
+            <Reveal delay={150}>
+              <div className={'mb-8 p-6 rounded-2xl border backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xs tracking-widest uppercase font-bold">Recent Messages</h2>
+                  <Link to="/messages" className={'text-[10px] tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')}>
+                    View All →
+                  </Link>
+                </div>
+                <div className="space-y-3">
+                  {conversations.map((c) => (
+                    <Link key={c.user_id} to="/messages" className={'flex items-center gap-3 p-3 rounded-xl transition-all duration-200 hover:scale-[1.01] ' + (isLight ? 'hover:bg-nike-gray/20' : 'hover:bg-white/5')}>
+                      <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 ring-2 ring-nike-gray/30">
+                        {c.avatar ? (
+                          <img src={mediaUrl(c.avatar)} className="w-full h-full object-cover" alt="" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xs font-bold bg-nike-gray/20" style={{ color: 'var(--color-nike-light)' }}>
+                            {(c.username || '?')[0].toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={'text-xs font-bold truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{c.username}</p>
+                          {c.unread > 0 && <span className="w-2 h-2 bg-nike-red rounded-full shrink-0" />}
+                        </div>
+                        <p className={'text-[10px] truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>{c.last_message || 'No messages yet'}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </Reveal>
+          )}
+
+          {/* Trending Gear / Vendor Products */}
+          <Reveal delay={175}>
+            <div className={'mb-12 p-6 rounded-2xl border backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xs tracking-widest uppercase font-bold">{isVendor ? 'My Products' : 'Trending Gear'}</h2>
+                <Link to={isVendor ? '/vendor/products/new' : '/shop'} className={'text-[10px] tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')}>
+                  {isVendor ? 'Add New →' : 'Shop All →'}
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {loadingProducts ? (
+                  <p className={'col-span-4 text-center py-8 text-sm ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Loading...</p>
+                ) : products.length === 0 ? (
+                  <p className={'col-span-4 text-center py-8 text-sm ' + (isLight ? 'text-nike-light' : 'text-white/40')}>No products yet.</p>
+                ) : products.map((p) => (
+                    <div
+                    key={p.id}
+                    onClick={() => navigate('/shop/' + p.id)}
+                    className={'cursor-pointer group relative rounded-xl overflow-hidden border transition-all duration-200 hover:scale-[1.02] ' + (isLight ? 'bg-white border-nike-gray' : 'bg-nike-black/60 border-white/5')}
+                  >
+                    {isVendor && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate('/vendor/products/' + p.id + '/edit') }}
+                        className={'absolute top-2 right-2 z-10 w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity ' + (isLight ? 'bg-white/90 text-nike-black shadow-sm' : 'bg-nike-dark/90 text-white')}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </button>
+                    )}
+                    <div className="aspect-square overflow-hidden bg-nike-gray/20">
+                      <img src={p.images?.[0] || ''} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                    </div>
+                    <div className="p-3">
+                      <p className={'text-[10px] font-bold truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.name}</p>
+                      <p className="text-xs font-black text-nike-red mt-1">${parseFloat(p.price).toFixed(2)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Reveal>
 
           <div className="grid md:grid-cols-3 gap-8 mb-12">
             {/* Stats */}

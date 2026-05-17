@@ -1,20 +1,53 @@
+import secrets
+import string
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from rest_framework import serializers
 from .models import User, Profile, UsernameChange, SiteContent, Follow, Notification, Message
 
 
+ACCESS_CODE_ROLES = {'vendor', 'coach', 'gym_owner'}
+
+def generate_access_code():
+    return ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+
+
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     username = serializers.CharField(required=True)
+    vendor_access_code = serializers.CharField(read_only=True, source='profile.vendor_access_code')
+
+    # vendor fields
+    business_name = serializers.CharField(required=False, allow_blank=True)
+    business_location = serializers.CharField(required=False, allow_blank=True)
+    business_description = serializers.CharField(required=False, allow_blank=True)
+
+    # coach fields
+    specialization = serializers.CharField(required=False, allow_blank=True)
+    certifications = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = User
-        fields = ('email', 'username', 'password', 'role')
+        fields = (
+            'email', 'username', 'password', 'role', 'vendor_access_code',
+            'business_name', 'business_location', 'business_description',
+            'specialization', 'certifications',
+        )
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("A user with this email already exists.")
+        try:
+            import dns.resolver
+            domain = value.split('@')[1]
+            dns.resolver.resolve(domain, 'MX', lifetime=5)
+        except dns.resolver.NoAnswer:
+            try:
+                dns.resolver.resolve(domain, 'A', lifetime=5)
+            except Exception:
+                raise serializers.ValidationError("Email domain does not appear to be valid.")
+        except Exception:
+            raise serializers.ValidationError("Email domain does not appear to be valid.")
         return value
 
     def validate_username(self, value):
@@ -23,11 +56,27 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
+        profile_fields = [
+            'business_name', 'business_location', 'business_description',
+            'specialization', 'certifications',
+        ]
+        profile_data = {f: validated_data.pop(f, '') for f in profile_fields}
+
         password = validated_data.pop('password')
         user = User(**validated_data)
         user.display_name = validated_data.get('username', '')
+        user.is_active = True
         user.set_password(password)
         user.save()
+
+        profile = user.profile
+        for attr, value in profile_data.items():
+            if value:
+                setattr(profile, attr, value)
+        if user.role in ACCESS_CODE_ROLES:
+            profile.vendor_access_code = generate_access_code()
+        profile.save()
+
         return user
 
 
@@ -50,8 +99,79 @@ class LoginSerializer(serializers.Serializer):
         user = authenticate(username=user.email, password=password)
         if not user:
             raise serializers.ValidationError("Invalid credentials.")
-        if not user.is_active:
-            raise serializers.ValidationError("Account is disabled.")
+
+        data['user'] = user
+        return data
+
+
+class TotpSetupSerializer(serializers.Serializer):
+    pass
+
+
+class TotpVerifySerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=6, min_length=6)
+
+
+class TotpLoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.CharField(max_length=6, min_length=6)
+
+    def validate(self, data):
+        try:
+            user = User.objects.get(email=data['email'])
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Invalid verification request.")
+
+        if not user.totp_enabled or not user.totp_secret:
+            raise serializers.ValidationError("2FA is not enabled for this account.")
+
+        import pyotp
+        totp = pyotp.TOTP(user.totp_secret)
+        if not totp.verify(data['code'], valid_window=1):
+            raise serializers.ValidationError("Invalid or expired code.")
+
+        data['user'] = user
+        return data
+
+
+class AccessCodeLoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.CharField(max_length=8, min_length=8)
+
+    def validate(self, data):
+        try:
+            user = User.objects.get(email=data['email'])
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Invalid verification request.")
+
+        if user.role not in ACCESS_CODE_ROLES:
+            raise serializers.ValidationError("Access code not required for this account.")
+
+        profile = user.profile
+        if not profile.vendor_access_code:
+            raise serializers.ValidationError("No access code set for this account.")
+
+        if profile.vendor_access_code != data['code']:
+            raise serializers.ValidationError("Invalid access code.")
+
+        data['user'] = user
+        return data
+
+
+class RetrieveAccessCodeSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate(self, data):
+        try:
+            user = User.objects.get(email=data['email'])
+        except User.DoesNotExist:
+            raise serializers.ValidationError("No account found with this email.")
+
+        if user.role not in ACCESS_CODE_ROLES:
+            raise serializers.ValidationError("Access codes are not used for this account type.")
+
+        if not user.profile.vendor_access_code:
+            raise serializers.ValidationError("No access code has been set for this account.")
 
         data['user'] = user
         return data
@@ -82,7 +202,13 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ('bio', 'avatar', 'phone', 'weight_class', 'height_ft', 'height_in', 'reach_in', 'stance')
+        fields = (
+            'bio', 'avatar', 'phone', 'weight_class', 'height_ft', 'height_in', 'reach_in', 'stance',
+            'business_name', 'business_location', 'business_description',
+            'specialization', 'certifications',
+            'vendor_access_code', 'latitude', 'longitude',
+        )
+        read_only_fields = ('vendor_access_code',)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -92,8 +218,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'email', 'username', 'display_name', 'role', 'profile', 'created_at', 'follower_count', 'following_count')
-        read_only_fields = ('id', 'email', 'role', 'created_at')
+        fields = ('id', 'email', 'username', 'display_name', 'role', 'profile', 'created_at', 'follower_count', 'following_count', 'totp_enabled')
+        read_only_fields = ('id', 'email', 'role', 'created_at', 'totp_enabled')
 
     def get_follower_count(self, obj):
         return obj.followers.count()
@@ -216,3 +342,4 @@ class ConversationSerializer(serializers.Serializer):
     last_message = serializers.CharField(allow_blank=True, required=False)
     last_message_time = serializers.DateTimeField(allow_null=True, required=False)
     unread = serializers.IntegerField()
+    online = serializers.BooleanField()
