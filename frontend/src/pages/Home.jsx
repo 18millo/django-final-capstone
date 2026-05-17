@@ -1,0 +1,443 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import Reveal from '../components/ui/Reveal'
+import { useTheme } from '../providers/ThemeProvider'
+import { useAuth } from '../providers/AuthProvider'
+import { mediaUrl } from '../utils/media'
+import { playAmbient, stopAmbient, playBell, isAmbientEnabled, toggleAmbient as toggleAmbientSound } from '../utils/sounds'
+import { ROLE_ICONS, ROLE_LABELS, ROLE_COLORS } from '../utils/roles'
+
+const IMAGES = {
+  dark: {
+    hero: 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&w=1920&q=80',
+    gear: 'https://images.unsplash.com/photo-1583473848882-f9a5bc7fd2ee?auto=format&fit=crop&w=800&q=80',
+    coach: 'https://images.unsplash.com/photo-1552072092-7f9b8d63efcb?auto=format&fit=crop&w=800&q=80',
+    gym: 'https://images.unsplash.com/photo-1599058917765-a780eda07a3e?auto=format&fit=crop&w=800&q=80',
+    cta: 'https://images.unsplash.com/photo-1613567144281-5e8d8b5a2b6d?auto=format&fit=crop&w=1920&q=80',
+    stats: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=1920&q=80',
+  },
+  light: {
+    hero: 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?auto=format&fit=crop&w=1920&q=80',
+    gear: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=800&q=80',
+    coach: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=800&q=80',
+    gym: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=800&q=80',
+    cta: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1920&q=80',
+    stats: 'https://images.unsplash.com/photo-1599058917765-a780eda07a3e?auto=format&fit=crop&w=1920&q=80',
+  },
+}
+
+function HomeMarketing() {
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
+  const img = IMAGES[theme]
+  const [soundOn, setSoundOn] = useState(isAmbientEnabled())
+
+  useEffect(() => {
+    if (isAmbientEnabled()) playAmbient()
+    return () => stopAmbient()
+  }, [])
+
+  const toggleSound = () => {
+    const on = toggleAmbientSound()
+    setSoundOn(on)
+  }
+
+  return (
+    <div>
+      <section className="relative min-h-screen flex items-center overflow-hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-105 animate-slowZoom"
+          style={{ backgroundImage: 'url(' + img.hero + ')' }}
+        />
+        <div className={'absolute inset-0 ' + (isLight ? 'bg-white/80' : 'bg-gradient-to-r from-nike-black/95 via-nike-black/70 to-nike-black/40')} />
+        {!isLight && <div className="absolute inset-0 bg-gradient-to-t from-nike-black via-transparent to-nike-black/20" />}
+        <div className={'absolute top-20 right-[-10%] w-[60%] h-[80%] rounded-full blur-3xl ' + (isLight ? 'bg-gradient-to-bl from-nike-red/10 via-nike-amber/5 to-transparent' : 'bg-gradient-to-bl from-nike-red/15 via-nike-amber/5 to-transparent')} />
+        <div className={'absolute bottom-20 left-[-10%] w-[50%] h-[50%] rounded-full blur-3xl ' + (isLight ? 'bg-gradient-to-tr from-nike-orange/10 to-transparent' : 'bg-gradient-to-tr from-nike-orange/10 to-transparent')} />
+        <div className="relative max-w-7xl mx-auto px-6 py-24 w-full">
+          <Reveal className="max-w-3xl">
+            <div className="flex items-center gap-3 mb-6 flex-wrap">
+              <span className="bg-nike-red/20 backdrop-blur-sm text-nike-red text-xs tracking-widest uppercase font-bold px-4 py-2 rounded-full border border-nike-red/20">
+                Now Live — Beta Access
+              </span>
+              <button
+                onClick={toggleSound}
+                className={'backdrop-blur-sm text-xs tracking-widest uppercase font-bold px-3 py-2 rounded-full border transition-all duration-300 ' + (soundOn
+                  ? 'bg-nike-red/20 text-nike-red border-nike-red/20'
+                  : (isLight ? 'bg-white/50 text-nike-light border-nike-gray' : 'bg-white/5 text-white/40 border-white/10')
+                )}
+                title={soundOn ? 'Mute ambient' : 'Play ambient'}
+              >
+                {soundOn ? '🔊' : '🔇'} Sound
+              </button>
+            </div>
+            <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-6">
+              YOUR<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-nike-red via-nike-amber to-nike-orange">FIGHT</span><br />
+              STARTS HERE
+            </h1>
+            <p className={'text-lg md:text-xl max-w-xl mb-10 leading-relaxed ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
+              Premium gear. Elite coaches. World-class gyms. The only ecosystem built for combat sports athletes.
+            </p>
+            <div className="flex gap-4 flex-wrap">
+              <Link
+                to="/register"
+                className="group relative inline-flex items-center gap-2 bg-nike-red text-white hover:bg-white hover:text-nike-black px-8 py-4 rounded-full font-bold text-sm tracking-widest uppercase transition-all duration-300"
+              >
+                Join the Movement
+                <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </Link>
+              <Link
+                to="/about"
+                className={'inline-flex items-center gap-2 border px-8 py-4 rounded-full text-sm tracking-widest uppercase font-medium transition-all duration-300 ' + (isLight
+                  ? 'border-nike-gray text-nike-light hover:border-nike-black hover:text-nike-black'
+                  : 'border-white/20 text-white/60 hover:border-white/60 hover:text-white'
+                )}
+              >
+                Learn More
+              </Link>
+            </div>
+          </Reveal>
+        </div>
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+          <div className={'w-6 h-10 border-2 rounded-full flex justify-center pt-2 ' + (isLight ? 'border-nike-gray' : 'border-white/20')}>
+            <div className={'w-1 h-3 rounded-full ' + (isLight ? 'bg-nike-gray' : 'bg-white/40')} />
+          </div>
+        </div>
+      </section>
+
+      <section className="relative py-20 overflow-hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat bg-fixed"
+          style={{ backgroundImage: 'url(' + img.stats + ')' }}
+        />
+        <div className={'absolute inset-0 backdrop-blur-sm ' + (isLight ? 'bg-white/90' : 'bg-nike-black/90')} />
+        <div className="relative max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {[
+              { number: '5,000+', label: 'Athletes' },
+              { number: '500+', label: 'Coaches' },
+              { number: '200+', label: 'Gyms' },
+              { number: '10,000+', label: 'Products' },
+            ].map((stat) => (
+              <Reveal key={stat.label} delay={100}>
+                <div className="text-center">
+                  <div className="text-3xl md:text-4xl font-black text-white">{stat.number}</div>
+                  <div className={'text-xs tracking-widest uppercase mt-1 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{stat.label}</div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className={'py-28 ' + (isLight ? 'bg-white' : 'bg-nike-black')}>
+        <div className="max-w-7xl mx-auto px-6">
+          <Reveal>
+            <div className="text-center mb-20">
+              <span className="text-nike-red text-xs tracking-widest uppercase font-bold">The Ecosystem</span>
+              <h2 className="text-4xl md:text-5xl font-black tracking-tight mt-3">Everything. One Platform.</h2>
+              <p className={'mt-4 max-w-xl mx-auto ' + (isLight ? 'text-nike-light' : 'text-white/40')}>From the gym to the octagon, we've got you covered at every step of your journey.</p>
+            </div>
+          </Reveal>
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                title: 'Premium Gear',
+                desc: "Shop the latest gloves, wraps, apparel, and equipment from the world's top brands.",
+                image: img.gear,
+                badge: 'bg-nike-red',
+                icon: '⚡',
+              },
+              {
+                title: 'Elite Coaches',
+                desc: 'Connect with certified coaches across every discipline. Book sessions online or in-person.',
+                image: img.coach,
+                badge: 'bg-nike-amber',
+                icon: '🔥',
+              },
+              {
+                title: 'World-Class Gyms',
+                desc: 'Discover the best combat sports gyms near you. Browse amenities, schedules, and membership options.',
+                image: img.gym,
+                badge: 'bg-nike-orange',
+                icon: '💪',
+              },
+            ].map((item, i) => (
+              <Reveal key={item.title} delay={i * 150}>
+                <div className={'group relative rounded-2xl overflow-hidden transition-all duration-500 ' + (isLight ? 'bg-nike-dark border-nike-gray shadow-sm hover:shadow-md border hover:border-nike-red/30' : 'bg-nike-dark border-white/5 hover:border-white/20 border')}>
+                  <div className="h-48 overflow-hidden">
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    />
+                  </div>
+                  <div className="p-8">
+                    <div className={'w-12 h-12 ' + item.badge + ' rounded-xl flex items-center justify-center text-xl mb-6'}>
+                      {item.icon}
+                    </div>
+                    <h3 className={'text-xl font-bold mb-3 ' + (isLight ? 'text-nike-black' : 'text-white')}>{item.title}</h3>
+                    <p className={'text-sm leading-relaxed ' + (isLight ? 'text-nike-light' : 'text-white/40')}>{item.desc}</p>
+                    <div className={'mt-6 flex items-center gap-2 text-xs tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light group-hover:text-nike-red' : 'text-white/20 group-hover:text-nike-red')}>
+                      Explore <span>→</span>
+                    </div>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className={'relative py-28 overflow-hidden border-t ' + (isLight ? 'border-nike-gray' : 'border-white/5')}>
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat bg-fixed"
+          style={{ backgroundImage: 'url(' + img.cta + ')' }}
+        />
+        <div className={'absolute inset-0 ' + (isLight ? 'bg-white/80' : 'bg-gradient-to-r from-nike-black/95 via-nike-black/80 to-nike-black/70')} />
+        <div className="relative max-w-7xl mx-auto px-6 text-center">
+          <Reveal>
+            <span className="text-nike-red text-xs tracking-widest uppercase font-bold">Don't Wait</span>
+            <h2 className="text-4xl md:text-6xl font-black tracking-tight mt-4 mb-6">
+              READY TO<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-nike-red to-nike-amber">LEVEL UP</span>?
+            </h2>
+            <p className={'max-w-md mx-auto mb-10 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
+              Join thousands of athletes, coaches, and gyms already on the platform. Free to start.
+            </p>
+            <Link
+              to="/register"
+              className="inline-flex items-center gap-2 bg-nike-red hover:bg-white hover:text-nike-black text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase transition-all duration-300"
+            >
+              Get Started Free
+              <span>→</span>
+            </Link>
+          </Reveal>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function HomeDashboard() {
+  const { user } = useAuth()
+  const { theme, appVersion } = useTheme()
+  const isLight = theme === 'light'
+  const p = user?.profile || {}
+  const img = IMAGES[theme]
+  const [bellRung, setBellRung] = useState(false)
+
+  useEffect(() => {
+    if (!bellRung) {
+      const t = setTimeout(() => { playBell(); setBellRung(true) }, 600)
+      return () => clearTimeout(t)
+    }
+  }, [bellRung])
+
+  const quickActions = [
+    { to: '/profile', label: 'View Profile', icon: 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 14c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z' },
+    { to: '/community', label: 'Community', icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75' },
+    { to: '/settings', label: 'Settings', icon: 'M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z' },
+    { to: '/about', label: 'Explore', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z' },
+  ]
+
+  const rc = ROLE_COLORS[user.role] || ROLE_COLORS.athlete
+  const fighterStats = [
+    { label: 'Weight Class', value: p.weight_class ? p.weight_class.replace('_', ' ') : '—', icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' },
+    { label: 'Stance', value: p.stance ? p.stance.charAt(0).toUpperCase() + p.stance.slice(1) : '—', icon: 'M6.5 6.5L17.5 17.5M6.5 17.5L17.5 6.5M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z' },
+    { label: 'Role', value: ROLE_LABELS[user.role] || user.role?.replace('_', ' ') || '—', icon: ROLE_ICONS[user.role] || ROLE_ICONS.athlete, customColor: rc },
+  ]
+
+  const achievements = [
+    { icon: '🏆', label: 'Profile Complete', value: '60%', sub: 'Add your stats' },
+    { icon: '💪', label: 'Days Active', value: '12', sub: 'Keep the streak!' },
+    { icon: '🔥', label: 'Current Streak', value: '3', sub: 'Best: 7 days' },
+    { icon: '👥', label: 'Followers', value: String(user.follower_count ?? 0), sub: 'Connections' },
+  ]
+
+  const TIPS = [
+    'Complete your fighter profile to stand out in the community.',
+    'Follow other fighters to build your network.',
+    'Add your weight class and stance so coaches can find you.',
+    'Set a profile picture to show your face to the squad.',
+    'Check out the Community page to discover new training partners.',
+    'Your bio is your first impression — make it count.',
+  ]
+  const tip = TIPS[new Date().getDate() % TIPS.length]
+
+  const activityFeed = [
+    { icon: '🎉', text: 'Welcome to CombatHub!', time: 'Just now' },
+    { icon: '📝', text: 'Profile created', time: 'Moments ago' },
+    { icon: '⚡', text: 'Ready to train — set up your fighter stats', time: 'Now' },
+  ]
+
+  return (
+    <div className="relative min-h-[calc(100vh-4rem)]">
+      <div className="fixed inset-0 bg-cover bg-center bg-no-repeat scale-105 animate-slowZoom" style={{ backgroundImage: 'url(' + img.hero + ')' }} />
+      <div className={'fixed inset-0 ' + (isLight ? 'bg-white/85' : 'bg-gradient-to-br from-nike-black/90 via-nike-black/80 to-nike-black/85')} />
+      <div className={'fixed inset-0 bg-gradient-to-t from-nike-black/30 via-transparent to-nike-black/10 pointer-events-none ' + (isLight ? 'hidden' : '')} />
+
+      <div className="relative z-10 px-6 py-16">
+        <div className="max-w-6xl mx-auto">
+          <Reveal>
+            <div className={'relative overflow-hidden rounded-3xl border p-8 md:p-12 mb-12 backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-black/60 border-white/5')}>
+              <div className={'absolute top-0 right-0 w-72 h-72 bg-gradient-to-bl rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none ' + (isLight ? 'from-nike-red/5 via-nike-amber/5 to-transparent' : 'from-nike-red/10 via-nike-amber/5 to-transparent')} />
+              <div className="relative flex flex-col md:flex-row items-center gap-6">
+                <div className="w-20 h-20 rounded-full overflow-hidden ring-2 ring-nike-red/50 shrink-0">
+                  {user.profile?.avatar ? (
+                    <img src={mediaUrl(user.profile.avatar)} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-3xl font-black bg-nike-red/20 text-nike-red">
+                      {(user.username || user.email || '?')[0].toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <div className="text-center md:text-left">
+                  <div className="inline-block bg-nike-red/10 backdrop-blur-sm text-nike-red text-xs tracking-widest uppercase font-bold px-3 py-1 rounded-full border border-nike-red/20 mb-3">
+                    Dashboard
+                  </div>
+                  <h1 className="text-3xl md:text-5xl font-black tracking-tight">WELCOME BACK{user.username ? ', ' + user.username.toUpperCase() : ''}</h1>
+                  <p className={'mt-2 text-sm ' + (isLight ? 'text-nike-light' : 'text-white/40')}>{user.email} · {user.role.replace('_', ' ')}</p>
+                  <div className={'flex gap-4 mt-3 text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
+                    <span><strong className={'font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{user.follower_count ?? 0}</strong> followers</span>
+                    <span><strong className={'font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{user.following_count ?? 0}</strong> following</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+
+          {/* Daily tip */}
+          <Reveal delay={50}>
+            <div className={'flex items-center gap-3 p-4 mb-8 rounded-2xl border backdrop-blur-sm transition-all duration-300 hover:scale-[1.01] ' + (isLight
+              ? 'bg-gradient-to-r from-nike-amber/5 to-transparent border-nike-amber/20'
+              : 'bg-gradient-to-r from-nike-amber/5 to-transparent border-nike-amber/10'
+            )}>
+              <div className="w-10 h-10 bg-nike-amber/10 rounded-xl flex items-center justify-center shrink-0">
+                <span className="text-lg">💡</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={'text-xs tracking-widest uppercase font-bold ' + (isLight ? 'text-nike-amber' : 'text-nike-amber')}>Fighter's Tip</p>
+                <p className={'text-xs mt-0.5 leading-relaxed ' + (isLight ? 'text-nike-light' : 'text-white/50')}>{tip}</p>
+              </div>
+              <div className={'text-4xl opacity-10 select-none shrink-0 ' + (isLight ? 'text-nike-amber' : 'text-nike-amber')}>🥊</div>
+            </div>
+          </Reveal>
+
+          {/* Quick actions */}
+          <div className="grid md:grid-cols-4 gap-5 mb-12">
+            {quickActions.map((action, i) => (
+              <Reveal key={action.label} delay={i * 100}>
+                <Link
+                  to={action.to}
+                  className={'flex items-center gap-4 p-5 rounded-2xl transition-all duration-300 group backdrop-blur-sm ' + (isLight
+                    ? 'bg-white/90 border border-nike-gray shadow-sm hover:shadow-md hover:border-nike-red/30'
+                    : 'bg-nike-dark/80 border border-white/5 hover:border-white/20'
+                  )}
+                >
+                  <div className="w-12 h-12 bg-nike-red/10 rounded-xl flex items-center justify-center group-hover:bg-nike-red/20 group-hover:scale-110 transition-all duration-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red">
+                      <path d={action.icon} />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{action.label}</p>
+                    <p className={'text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Quick access</p>
+                  </div>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={'w-4 h-4 shrink-0 group-hover:translate-x-1 transition-transform ' + (isLight ? 'text-nike-light' : 'text-white/30')}>
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </Link>
+              </Reveal>
+            ))}
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 mb-12">
+            {/* Stats */}
+            <div className="md:col-span-2">
+              <Reveal delay={200}>
+                <div className={'p-8 rounded-2xl border backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-lg font-black tracking-tight">YOUR STATS</h2>
+                    <Link to="/settings" className={'text-xs tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')}>
+                      Edit →
+                    </Link>
+                  </div>
+                  <div className="grid sm:grid-cols-3 gap-5">
+                    {fighterStats.map((stat) => (
+                      <div key={stat.label} className={'flex items-center gap-4 p-4 rounded-xl ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
+                        <div className={'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ' + (stat.customColor ? stat.customColor.bg : 'bg-nike-red/10')}>
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={'w-5 h-5 ' + (stat.customColor ? stat.customColor.text : 'text-nike-red')}>
+                            <path d={stat.icon} />
+                          </svg>
+                        </div>
+                        <div className="min-w-0">
+                          <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>{stat.label}</p>
+                          <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{stat.value}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Reveal>
+            </div>
+
+            {/* Achievements / Activity */}
+            <div>
+              <Reveal delay={250}>
+                <div className={'p-8 rounded-2xl border backdrop-blur-sm mb-8 ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
+                  <h2 className="text-lg font-black tracking-tight mb-6">ACHIEVEMENTS</h2>
+                  <div className="space-y-4">
+                    {achievements.map((a) => (
+                      <div key={a.label} className={'flex items-center gap-3 p-3 rounded-xl ' + (isLight ? 'bg-white/60 border border-nike-gray/50' : 'bg-nike-black/40 border border-white/5')}>
+                        <span className="text-xl">{a.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className={'text-xs font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{a.label}</p>
+                            <p className="text-xs font-black text-nike-red">{a.value}</p>
+                          </div>
+                          <p className={'text-[10px] tracking-wider mt-0.5 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{a.sub}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Reveal>
+
+              <Reveal delay={300}>
+                <div className={'p-6 rounded-2xl border backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
+                  <h3 className="text-xs tracking-widest uppercase font-bold mb-4" style={{ color: 'var(--color-nike-light)' }}>Recent Activity</h3>
+                  <div className="space-y-3">
+                    {activityFeed.map((item, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <span className="text-sm">{item.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className={'text-xs truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{item.text}</p>
+                          <p className={'text-[10px] ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{item.time}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Reveal>
+            </div>
+          </div>
+
+          <Reveal delay={350}>
+            <div className={'p-6 rounded-2xl border text-center backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
+              <p className={'text-sm ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
+                CombatHub <strong>v{appVersion}</strong> — Complete your{' '}
+                <Link to="/settings" className="text-nike-red hover:underline font-bold">profile</Link> to unlock all features.
+              </p>
+            </div>
+          </Reveal>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function Home() {
+  const { user } = useAuth()
+  return user ? <HomeDashboard /> : <HomeMarketing />
+}
