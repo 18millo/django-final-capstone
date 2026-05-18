@@ -45,6 +45,10 @@ class Product(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        permissions = [
+            ('publish_product', 'Can publish product'),
+            ('manage_inventory', 'Can manage inventory'),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.slug:

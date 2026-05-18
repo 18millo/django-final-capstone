@@ -69,6 +69,11 @@ export default function VendorProductForm() {
     try {
       const fd = new FormData()
       fd.append('image', file)
+      // Get category slug for organizing images
+      const selectedCategory = categories.find(c => c.id === form.category)
+      if (selectedCategory) {
+        fd.append('category', selectedCategory.slug)
+      }
       const res = await api.post('/vendor/upload/', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })

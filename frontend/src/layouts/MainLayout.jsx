@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
-import { Outlet, Link, useNavigate } from 'react-router-dom'
+import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth } from '../providers/AuthProvider'
 import { useTheme } from '../providers/ThemeProvider'
+import { useCart } from '../providers/CartProvider'
 import useScrollProgress from '../hooks/useScrollProgress'
 import { mediaUrl } from '../utils/media'
 import { playWhoosh, playClick, playSuccess } from '../utils/sounds'
 import ToastContainer, { toast } from '../components/ui/Toast'
+import PremiumBadge from '../components/ui/PremiumBadge'
 import api from '../utils/api'
 
 const WS_BASE = 'ws://localhost:8000'
@@ -13,8 +16,10 @@ const WS_BASE = 'ws://localhost:8000'
 export default function MainLayout() {
   const { user, logout } = useAuth()
   const { theme, appVersion } = useTheme()
+  const { itemCount } = useCart()
   const isLight = theme === 'light'
   const navigate = useNavigate()
+  const location = useLocation()
   const scrollProgress = useScrollProgress()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
@@ -27,7 +32,7 @@ export default function MainLayout() {
 
   useEffect(() => {
     window.scrollTo(0, 0)
-  }, [])
+  }, [location.pathname])
 
   useEffect(() => {
     const handler = () => {
@@ -187,9 +192,9 @@ export default function MainLayout() {
               <span className={'font-black text-lg tracking-widest uppercase ' + (isLight ? 'text-nike-black' : '')} style={!isLight ? { color: 'var(--color-nike-white)' } : {}}>CombatHub</span>
             </Link>
             <div className="hidden md:flex items-center gap-1">
-              {user?.role === 'vendor' ? (
+              {['vendor', 'coach', 'gym_owner'].includes(user?.role) ? (
                 <>
-                  {[{ to: '/', label: 'Home' }, { to: '/vendor', label: 'Vendor' }].map((link) => (
+                  {[{ to: '/', label: 'Home' }, { to: '/vendor', label: 'Dashboard' }].map((link) => (
                     <Link key={link.to} to={link.to} onClick={() => playWhoosh()} className={'relative text-sm tracking-widest uppercase font-medium px-4 py-2 rounded-full transition-all duration-300 group ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-black' : 'hover:bg-white/5')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>
                       {link.label}
                       <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-nike-red rounded-full group-hover:w-1/2 transition-all duration-300" />
@@ -201,6 +206,8 @@ export default function MainLayout() {
                   {[
                     { to: '/', label: 'Home' },
                     ...(user ? [{ to: '/community', label: 'Community' }] : []),
+                    ...(user ? [{ to: '/forum', label: 'Forum' }] : []),
+                    ...(user ? [{ to: '/gallery', label: 'Gallery' }] : []),
                     { to: '/shop', label: 'Shop' },
                     ...(user?.role === 'coach' ? [{ to: '/coach', label: 'Coach' }] : []),
                     { to: '/about', label: 'About' },
@@ -237,6 +244,9 @@ export default function MainLayout() {
                       title="Cart"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                      {itemCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-nike-red rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-lg shadow-nike-red/50">{itemCount > 9 ? '9+' : itemCount}</span>
+                      )}
                     </button>
                   </div>
                   <div className="relative" ref={notifRef}>
@@ -318,12 +328,15 @@ export default function MainLayout() {
                       )}
                     </div>
                     <span className={'text-xs tracking-widest uppercase hidden sm:block transition-colors ' + (isLight ? 'text-nike-black' : '')} style={!isLight ? { color: menuOpen ? 'var(--color-nike-white)' : 'var(--color-nike-light)' } : {}}>{user.username || user.email}</span>
+                    {user?.profile?.is_premium && (
+                      <PremiumBadge size={12} animate={false} />
+                    )}
                   </button>
 
                   {menuOpen && (
                     <div className={'absolute right-0 top-full mt-2 w-72 rounded-2xl border shadow-xl overflow-hidden ' + (isLight ? 'bg-white border-nike-gray shadow-lg' : '')} style={!isLight ? { backgroundColor: 'var(--color-nike-dark)', borderColor: 'var(--color-nike-gray)' } : {}}>
                       <div className={'px-5 py-4 border-b ' + (isLight ? 'border-nike-gray' : '')} style={!isLight ? { borderColor: 'var(--color-nike-gray)' } : {}}>
-                        <p className={'text-sm font-bold truncate ' + (isLight ? 'text-nike-black' : '')} style={!isLight ? { color: 'var(--color-nike-white)' } : {}}>{user.username || user.email}</p>
+                        <p className={'text-sm font-bold truncate flex items-center gap-1.5 ' + (isLight ? 'text-nike-black' : '')} style={!isLight ? { color: 'var(--color-nike-white)' } : {}}>{user.username || user.email}{user?.profile?.is_premium && <PremiumBadge size={12} animate={false} />}</p>
                         <p className={'text-xs mt-0.5 truncate ' + (isLight ? 'text-nike-light' : '')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>{user.email}</p>
                       </div>
 
@@ -470,19 +483,60 @@ export default function MainLayout() {
         </div>
       </nav>
       <main className="flex-1 pt-16">
-        <Outlet />
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: 'easeInOut' }}
+          >
+            <Outlet />
+          </motion.div>
+        </AnimatePresence>
       </main>
-      <footer className={'border-t py-4 ' + (isLight ? 'bg-white border-nike-gray' : '')} style={!isLight ? { backgroundColor: 'var(--color-nike-dark)', borderColor: 'var(--color-nike-gray)' } : {}}>
-        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs" style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>
-          <div className={'flex items-center gap-1 ' + (isLight ? 'text-nike-light' : '')}>
-            <span>© 2026 CombatHub</span>
-            <span className="hidden sm:inline">— Made by Millo</span>
+      <footer className={'border-t ' + (isLight ? 'bg-white border-nike-gray' : '')} style={!isLight ? { backgroundColor: 'var(--color-nike-dark)', borderColor: 'var(--color-nike-gray)' } : {}}>
+        <div className="max-w-7xl mx-auto px-6 py-10">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+            <div className="col-span-2 md:col-span-1">
+              <h3 className="text-sm font-black tracking-tight mb-3" style={!isLight ? { color: 'var(--color-nike-white)' } : {}}>COMBATHUB</h3>
+              <p className={'text-xs leading-relaxed ' + (isLight ? 'text-nike-light' : '')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>The complete combat sports ecosystem. Premium gear, elite coaches, world-class gyms, and a thriving community — one platform.</p>
+            </div>
+            <div>
+              <h4 className={'text-[10px] tracking-widest uppercase font-bold mb-3 ' + (isLight ? 'text-nike-light' : '')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Platform</h4>
+              <div className="space-y-2">
+                <Link to="/shop" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Shop</Link>
+                <Link to="/forum" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Forum</Link>
+                <Link to="/gallery" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Gallery</Link>
+                <Link to="/community" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Community</Link>
+              </div>
+            </div>
+            <div>
+              <h4 className={'text-[10px] tracking-widest uppercase font-bold mb-3 ' + (isLight ? 'text-nike-light' : '')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Support</h4>
+              <div className="space-y-2">
+                <Link to="/about" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>About</Link>
+                <Link to="/guidelines" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Guidelines</Link>
+                <Link to="/terms" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Terms</Link>
+              </div>
+            </div>
+            <div>
+              <h4 className={'text-[10px] tracking-widest uppercase font-bold mb-3 ' + (isLight ? 'text-nike-light' : '')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Connect</h4>
+              <div className="space-y-2">
+                <a href="#" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Instagram</a>
+                <a href="#" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>X / Twitter</a>
+                <a href="#" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>YouTube</a>
+              </div>
+            </div>
           </div>
-          <div className={'flex items-center gap-4 ' + (isLight ? 'text-nike-light' : '')}>
-            <Link to="/about" className={'transition-colors ' + (isLight ? 'hover:text-nike-black' : 'hover:text-white')}>About</Link>
-            <Link to="/guidelines" className={'transition-colors ' + (isLight ? 'hover:text-nike-black' : 'hover:text-white')}>Guidelines</Link>
-            <Link to="/about" className={'transition-colors ' + (isLight ? 'hover:text-nike-black' : 'hover:text-white')}>Privacy</Link>
-            <Link to="/about" className={'transition-colors ' + (isLight ? 'hover:text-nike-black' : 'hover:text-white')}>Terms</Link>
+          <div className={'border-t pt-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs ' + (isLight ? 'border-nike-gray text-nike-light' : '')} style={!isLight ? { borderColor: 'var(--color-nike-gray)', color: 'var(--color-nike-light)' } : {}}>
+            <div className="flex items-center gap-1">
+              <span>© 2026 CombatHub</span>
+              <span className="hidden sm:inline">— Made by Millo. All rights reserved.</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <Link to="/terms" className={'transition-colors ' + (isLight ? 'hover:text-nike-black' : 'hover:text-white')}>Terms</Link>
+              <Link to="/guidelines" className={'transition-colors ' + (isLight ? 'hover:text-nike-black' : 'hover:text-white')}>Privacy</Link>
+            </div>
           </div>
         </div>
       </footer>

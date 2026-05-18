@@ -12,6 +12,9 @@ import ProfileView from './pages/ProfileEdit'
 import Settings from './pages/Settings'
 import About from './pages/About'
 import Community from './pages/Community'
+import Forum from './pages/Forum'
+import PostDetail from './pages/PostDetail'
+import CreatePost from './pages/CreatePost'
 import Messages from './pages/Messages'
 import PublicProfile from './pages/PublicProfile'
 import Shop from './pages/Shop'
@@ -28,6 +31,9 @@ import VerifyAccessCode from './pages/VerifyAccessCode'
 import TotpSetup from './pages/TotpSetup'
 import VendorAbout from './pages/VendorAbout'
 import CommunityGuidelines from './pages/CommunityGuidelines'
+import Terms from './pages/Terms'
+import Gallery from './pages/Gallery'
+import GalleryDetail from './pages/GalleryDetail'
 import Spinner from './components/ui/Spinner'
 
 function ProtectedRoute({ children }) {
@@ -47,10 +53,10 @@ function PublicRoute({ children }) {
   return children
 }
 
-function VendorRoute({ children }) {
+function SellerRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="flex items-center justify-center min-h-screen"><Spinner /></div>
-  if (!user || user.role !== 'vendor') return <Navigate to="/" />
+  if (!user || !['vendor', 'coach', 'gym_owner'].includes(user.role)) return <Navigate to="/" />
   return children
 }
 
@@ -78,12 +84,18 @@ export default function AppRoutes() {
         <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
         <Route path="/orders" element={<ProtectedRoute><OrderHistory /></ProtectedRoute>} />
         <Route path="/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
-        <Route path="/vendor" element={<VendorRoute><VendorDashboard /></VendorRoute>} />
-        <Route path="/vendor/products/new" element={<VendorRoute><VendorProductForm /></VendorRoute>} />
-        <Route path="/vendor/products/:id/edit" element={<VendorRoute><VendorProductForm /></VendorRoute>} />
+        <Route path="/vendor" element={<SellerRoute><VendorDashboard /></SellerRoute>} />
+        <Route path="/vendor/products/new" element={<SellerRoute><VendorProductForm /></SellerRoute>} />
+        <Route path="/vendor/products/:id/edit" element={<SellerRoute><VendorProductForm /></SellerRoute>} />
         <Route path="/vendor/:id" element={<VendorAbout />} />
         <Route path="/coach" element={<CoachRoute><CoachDashboard /></CoachRoute>} />
+        <Route path="/forum" element={<ProtectedRoute><Forum /></ProtectedRoute>} />
+        <Route path="/forum/new" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
+        <Route path="/forum/:id" element={<ProtectedRoute><PostDetail /></ProtectedRoute>} />
         <Route path="/guidelines" element={<CommunityGuidelines />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
+        <Route path="/gallery/:id" element={<ProtectedRoute><GalleryDetail /></ProtectedRoute>} />
         <Route path="/2fa/setup" element={<ProtectedRoute><TotpSetup /></ProtectedRoute>} />
         <Route path="/username-setup" element={<PublicRoute><AuthLayout><UsernameSetup /></AuthLayout></PublicRoute>} />
       </Route>

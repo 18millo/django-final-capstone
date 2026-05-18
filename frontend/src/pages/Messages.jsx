@@ -59,6 +59,11 @@ export default function Messages() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [typing, setTyping] = useState(false)
   const typingTimeoutRef = useRef(null)
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
+  const [viewOnce, setViewOnce] = useState(false)
+  const fileInputRef = useRef(null)
+  const [lightboxUrl, setLightboxUrl] = useState(null)
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('chat-opened'))
@@ -129,6 +134,12 @@ export default function Messages() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview)
+    }
+  }, [imagePreview])
+
   const connectWs = useCallback(() => {
     if (!activeId || !user) return
     const token = localStorage.getItem('access_token')
@@ -164,7 +175,7 @@ export default function Messages() {
           }
           setConversations((prev) => prev.map((c) =>
             c.user_id === (data.sender === user.id ? parseInt(activeId) : data.sender)
-              ? { ...c, last_message: data.content, last_message_time: data.created_at, unread: data.sender !== user.id ? (c.unread || 0) + 1 : c.unread }
+              ? { ...c, last_message: data.content || (data.view_once ? '📷 View once photo' : '📷 Photo'), last_message_time: data.created_at, unread: data.sender !== user.id ? (c.unread || 0) + 1 : c.unread }
               : c
           ))
           if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -205,27 +216,101 @@ export default function Messages() {
     }
   }, [connectWs])
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+    e.target.value = ''
+  }
+
+  const removeImage = () => {
+    if (imagePreview) URL.revokeObjectURL(imagePreview)
+    setImageFile(null)
+    setImagePreview(null)
+  }
+
+  const handleViewOnceMessage = async (msgId) => {
+    try {
+      await api.post('/auth/messages/' + msgId + '/view-once/')
+      setMessages((prev) => prev.map((m) =>
+        m.id === msgId ? { ...m, viewed: true } : m
+      ))
+    } catch {
+      toast('Failed to open view once image', 'error')
+    }
+  }
+
   const send = () => {
     const content = input.trim()
-    if (!content || !activeId) return
-    setInput('')
+    if ((!content && !imageFile) || !activeId) return
     setShowEmojiPicker(false)
     playClick()
 
     const tempId = 'temp_' + Date.now()
-    const optimistic = { id: tempId, sender: user.id, content, created_at: new Date().toISOString(), read: false }
+    const lastMsgText = !content && imageFile ? (viewOnce ? '📷 View once photo' : '📷 Photo') : content
+    const optimistic = {
+      id: tempId,
+      sender: user.id,
+      content: content || '',
+      created_at: new Date().toISOString(),
+      read: false,
+      image_url: imagePreview || null,
+      view_once: viewOnce,
+      viewed: false,
+    }
     setMessages((prev) => [optimistic, ...prev])
+    setConversations((prev) => prev.map((c) => c.user_id === activeId ? {
+      ...c,
+      last_message: lastMsgText,
+      last_message_time: new Date().toISOString(),
+    } : c))
+
+    if (imageFile) {
+      const formData = new FormData()
+      formData.append('content', content || '')
+      formData.append('view_once', String(viewOnce))
+      formData.append('image', imageFile)
+
+      api.post('/auth/conversations/' + activeId + '/send/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+        .then(({ data }) => {
+          setMessages((prev) => prev.map((m) => m.id === tempId ? data : m))
+          const lastText = data.content || (data.view_once ? '📷 View once photo' : '📷 Photo')
+          setConversations((prev) => prev.map((c) => c.user_id === activeId ? {
+            ...c,
+            last_message: lastText,
+            last_message_time: data.created_at,
+          } : c))
+          playSuccess()
+        })
+        .catch(() => {
+          setMessages((prev) => prev.filter((m) => m.id !== tempId))
+          toast('Failed to send message', 'error')
+        })
+
+      setInput('')
+      setImageFile(null)
+      setImagePreview(null)
+      setViewOnce(false)
+      return
+    }
+
+    setInput('')
+    setViewOnce(false)
 
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'message', content }))
+      wsRef.current.send(JSON.stringify({ type: 'message', content, view_once: viewOnce }))
       setConversations((prev) => prev.map((c) => c.user_id === activeId ? { ...c, last_message: content, last_message_time: new Date().toISOString() } : c))
       playSuccess()
     } else {
       setMessages((prev) => prev.filter((m) => m.id !== tempId))
-      api.post('/auth/conversations/' + activeId + '/send/', { content })
+      api.post('/auth/conversations/' + activeId + '/send/', { content, view_once: viewOnce })
         .then(({ data }) => {
           setMessages((prev) => [data, ...prev])
-          setConversations((prev) => prev.map((c) => c.user_id === activeId ? { ...c, last_message: data.content, last_message_time: data.created_at } : c))
+          const lastText = data.content || (data.view_once ? '📷 View once photo' : '📷 Photo')
+          setConversations((prev) => prev.map((c) => c.user_id === activeId ? { ...c, last_message: lastText, last_message_time: data.created_at } : c))
           playSuccess()
         })
         .catch(() => toast('Failed to send message', 'error'))
@@ -446,15 +531,54 @@ export default function Messages() {
                       )
                     }
                     const isMe = item.sender === user?.id
+                    const hasImage = !!item.image_url
+                    const isViewOnce = !!item.view_once
+                    const isViewed = !!item.viewed
                     return (
                       <div key={item.id} className={'flex items-end gap-2 ' + (isMe ? 'justify-end' : 'justify-start') + ' ' + (i > 0 && groupedMessages[i-1]?.type === 'msg' && groupedMessages[i-1]?.sender === item.sender ? 'mt-0.5' : 'mt-2')}>
-                        <div className={'max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ' + (
+                        <div className={'max-w-[75%] rounded-2xl text-sm leading-relaxed overflow-hidden ' + (
                           isMe
                             ? 'bg-nike-red text-white rounded-br-sm'
                             : (isLight ? 'bg-white border border-nike-gray/30 text-nike-black rounded-bl-sm' : 'bg-nike-dark border border-white/5 text-white rounded-bl-sm')
                         )}>
-                          <p className="whitespace-pre-wrap break-words">{item.content}</p>
-                          <div className={'flex items-center justify-end gap-1 mt-1 ' + (isMe ? 'text-white/50' : (isLight ? 'text-nike-light' : 'text-white/30'))}>
+                          {hasImage && isViewOnce && !isMe && !isViewed && (
+                            <button
+                              onClick={() => handleViewOnceMessage(item.id)}
+                              className="flex flex-col items-center justify-center gap-2 p-8 w-full min-h-[160px]"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 opacity-60"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                              <span className="text-xs font-bold opacity-80 text-center">Sensitive content<br/>Tap to view</span>
+                            </button>
+                          )}
+                          {hasImage && isViewOnce && !isMe && isViewed && (
+                            <div className="flex flex-col items-center justify-center gap-2 p-8 w-full min-h-[120px]">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 opacity-60"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                              <span className="text-xs opacity-80 text-center">View once image<br/>has been opened</span>
+                            </div>
+                          )}
+                          {hasImage && !(isViewOnce && !isMe) && (
+                            <div className="relative">
+                              <img
+                                src={mediaUrl(item.image_url)}
+                                alt=""
+                                className={'w-full object-cover cursor-pointer'}
+                                style={{ maxHeight: '300px' }}
+                                onClick={() => setLightboxUrl(mediaUrl(item.image_url))}
+                              />
+                              {isViewOnce && isMe && (
+                                <div className="absolute top-2 right-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                  View once
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {(item.content || !hasImage) && (
+                            <div className={'px-4 pt-2.5' + (hasImage && !item.content ? ' pb-2.5' : '')}>
+                              {item.content && <p className="whitespace-pre-wrap break-words">{item.content}</p>}
+                            </div>
+                          )}
+                          <div className={'flex items-center justify-end gap-1 px-4 pb-2.5 pt-1 ' + (isMe ? 'text-white/50' : (isLight ? 'text-nike-light' : 'text-white/30'))}>
                             <span className="text-[10px]">{formatTime(item.created_at)}</span>
                             {isMe && !item.read && (
                               <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-white/40">
@@ -481,9 +605,20 @@ export default function Messages() {
 
               {/* Input */}
               <div className={'p-4 border-t ' + (isLight ? 'border-nike-gray bg-white/90' : 'border-white/5 bg-nike-dark/80')}>
+                {imagePreview && (
+                  <div className="relative mb-2 inline-block">
+                    <img src={imagePreview} alt="Preview" className="h-20 w-20 object-cover rounded-xl" />
+                    <button
+                      onClick={removeImage}
+                      className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                )}
                 <div className={'flex items-end gap-2 p-2 rounded-2xl border transition-all duration-300 relative ' + (isLight
-                  ? (input ? 'border-nike-red/30 bg-white' : 'border-nike-gray bg-nike-gray/20')
-                  : (input ? 'border-white/30 bg-white/5' : 'border-white/10 bg-white/5')
+                  ? (input || imageFile ? 'border-nike-red/30 bg-white' : 'border-nike-gray bg-nike-gray/20')
+                  : (input || imageFile ? 'border-white/30 bg-white/5' : 'border-white/10 bg-white/5')
                 )}>
                   <button
                     onClick={() => setShowEmojiPicker((p) => !p)}
@@ -493,6 +628,27 @@ export default function Messages() {
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
                   </button>
                   {showEmojiPicker && <EmojiPicker onSelect={insertEmoji} onClose={() => setShowEmojiPicker(false)} />}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className={'shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-colors ' + (imageFile ? 'bg-nike-red/20 text-nike-red' : (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/30'))}
+                    title="Attach image"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => setViewOnce((p) => !p)}
+                    className={'shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-colors ' + (viewOnce ? 'bg-nike-red/20 text-nike-red' : (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/30'))}
+                    title="View once"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
                   <textarea
                     ref={textareaRef}
                     value={input}
@@ -506,8 +662,8 @@ export default function Messages() {
                   />
                   <button
                     onClick={send}
-                    disabled={!input.trim()}
-                    className={'shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ' + (input.trim()
+                    disabled={!input.trim() && !imageFile}
+                    className={'shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ' + (input.trim() || imageFile
                       ? 'bg-nike-red text-white hover:bg-white hover:text-nike-black shadow-lg shadow-nike-red/30 hover:shadow-none'
                       : (isLight ? 'bg-nike-gray/50 text-nike-light' : 'bg-white/5 text-white/20')
                     )}
@@ -588,6 +744,13 @@ export default function Messages() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={() => setLightboxUrl(null)}>
+          <img src={lightboxUrl} className="max-w-full max-h-full object-contain p-4" alt="" />
         </div>
       )}
     </div>

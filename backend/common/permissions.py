@@ -15,6 +15,10 @@ class IsVendor(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role == 'vendor'
 
+class IsSeller(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role in ('vendor', 'coach', 'gym_owner')
+
 
 class IsVendorOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):

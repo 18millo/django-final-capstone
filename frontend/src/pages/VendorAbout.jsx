@@ -6,6 +6,7 @@ import Spinner from '../components/ui/Spinner'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { mediaUrl } from '../utils/media'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -54,7 +55,7 @@ export default function VendorAbout() {
             <div className="flex items-center gap-5">
               <div className="w-20 h-20 rounded-2xl overflow-hidden bg-nike-gray/20">
                 {p.avatar ? (
-                  <img src={p.avatar} className="w-full h-full object-cover" alt="" />
+                  <img src={mediaUrl(p.avatar)} className="w-full h-full object-cover" alt="" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-3xl">🏪</div>
                 )}

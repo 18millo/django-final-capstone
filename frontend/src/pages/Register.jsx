@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTheme } from '../providers/ThemeProvider'
 import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../providers/AuthProvider'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Reveal from '../components/ui/Reveal'
 import { playError, playSuccess } from '../utils/sounds'
-import { ROLE_LABELS, ROLE_COLORS } from '../utils/roles'
-
-const CODE_ROLES = { vendor: 'Vendor', coach: 'Coach', gym_owner: 'Gym Owner' }
+import { ROLE_LABELS } from '../utils/roles'
+import { toast } from '../components/ui/Toast'
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -18,8 +18,9 @@ export default function Register() {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [accessCode, setAccessCode] = useState('')
-  const [accessRole, setAccessRole] = useState('')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
   const { register, googleLogin } = useAuth()
   const navigate = useNavigate()
 
@@ -34,6 +35,10 @@ export default function Register() {
       setError('Password must be at least 8 characters')
       return
     }
+    if (!acceptedTerms) {
+      setError('You must accept the Terms & Conditions to create an account.')
+      return
+    }
     setLoading(true)
     try {
       const payload = {
@@ -41,6 +46,7 @@ export default function Register() {
         username: form.username,
         password: form.password,
         role: form.role,
+        accepted_terms: true,
       }
       if (form.role === 'vendor') {
         payload.business_name = form.business_name
@@ -54,11 +60,9 @@ export default function Register() {
       const res = await register(payload)
       playSuccess()
       if (res.vendor_access_code) {
-        setAccessCode(res.vendor_access_code)
-        setAccessRole(form.role)
-      } else {
-        navigate('/login', { state: { registered: true } })
+        toast(`Your access code: ${res.vendor_access_code}. Check your email to retrieve it later.`, 'info')
       }
+      navigate('/')
     } catch (err) {
       playError()
       const data = err.response?.data
@@ -71,28 +75,6 @@ export default function Register() {
     } finally {
       setLoading(false)
     }
-  }
-
-  if (accessCode) {
-    const label = CODE_ROLES[accessRole] || 'Account'
-    return (
-      <Reveal direction="up">
-        <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🎉</div>
-          <h2 className="text-2xl font-black tracking-tight text-white">{label.toUpperCase()} ACCOUNT CREATED</h2>
-          <p className="text-white/40 text-sm mt-2">Your access code is ready. Save it — you'll need it to sign in.</p>
-        </div>
-        <div className="p-6 rounded-2xl border mb-6 text-center bg-white/5 border-white/10">
-          <p className="text-xs tracking-widest uppercase font-bold text-white/40 mb-2">Your Access Code</p>
-          <div className="inline-block px-6 py-3 rounded-xl bg-nike-red/10 border border-nike-red/30">
-            <span className="text-2xl font-black tracking-widest text-nike-red">{accessCode}</span>
-          </div>
-        </div>
-        <Button onClick={() => navigate('/login')} className="w-full">
-          Sign In →
-        </Button>
-      </Reveal>
-    )
   }
 
   return (
@@ -162,6 +144,22 @@ export default function Register() {
           </div>
         )}
 
+        <div className="flex items-start gap-3 mb-4">
+          <input
+            type="checkbox"
+            id="accept-terms"
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.target.checked)}
+            className="mt-1 shrink-0 w-4 h-4 rounded border-gray-300 text-nike-red focus:ring-nike-red"
+          />
+          <label htmlFor="accept-terms" className={'text-xs leading-relaxed ' + (isLight ? 'text-nike-light' : 'text-white/50')}>
+            I have read and agree to the{' '}
+            <Link to="/terms" className="text-nike-red hover:underline font-bold" target="_blank">Terms &amp; Conditions</Link>
+            {' '}and{' '}
+            <Link to="/guidelines" className="text-nike-red hover:underline font-bold" target="_blank">Privacy Policy</Link>.
+            I understand that my IP address will be hashed and stored for security purposes.
+          </label>
+        </div>
         <Button type="submit" loading={loading} className="w-full">Create Account</Button>
       </form>
       <div className="mt-8">

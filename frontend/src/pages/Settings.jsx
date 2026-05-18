@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../providers/AuthProvider'
 import { useTheme } from '../providers/ThemeProvider'
 import api from '../utils/api'
@@ -6,9 +7,13 @@ import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Spinner from '../components/ui/Spinner'
 import Reveal from '../components/ui/Reveal'
-import { playSuccess } from '../utils/sounds'
+import { toast } from '../components/ui/Toast'
+import { playSuccess, playClick } from '../utils/sounds'
+import { mediaUrl } from '../utils/media'
 import QRCode from 'qrcode'
 import MapPicker from '../components/ui/MapPicker'
+
+const BG = 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&w=1920&q=80'
 
 const WEIGHT_CLASSES = [
   { value: '', label: 'Not specified' },
@@ -474,7 +479,7 @@ export default function Settings() {
                         {avatarPreview ? (
                           <img src={avatarPreview} className="w-full h-full object-cover" alt="avatar" />
                         ) : user.profile?.avatar ? (
-                          <img src={user.profile.avatar} className="w-full h-full object-cover" alt="avatar" />
+                          <img src={mediaUrl(user.profile.avatar)} className="w-full h-full object-cover" alt="avatar" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: 'var(--color-nike-light)' }}>👤</div>
                         )}

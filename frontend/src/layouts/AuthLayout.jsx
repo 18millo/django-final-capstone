@@ -1,9 +1,11 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useTheme } from '../providers/ThemeProvider'
 
 export default function AuthLayout({ children }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
+  const location = useLocation()
   return (
     <div className={'min-h-screen flex flex-col ' + (isLight ? 'bg-white' : 'bg-nike-black')}>
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-nike-red via-nike-amber to-nike-orange" />
@@ -18,7 +20,17 @@ export default function AuthLayout({ children }) {
             </Link>
           </div>
           <div className={'rounded-2xl p-8 ' + (isLight ? 'bg-nike-dark border border-nike-gray shadow-sm' : 'bg-nike-dark border border-white/10')}>
-            {children}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+              >
+                {children}
+              </motion.div>
+            </AnimatePresence>
           </div>
           <p className={'text-center mt-6 text-xs tracking-wider uppercase ' + (isLight ? 'text-nike-light' : 'text-white/20')}>
             Forged in the gym

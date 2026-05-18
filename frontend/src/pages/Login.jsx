@@ -52,7 +52,7 @@ export default function Login() {
           type="text"
           value={form.login}
           onChange={(e) => setForm({ ...form, login: e.target.value })}
-          placeholder="Enter your email or username"
+          placeholder="Enter your email (vendors must use email)"
           required
         />
         <Input

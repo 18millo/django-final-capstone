@@ -1,15 +1,17 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, Profile, UsernameChange, SiteContent, VendorAccessCode
+from django.utils.html import format_html
+from .models import User, Profile, UsernameChange, SiteContent, VendorAccessCode, Post, PostComment, PostLike, GalleryItem, GalleryLike, GalleryComment, Bookmark, Report, BlockedUser, PostCommentLike, ContentFlag, IPLog
 
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ('email', 'username', 'role', 'is_active', 'is_staff', 'created_at')
-    list_filter = ('role', 'is_active', 'is_staff')
+    list_display = ('email', 'username', 'display_name', 'avatar_preview', 'role', 'is_premium', 'is_active', 'is_staff', 'created_at')
+    list_filter = ('role', 'is_active', 'is_staff', 'profile__is_premium')
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
         ('Personal Info', {'fields': ('username', 'display_name', 'role', 'google_id')}),
+        ('2FA', {'fields': ('totp_secret', 'totp_enabled'), 'classes': ('collapse',)}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login',)}),
     )
@@ -19,14 +21,35 @@ class UserAdmin(BaseUserAdmin):
             'fields': ('email', 'password1', 'password2', 'role'),
         }),
     )
-    search_fields = ('email', 'username')
+    search_fields = ('email', 'username', 'display_name')
     ordering = ('email',)
+
+    def is_premium(self, obj):
+        return obj.profile.is_premium
+    is_premium.boolean = True
+    is_premium.short_description = 'Premium'
+    is_premium.admin_order_field = 'profile__is_premium'
+
+    def avatar_preview(self, obj):
+        if obj.profile and obj.profile.avatar:
+            return format_html('<img src="{}" width="40" height="40" style="object-fit:cover;border-radius:50%" />', obj.profile.avatar.url)
+        return ''
+    avatar_preview.short_description = 'Avatar'
 
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'weight_class', 'stance', 'phone')
-    search_fields = ('user__email',)
+    list_display = ('avatar_preview', 'user', 'weight_class', 'stance', 'phone', 'is_premium')
+    list_filter = ('is_premium', 'weight_class', 'stance')
+    search_fields = ('user__email', 'business_name')
+    list_editable = ('is_premium',)
+    readonly_fields = ('avatar_preview',)
+
+    def avatar_preview(self, obj):
+        if obj.avatar:
+            return format_html('<img src="{}" width="60" height="60" style="object-fit:cover;border-radius:8px" />', obj.avatar.url)
+        return ''
+    avatar_preview.short_description = 'Avatar'
 
 
 @admin.register(UsernameChange)
@@ -45,3 +68,121 @@ class SiteContentAdmin(admin.ModelAdmin):
 class VendorAccessCodeAdmin(admin.ModelAdmin):
     list_display = ('code', 'description', 'is_active', 'created_at')
     list_filter = ('is_active',)
+
+
+@admin.register(Post)
+class PostAdmin(admin.ModelAdmin):
+    list_display = ('id', 'file_preview', 'author', 'short_content', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('author__email', 'content')
+    readonly_fields = ('file_preview',)
+
+    def short_content(self, obj):
+        return obj.content[:60] + ('...' if len(obj.content) > 60 else '')
+    short_content.short_description = 'Content'
+
+    def file_preview(self, obj):
+        if obj.file:
+            url = obj.file.url
+            ext = url.lower().rsplit('.', 1)[-1] if '.' in url else ''
+            if ext in ('jpg', 'jpeg', 'png', 'gif', 'webp'):
+                return format_html('<img src="{}" width="80" height="60" style="object-fit:cover;border-radius:6px" />', url)
+            return format_html('<a href="{}" target="_blank">View file</a>', url)
+        return ''
+    file_preview.short_description = 'File'
+
+
+@admin.register(PostComment)
+class PostCommentAdmin(admin.ModelAdmin):
+    list_display = ('id', 'author', 'post', 'short_content', 'created_at')
+    list_filter = ('created_at',)
+
+    def short_content(self, obj):
+        return obj.content[:60] + ('...' if len(obj.content) > 60 else '')
+    short_content.short_description = 'Content'
+
+
+@admin.register(PostLike)
+class PostLikeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'post', 'vote_type', 'created_at')
+
+
+@admin.register(GalleryItem)
+class GalleryItemAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'image_preview', 'short_caption', 'like_count', 'comment_count', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('user__email', 'caption')
+    readonly_fields = ('image_preview', 'like_count', 'comment_count')
+
+    def image_preview(self, obj):
+        if obj.image:
+            return format_html('<img src="{}" width="60" height="60" style="object-fit:cover;border-radius:8px" />', obj.image.url)
+        return ''
+    image_preview.short_description = 'Image'
+
+    def short_caption(self, obj):
+        return obj.caption[:60] + ('...' if len(obj.caption) > 60 else '')
+    short_caption.short_description = 'Caption'
+
+    def like_count(self, obj):
+        return obj.likes.count()
+    like_count.short_description = 'Likes'
+
+    def comment_count(self, obj):
+        return obj.comments.count()
+    comment_count.short_description = 'Comments'
+
+
+@admin.register(GalleryLike)
+class GalleryLikeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'gallery_item', 'vote_type', 'created_at')
+    list_filter = ('created_at',)
+
+
+@admin.register(GalleryComment)
+class GalleryCommentAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'gallery_item', 'short_content', 'created_at')
+    list_filter = ('created_at',)
+
+    def short_content(self, obj):
+        return obj.content[:60] + ('...' if len(obj.content) > 60 else '')
+    short_content.short_description = 'Content'
+
+
+@admin.register(Bookmark)
+class BookmarkAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'created_at')
+
+
+@admin.register(Report)
+class ReportAdmin(admin.ModelAdmin):
+    list_display = ('id', 'reporter', 'reason', 'status', 'created_at')
+    list_filter = ('reason', 'status')
+
+
+@admin.register(BlockedUser)
+class BlockedUserAdmin(admin.ModelAdmin):
+    list_display = ('id', 'blocker', 'blocked', 'created_at')
+
+
+@admin.register(PostCommentLike)
+class PostCommentLikeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'comment', 'vote_type', 'created_at')
+
+
+@admin.register(ContentFlag)
+class ContentFlagAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'content_type', 'reason', 'status', 'created_at')
+    list_filter = ('reason', 'status', 'content_type')
+    search_fields = ('user__email',)
+
+
+@admin.register(IPLog)
+class IPLogAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'action', 'ip_short', 'created_at')
+    list_filter = ('action', 'created_at')
+    search_fields = ('user__email',)
+
+    def ip_short(self, obj):
+        return obj.ip_hash[:16] + '...'
+    ip_short.short_description = 'IP Hash'

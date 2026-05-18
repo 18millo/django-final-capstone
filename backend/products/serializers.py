@@ -1,6 +1,7 @@
+from django.conf import settings
 from rest_framework import serializers
 from .models import Category, Product, ProductVariant, Drop, DropNotification, Cart, CartItem, Order, Favorite, ProductComment
-from accounts.serializers import PublicUserSerializer
+from accounts.serializers import PublicUserSerializer, resolve_avatar
 
 
 class VendorInfoSerializer(serializers.Serializer):
@@ -28,6 +29,7 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 class ProductListSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', default='')
     is_favorited = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -38,8 +40,25 @@ class ProductListSerializer(serializers.ModelSerializer):
     def get_is_favorited(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
+            user_favs = getattr(obj, '_user_favorites', None)
+            if user_favs is not None:
+                return len(user_favs) > 0
             return obj.favorites.filter(user=request.user).exists()
         return False
+
+    def get_images(self, obj):
+        request = self.context.get('request')
+        if not obj.images:
+            return []
+        result = []
+        for img in obj.images:
+            if not img:
+                continue
+            if img.startswith('http://') or img.startswith('https://'):
+                result.append(img)
+            else:
+                result.append(request.build_absolute_uri(f'{settings.MEDIA_URL}{img}') if request else f'{settings.MEDIA_URL}{img}')
+        return result
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):
@@ -48,6 +67,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     is_favorited = serializers.SerializerMethodField()
     comments = serializers.SerializerMethodField()
     vendor_info = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -56,6 +76,9 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     def get_is_favorited(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
+            user_favs = getattr(obj, '_user_favorites', None)
+            if user_favs is not None:
+                return len(user_favs) > 0
             return obj.favorites.filter(user=request.user).exists()
         return False
 
@@ -77,6 +100,20 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'longitude': p.longitude,
         }
 
+    def get_images(self, obj):
+        request = self.context.get('request')
+        if not obj.images:
+            return []
+        result = []
+        for img in obj.images:
+            if not img:
+                continue
+            if img.startswith('http://') or img.startswith('https://'):
+                result.append(img)
+            else:
+                result.append(request.build_absolute_uri(f'{settings.MEDIA_URL}{img}') if request else f'{settings.MEDIA_URL}{img}')
+        return result
+
 
 class VendorProductSerializer(serializers.ModelSerializer):
     class Meta:
@@ -86,6 +123,24 @@ class VendorProductSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'slug': {'required': False},
         }
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        images = data.get('images')
+        if not images:
+            data['images'] = []
+        else:
+            resolved = []
+            for img in images:
+                if not img:
+                    continue
+                if img.startswith('http://') or img.startswith('https://'):
+                    resolved.append(img)
+                else:
+                    resolved.append(request.build_absolute_uri(f'{settings.MEDIA_URL}{img}') if request else f'{settings.MEDIA_URL}{img}')
+            data['images'] = resolved
+        return data
 
     def validate_images(self, value):
         if value is None or value == "":
@@ -165,7 +220,15 @@ class CartItemSerializer(serializers.ModelSerializer):
 
     def get_product_image(self, obj):
         images = obj.product.images
-        return images[0] if images else None
+        if not images:
+            return None
+        img = images[0]
+        if not img:
+            return None
+        if img.startswith('http://') or img.startswith('https://'):
+            return img
+        request = self.context.get('request')
+        return request.build_absolute_uri(f'{settings.MEDIA_URL}{img}') if request else f'{settings.MEDIA_URL}{img}'
 
     def get_unit_price(self, obj):
         if obj.variant and obj.variant.price_override:
@@ -221,12 +284,7 @@ class ProductCommentSerializer(serializers.ModelSerializer):
         return obj.user.display_name or obj.user.username or obj.user.email.split('@')[0]
 
     def get_user_avatar(self, obj):
-        try:
-            if obj.user.profile.avatar:
-                return obj.user.profile.avatar.url
-        except:
-            pass
-        return None
+        return resolve_avatar(obj.user.profile, self.context.get('request'))
 
     def get_replies(self, obj):
         if obj.parent is not None:

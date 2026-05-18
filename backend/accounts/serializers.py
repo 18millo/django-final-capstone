@@ -3,7 +3,7 @@ import string
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from rest_framework import serializers
-from .models import User, Profile, UsernameChange, SiteContent, Follow, Notification, Message
+from .models import User, Profile, UsernameChange, SiteContent, Follow, Notification, Message, Post, PostLike, PostComment, GalleryItem, GalleryLike, GalleryComment, Bookmark, Report, BlockedUser, PostCommentLike
 
 
 ACCESS_CODE_ROLES = {'vendor', 'coach', 'gym_owner'}
@@ -11,11 +11,24 @@ ACCESS_CODE_ROLES = {'vendor', 'coach', 'gym_owner'}
 def generate_access_code():
     return ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
 
+def resolve_avatar(profile, request=None):
+    avatar = getattr(profile, 'avatar', None)
+    if not avatar:
+        return None
+    name = avatar.name
+    if name.startswith('http://') or name.startswith('https://'):
+        return name
+    url = avatar.url
+    if url.startswith('http'):
+        return url
+    return request.build_absolute_uri(url) if request else url
+
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     username = serializers.CharField(required=True)
     vendor_access_code = serializers.CharField(read_only=True, source='profile.vendor_access_code')
+    accepted_terms = serializers.BooleanField(required=True, write_only=True)
 
     # vendor fields
     business_name = serializers.CharField(required=False, allow_blank=True)
@@ -31,8 +44,13 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = (
             'email', 'username', 'password', 'role', 'vendor_access_code',
             'business_name', 'business_location', 'business_description',
-            'specialization', 'certifications',
+            'specialization', 'certifications', 'accepted_terms',
         )
+
+    def validate_accepted_terms(self, value):
+        if not value:
+            raise serializers.ValidationError("You must accept the Terms & Conditions and Privacy Policy to create an account.")
+        return value
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
@@ -88,13 +106,19 @@ class LoginSerializer(serializers.Serializer):
         login = data.get('login')
         password = data.get('password')
 
-        try:
-            if '@' in login:
+        if '@' in login:
+            try:
                 user = User.objects.get(email=login)
-            else:
+            except User.DoesNotExist:
+                raise serializers.ValidationError("Invalid credentials.")
+        else:
+            try:
                 user = User.objects.get(username=login)
-        except User.DoesNotExist:
-            raise serializers.ValidationError("Invalid credentials.")
+            except User.DoesNotExist:
+                raise serializers.ValidationError("Invalid credentials.")
+            
+            if user.role in ('vendor', 'coach', 'gym_owner'):
+                raise serializers.ValidationError("Please use your email to log in.")
 
         user = authenticate(username=user.email, password=password)
         if not user:
@@ -199,7 +223,18 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     password = serializers.CharField(min_length=8)
 
 
+class AvatarField(serializers.ImageField):
+    def to_representation(self, value):
+        if not value:
+            return None
+        name = value.name
+        if name.startswith('http://') or name.startswith('https://'):
+            return name
+        return super().to_representation(value)
+
 class ProfileSerializer(serializers.ModelSerializer):
+    avatar = AvatarField(allow_null=True, required=False)
+
     class Meta:
         model = Profile
         fields = (
@@ -207,8 +242,9 @@ class ProfileSerializer(serializers.ModelSerializer):
             'business_name', 'business_location', 'business_description',
             'specialization', 'certifications',
             'vendor_access_code', 'latitude', 'longitude',
+            'is_premium',
         )
-        read_only_fields = ('vendor_access_code',)
+        read_only_fields = ('vendor_access_code', 'is_premium',)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -267,23 +303,20 @@ class UserSerializer(serializers.ModelSerializer):
 
 class PublicUserSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer()
-    follower_count = serializers.SerializerMethodField()
-    following_count = serializers.SerializerMethodField()
+    follower_count = serializers.IntegerField(source='_follower_count', read_only=True)
+    following_count = serializers.IntegerField(source='_following_count', read_only=True)
     is_following = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ('id', 'username', 'display_name', 'role', 'profile', 'created_at', 'follower_count', 'following_count', 'is_following')
 
-    def get_follower_count(self, obj):
-        return obj.followers.count()
-
-    def get_following_count(self, obj):
-        return obj.following.count()
-
     def get_is_following(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
+            user_followers = getattr(obj, '_user_followers', None)
+            if user_followers is not None:
+                return len(user_followers) > 0
             return obj.followers.filter(follower=request.user).exists()
         return False
 
@@ -314,7 +347,7 @@ class NotificationSerializer(serializers.ModelSerializer):
 
     def get_actor_avatar(self, obj):
         try:
-            return obj.actor.profile.avatar.url if obj.actor.profile.avatar else None
+            return resolve_avatar(obj.actor.profile, self.context.get('request'))
         except:
             return None
 
@@ -322,10 +355,11 @@ class NotificationSerializer(serializers.ModelSerializer):
 class MessageSerializer(serializers.ModelSerializer):
     sender_username = serializers.SerializerMethodField()
     recipient_username = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
-        fields = ('id', 'sender', 'recipient', 'content', 'read', 'created_at', 'sender_username', 'recipient_username')
+        fields = ('id', 'sender', 'recipient', 'content', 'image', 'image_url', 'view_once', 'viewed', 'read', 'created_at', 'sender_username', 'recipient_username')
         read_only_fields = ('sender',)
 
     def get_sender_username(self, obj):
@@ -333,6 +367,14 @@ class MessageSerializer(serializers.ModelSerializer):
 
     def get_recipient_username(self, obj):
         return obj.recipient.username or obj.recipient.display_name or obj.recipient.email
+
+    def get_image_url(self, obj):
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
 
 
 class ConversationSerializer(serializers.Serializer):
@@ -343,3 +385,214 @@ class ConversationSerializer(serializers.Serializer):
     last_message_time = serializers.DateTimeField(allow_null=True, required=False)
     unread = serializers.IntegerField()
     online = serializers.BooleanField()
+
+
+class PostSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    author_role = serializers.CharField(source='author.role', read_only=True)
+    author_avatar = serializers.SerializerMethodField()
+    author_is_premium = serializers.SerializerMethodField()
+    like_count = serializers.SerializerMethodField()
+    dislike_count = serializers.SerializerMethodField()
+    comment_count = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
+    user_vote = serializers.SerializerMethodField()
+    file_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Post
+        fields = ('id', 'author', 'author_name', 'author_role', 'author_avatar', 'author_is_premium',
+                  'content', 'file', 'file_url', 'like_count', 'dislike_count', 'comment_count',
+                  'is_liked', 'user_vote', 'created_at', 'updated_at')
+        read_only_fields = ('author',)
+
+    def get_author_name(self, obj):
+        return obj.author.username or obj.author.display_name or obj.author.email
+
+    def get_author_avatar(self, obj):
+        return resolve_avatar(obj.author.profile, self.context.get('request'))
+
+    def get_author_is_premium(self, obj):
+        return getattr(obj.author.profile, 'is_premium', False)
+
+    def get_like_count(self, obj):
+        return obj.likes.filter(vote_type='like').count()
+
+    def get_dislike_count(self, obj):
+        return obj.likes.filter(vote_type='dislike').count()
+
+    def get_comment_count(self, obj):
+        return obj.comments.count()
+
+    def get_is_liked(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.likes.filter(user=request.user, vote_type='like').exists()
+        return False
+
+    def get_user_vote(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            vote = obj.likes.filter(user=request.user).first()
+            if vote:
+                return vote.vote_type
+        return None
+
+    def get_file_url(self, obj):
+        if not obj.file:
+            return None
+        request = self.context.get('request')
+        url = obj.file.url
+        if url.startswith('http'):
+            return url
+        return request.build_absolute_uri(url) if request else url
+
+
+class PostCommentSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    author_role = serializers.CharField(source='author.role', read_only=True)
+    author_avatar = serializers.SerializerMethodField()
+    author_is_premium = serializers.SerializerMethodField()
+    user_vote = serializers.SerializerMethodField()
+    replies = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PostComment
+        fields = ('id', 'post', 'author', 'author_name', 'author_role', 'author_avatar', 'author_is_premium',
+                  'parent', 'content', 'replies', 'user_vote', 'created_at', 'updated_at')
+        read_only_fields = ('author', 'post',)
+
+    def get_author_name(self, obj):
+        return obj.author.username or obj.author.display_name or obj.author.email
+
+    def get_author_avatar(self, obj):
+        return resolve_avatar(obj.author.profile, self.context.get('request'))
+
+    def get_author_is_premium(self, obj):
+        return getattr(obj.author.profile, 'is_premium', False)
+
+    def get_user_vote(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            vote = obj.likes.filter(user=request.user).first()
+            if vote:
+                return vote.vote_type
+        return None
+
+    def get_replies(self, obj):
+        replies = obj.replies.all()
+        return PostCommentSerializer(replies, many=True, context=self.context).data
+
+
+class PostLikeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PostLike
+        fields = ('id', 'post', 'user', 'created_at')
+        read_only_fields = ('user',)
+
+
+class GalleryItemSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+    user_avatar = serializers.SerializerMethodField()
+    user_is_premium = serializers.SerializerMethodField()
+    like_count = serializers.SerializerMethodField()
+    dislike_count = serializers.SerializerMethodField()
+    comment_count = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
+    user_vote = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
+    user_role = serializers.CharField(source='user.role', read_only=True)
+
+    class Meta:
+        model = GalleryItem
+        fields = ('id', 'user', 'user_name', 'user_role', 'user_avatar', 'user_is_premium',
+                  'image', 'image_url', 'caption', 'like_count', 'dislike_count', 'comment_count',
+                  'is_liked', 'user_vote', 'created_at')
+        read_only_fields = ('user',)
+
+    def get_user_name(self, obj):
+        return obj.user.username or obj.user.display_name or obj.user.email
+
+    def get_user_avatar(self, obj):
+        return resolve_avatar(obj.user.profile, self.context.get('request'))
+
+    def get_user_is_premium(self, obj):
+        return getattr(obj.user.profile, 'is_premium', False)
+
+    def get_like_count(self, obj):
+        return obj.likes.filter(vote_type='like').count()
+
+    def get_dislike_count(self, obj):
+        return obj.likes.filter(vote_type='dislike').count()
+
+    def get_comment_count(self, obj):
+        return obj.comments.count()
+
+    def get_is_liked(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.likes.filter(user=request.user, vote_type='like').exists()
+        return False
+
+    def get_user_vote(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            vote = obj.likes.filter(user=request.user).first()
+            if vote:
+                return vote.vote_type
+        return None
+
+    def get_image_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get('request')
+        url = obj.image.url
+        if url.startswith('http'):
+            return url
+        return request.build_absolute_uri(url) if request else url
+
+
+class GalleryCommentSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+    user_avatar = serializers.SerializerMethodField()
+    user_is_premium = serializers.SerializerMethodField()
+    replies = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GalleryComment
+        fields = ('id', 'gallery_item', 'user', 'user_name', 'user_avatar', 'user_is_premium',
+                  'parent', 'content', 'replies', 'created_at', 'updated_at')
+        read_only_fields = ('user', 'gallery_item')
+
+    def get_user_name(self, obj):
+        return obj.user.username or obj.user.display_name or obj.user.email
+
+    def get_user_avatar(self, obj):
+        return resolve_avatar(obj.user.profile, self.context.get('request'))
+
+    def get_user_is_premium(self, obj):
+        return getattr(obj.user.profile, 'is_premium', False)
+
+    def get_replies(self, obj):
+        replies = obj.replies.all()
+        return GalleryCommentSerializer(replies, many=True, context=self.context).data
+
+
+class BookmarkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Bookmark
+        fields = '__all__'
+
+
+class ReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Report
+        fields = '__all__'
+        read_only_fields = ('reporter', 'status')
+
+
+class BlockedUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BlockedUser
+        fields = '__all__'
+        read_only_fields = ('blocker',)

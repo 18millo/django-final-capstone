@@ -1,10 +1,11 @@
 from django.db import models
+from django.db.models import Prefetch
 from django.utils import timezone
 from django.conf import settings
 from rest_framework import status, permissions, generics, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from common.permissions import IsVendor
+from common.permissions import IsVendor, IsSeller
 from accounts.models import User
 from .models import Category, Product, ProductVariant, Drop, DropNotification, Cart, CartItem, Order, Favorite, ProductComment
 from .serializers import (
@@ -27,7 +28,7 @@ class ProductListView(generics.ListAPIView):
         return {'request': self.request}
 
     def get_queryset(self):
-        qs = Product.objects.all()
+        qs = Product.objects.select_related('category').all()
         category = self.request.query_params.get('category')
         brand = self.request.query_params.get('brand')
         sport = self.request.query_params.get('sport')
@@ -50,17 +51,29 @@ class ProductListView(generics.ListAPIView):
             qs = qs.filter(limited_edition=True)
         if featured:
             qs = qs.filter(featured=True)
+
+        if self.request.user.is_authenticated:
+            qs = qs.prefetch_related(
+                Prefetch('favorites', queryset=Favorite.objects.filter(user=self.request.user), to_attr='_user_favorites')
+            )
         return qs
 
 
 class ProductDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = ProductDetailSerializer
-    queryset = Product.objects.all()
     lookup_field = 'id'
 
     def get_serializer_context(self):
         return {'request': self.request}
+
+    def get_queryset(self):
+        qs = Product.objects.select_related('category', 'vendor__profile').all()
+        if self.request.user.is_authenticated:
+            qs = qs.prefetch_related(
+                Prefetch('favorites', queryset=Favorite.objects.filter(user=self.request.user), to_attr='_user_favorites')
+            )
+        return qs
 
 
 class CategoryListView(generics.ListAPIView):
@@ -107,7 +120,7 @@ class CartDetailView(APIView):
 
     def get(self, request):
         cart, _ = Cart.objects.get_or_create(user=request.user)
-        return Response(CartSerializer(cart).data)
+        return Response(CartSerializer(cart, context={'request': request}).data)
 
 
 class CartAddItemView(APIView):
@@ -138,7 +151,7 @@ class CartAddItemView(APIView):
         else:
             CartItem.objects.create(cart=cart, product=product, variant=variant, quantity=quantity)
 
-        return Response(CartSerializer(cart).data, status=201)
+        return Response(CartSerializer(cart, context={'request': request}).data, status=201)
 
 
 class CartItemUpdateView(APIView):
@@ -155,7 +168,17 @@ class CartItemUpdateView(APIView):
         if quantity is not None and quantity > 0:
             item.quantity = quantity
             item.save()
-        return Response(CartSerializer(cart).data)
+        return Response(CartSerializer(cart, context={'request': request}).data)
+
+    def delete(self, request, item_id):
+        cart = Cart.objects.filter(user=request.user).first()
+        if not cart:
+            return Response({'error': 'Cart not found'}, status=404)
+        item = cart.items.filter(id=item_id).first()
+        if not item:
+            return Response({'error': 'Item not found'}, status=404)
+        item.delete()
+        return Response(CartSerializer(cart, context={'request': request}).data)
 
     def delete(self, request, item_id):
         cart = Cart.objects.filter(user=request.user).first()
@@ -261,7 +284,7 @@ class FavoriteToggleView(APIView):
 
 
 class VendorProductListView(generics.ListCreateAPIView):
-    permission_classes = [permissions.IsAuthenticated, IsVendor]
+    permission_classes = [permissions.IsAuthenticated, IsSeller]
     serializer_class = VendorProductSerializer
 
     def get_queryset(self):
@@ -275,7 +298,7 @@ class VendorProductListView(generics.ListCreateAPIView):
 
 
 class VendorProductDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [permissions.IsAuthenticated, IsVendor]
+    permission_classes = [permissions.IsAuthenticated, IsSeller]
     serializer_class = VendorProductSerializer
 
     def get_queryset(self):
@@ -286,7 +309,7 @@ class VendorProductDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class VendorProductToggleDiscountView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsVendor]
+    permission_classes = [permissions.IsAuthenticated, IsSeller]
 
     def post(self, request, product_id):
         product = Product.objects.filter(id=product_id, vendor=request.user).first()
@@ -298,15 +321,17 @@ class VendorProductToggleDiscountView(APIView):
 
 
 class ProductImageUploadView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsVendor]
+    permission_classes = [permissions.IsAuthenticated, IsSeller]
 
     def post(self, request):
         file = request.FILES.get('image')
+        category_slug = request.data.get('category', 'other')
         if not file:
             return Response({'error': 'No image provided'}, status=400)
         import uuid, os
         ext = os.path.splitext(file.name)[1] or '.jpg'
-        filename = f'products/{uuid.uuid4().hex}{ext}'
+        category_folder = category_slug.replace(' ', '-').lower()
+        filename = f'products/{category_folder}/{uuid.uuid4().hex}{ext}'
         path = os.path.join(settings.MEDIA_ROOT, filename)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, 'wb+') as f:

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import gsap from 'gsap'
 import Reveal from '../components/ui/Reveal'
 import { useTheme } from '../providers/ThemeProvider'
 import { useAuth } from '../providers/AuthProvider'
@@ -7,6 +8,7 @@ import api from '../utils/api'
 import { mediaUrl } from '../utils/media'
 import { playAmbient, stopAmbient, playBell, isAmbientEnabled, toggleAmbient as toggleAmbientSound } from '../utils/sounds'
 import { ROLE_ICONS, ROLE_LABELS, ROLE_COLORS } from '../utils/roles'
+import { useGsapReveal, useCountUp, useGsapParallax } from '../hooks/useGsapReveal'
 
 const IMAGES = {
   dark: {
@@ -48,6 +50,37 @@ function HomeMarketing() {
   const img = IMAGES[theme]
   const [soundOn, setSoundOn] = useState(isAmbientEnabled())
   const [featuredProducts, setFeaturedProducts] = useState([])
+  const heroTextRef = useRef(null)
+  const statsRef = useRef(null)
+  const tiltRefs = useRef([])
+
+  useEffect(() => {
+    if (heroTextRef.current) {
+      const words = heroTextRef.current.querySelectorAll('.hero-word')
+      gsap.fromTo(words, { opacity: 0, y: 80, rotateX: -40 }, { opacity: 1, y: 0, rotateX: 0, duration: 0.9, stagger: 0.12, ease: 'power3.out' })
+    }
+  }, [])
+
+  useEffect(() => {
+    tiltRefs.current.forEach((el) => {
+      if (!el) return
+      const onMove = (e) => {
+        const rect = el.getBoundingClientRect()
+        const x = (e.clientX - rect.left) / rect.width - 0.5
+        const y = (e.clientY - rect.top) / rect.height - 0.5
+        gsap.to(el, { rotateY: x * 12, rotateX: -y * 8, duration: 0.4, ease: 'power2.out' })
+      }
+      const onLeave = () => {
+        gsap.to(el, { rotateY: 0, rotateX: 0, duration: 0.5, ease: 'power2.out' })
+      }
+      el.addEventListener('mousemove', onMove)
+      el.addEventListener('mouseleave', onLeave)
+      return () => {
+        el.removeEventListener('mousemove', onMove)
+        el.removeEventListener('mouseleave', onLeave)
+      }
+    })
+  }, [])
 
   useEffect(() => {
     api.get('/products/?limit=4').then((res) => {
@@ -69,7 +102,7 @@ function HomeMarketing() {
     <div>
       <section className="relative min-h-screen flex items-center overflow-hidden">
         <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-105 animate-slowZoom"
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-105"
           style={{ backgroundImage: 'url(' + img.hero + ')' }}
         />
         <div className={'absolute inset-0 ' + (isLight ? 'bg-white/80' : 'bg-gradient-to-r from-nike-black/95 via-nike-black/70 to-nike-black/40')} />
@@ -77,7 +110,7 @@ function HomeMarketing() {
         <div className={'absolute top-20 right-[-10%] w-[60%] h-[80%] rounded-full blur-3xl ' + (isLight ? 'bg-gradient-to-bl from-nike-red/10 via-nike-amber/5 to-transparent' : 'bg-gradient-to-bl from-nike-red/15 via-nike-amber/5 to-transparent')} />
         <div className={'absolute bottom-20 left-[-10%] w-[50%] h-[50%] rounded-full blur-3xl ' + (isLight ? 'bg-gradient-to-tr from-nike-orange/10 to-transparent' : 'bg-gradient-to-tr from-nike-orange/10 to-transparent')} />
         <div className="relative max-w-7xl mx-auto px-6 py-24 w-full">
-          <Reveal className="max-w-3xl">
+          <Reveal className="max-w-3xl" gsap>
             <div className="flex items-center gap-3 mb-6 flex-wrap">
               <span className="bg-nike-red/20 backdrop-blur-sm text-nike-red text-xs tracking-widest uppercase font-bold px-4 py-2 rounded-full border border-nike-red/20">
                 Now Live — Beta Access
@@ -93,10 +126,11 @@ function HomeMarketing() {
                 {soundOn ? '🔊' : '🔇'} Sound
               </button>
             </div>
-            <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-6">
-              YOUR<br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-nike-red via-nike-amber to-nike-orange">FIGHT</span><br />
-              STARTS HERE
+            <h1 ref={heroTextRef} className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-6 perspective-[800px]">
+              <span className="hero-word inline-block">YOUR</span><br />
+              <span className="hero-word inline-block text-transparent bg-clip-text bg-gradient-to-r from-nike-red via-nike-amber to-nike-orange">FIGHT</span><br />
+              <span className="hero-word inline-block">STARTS</span>{' '}
+              <span className="hero-word inline-block">HERE</span>
             </h1>
             <p className={'text-lg md:text-xl max-w-xl mb-10 leading-relaxed ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
               Premium gear. Elite coaches. World-class gyms. The only ecosystem built for combat sports athletes.
@@ -128,7 +162,7 @@ function HomeMarketing() {
         </div>
       </section>
 
-      <section className="relative py-14 overflow-hidden">
+      <section ref={statsRef} className="relative py-14 overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat bg-fixed"
           style={{ backgroundImage: 'url(' + img.stats + ')' }}
@@ -137,14 +171,14 @@ function HomeMarketing() {
         <div className="relative max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
-              { number: '5,000+', label: 'Athletes' },
-              { number: '500+', label: 'Coaches' },
-              { number: '200+', label: 'Gyms' },
-              { number: '10,000+', label: 'Products' },
+              { id: 5000, label: 'Athletes' },
+              { id: 500, label: 'Coaches' },
+              { id: 200, label: 'Gyms' },
+              { id: 10000, label: 'Products' },
             ].map((stat) => (
-              <Reveal key={stat.label} delay={100}>
+              <Reveal key={stat.label} delay={100} gsap>
                 <div className="text-center">
-                  <div className="text-3xl md:text-4xl font-black text-white">{stat.number}</div>
+                  <div className="text-3xl md:text-4xl font-black text-white">{stat.id.toLocaleString()}+</div>
                   <div className={'text-xs tracking-widest uppercase mt-1 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{stat.label}</div>
                 </div>
               </Reveal>
@@ -153,9 +187,9 @@ function HomeMarketing() {
         </div>
       </section>
 
-      <section className={'py-16 md:py-20 ' + (isLight ? 'bg-white' : 'bg-nike-black')}>
+      <section className="relative py-16 md:py-20">
         <div className="max-w-7xl mx-auto px-6">
-          <Reveal>
+          <Reveal gsap>
             <div className="text-center mb-12">
               <span className="text-nike-red text-xs tracking-widest uppercase font-bold">The Ecosystem</span>
               <h2 className="text-3xl md:text-4xl font-black tracking-tight mt-2">Everything. One Platform.</h2>
@@ -186,8 +220,8 @@ function HomeMarketing() {
                 icon: '💪',
               },
             ].map((item, i) => (
-              <Reveal key={item.title} delay={i * 150}>
-                <div className={'group relative rounded-2xl overflow-hidden transition-all duration-500 ' + (isLight ? 'bg-nike-dark border-nike-gray shadow-sm hover:shadow-md border hover:border-nike-red/30' : 'bg-nike-dark border-white/5 hover:border-white/20 border')}>
+              <Reveal key={item.title} delay={i * 150} gsap>
+                <div ref={(el) => (tiltRefs.current[i] = el)} className={'group relative rounded-2xl overflow-hidden transition-all duration-500 perspective-[1200px] ' + (isLight ? 'bg-nike-dark border-nike-gray shadow-sm hover:shadow-md border hover:border-nike-red/30' : 'bg-nike-dark border-white/5 hover:border-white/20 border')}>
                   <div className="h-40 overflow-hidden">
                     <img
                       src={item.image}
@@ -215,7 +249,7 @@ function HomeMarketing() {
       {/* Testimonials */}
       <section className={'py-16 md:py-20 ' + (isLight ? 'bg-white' : 'bg-nike-black')}>
         <div className="max-w-7xl mx-auto px-6">
-          <Reveal>
+          <Reveal gsap>
             <div className="text-center mb-10">
               <span className="text-nike-red text-xs tracking-widest uppercase font-bold">Testimonials</span>
               <h2 className="text-3xl md:text-4xl font-black tracking-tight mt-2">Trusted by Fighters</h2>
@@ -224,7 +258,7 @@ function HomeMarketing() {
           </Reveal>
           <div className="grid md:grid-cols-3 gap-5">
             {TESTIMONIALS.map((t, i) => (
-              <Reveal key={t.name} delay={i * 150}>
+              <Reveal key={t.name} delay={i * 150} gsap>
                 <div className={'relative p-6 rounded-2xl border transition-all duration-300 hover:scale-[1.02] ' + (isLight
                   ? 'bg-white border-nike-gray shadow-sm'
                   : 'bg-nike-dark border-white/5'
@@ -248,7 +282,7 @@ function HomeMarketing() {
       {/* Featured Gear */}
       <section className={'py-16 md:py-20 border-t ' + (isLight ? 'bg-nike-gray/20 border-nike-gray' : 'bg-nike-dark/50 border-white/5')}>
         <div className="max-w-7xl mx-auto px-6">
-          <Reveal>
+          <Reveal gsap>
             <div className="flex items-end justify-between mb-8">
               <div>
                 <span className="text-nike-red text-xs tracking-widest uppercase font-bold">Featured Gear</span>
@@ -261,7 +295,7 @@ function HomeMarketing() {
           </Reveal>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {featuredProducts.map((p, i) => (
-              <Reveal key={p.id} delay={i * 100}>
+              <Reveal key={p.id} delay={i * 100} gsap>
                 <Link to={'/shop/' + p.id} className={'group relative rounded-2xl overflow-hidden border transition-all duration-300 hover:scale-[1.02] ' + (isLight
                   ? 'bg-white border-nike-gray shadow-sm'
                   : 'bg-nike-dark border-white/5'
@@ -292,7 +326,7 @@ function HomeMarketing() {
       {/* Trusted Brands */}
       <section className={'py-10 border-t ' + (isLight ? 'border-nike-gray bg-white' : 'border-white/5 bg-nike-black')}>
         <div className="max-w-7xl mx-auto px-6">
-          <Reveal>
+          <Reveal gsap>
             <p className={'text-center text-[10px] tracking-widest uppercase font-bold mb-6 ' + (isLight ? 'text-nike-light' : 'text-white/20')}>Trusted by Leading Brands</p>
             <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
               {BRANDS.map((brand) => (
@@ -346,6 +380,7 @@ function HomeDashboard() {
   const [conversations, setConversations] = useState([])
   const [products, setProducts] = useState([])
   const [loadingProducts, setLoadingProducts] = useState(false)
+  const [postCount, setPostCount] = useState(0)
   const isVendor = user?.role === 'vendor'
 
   useEffect(() => {
@@ -353,6 +388,17 @@ function HomeDashboard() {
       .then((res) => setConversations((res.data || []).slice(0, 3)))
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    api.get('/auth/posts/')
+      .then((res) => {
+        if (res.data.results) {
+          const myPosts = res.data.results.filter((post) => post.author?.id === user?.id)
+          setPostCount(myPosts.length)
+        }
+      })
+      .catch(() => {})
+  }, [user?.id])
 
   useEffect(() => {
     setLoadingProducts(true)
@@ -384,11 +430,31 @@ function HomeDashboard() {
     { label: 'Role', value: ROLE_LABELS[user.role] || user.role?.replace('_', ' ') || '—', icon: ROLE_ICONS[user.role] || ROLE_ICONS.athlete, customColor: rc },
   ]
 
+  const calcProfilePercent = (p) => {
+    const fields = [
+      p.bio, p.avatar, p.phone, p.weight_class,
+      p.height_ft, p.height_in, p.reach_in, p.stance,
+    ]
+    const filled = fields.filter(Boolean).length
+    return Math.round((filled / fields.length) * 100)
+  }
+
+  const calcDaysActive = (createdAt) => {
+    if (!createdAt) return 0
+    const start = new Date(createdAt)
+    const now = new Date()
+    return Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)))
+  }
+
+  const profilePercent = calcProfilePercent(p)
+  const daysActive = calcDaysActive(user.created_at)
+
   const achievements = [
-    { icon: '🏆', label: 'Profile Complete', value: '60%', sub: 'Add your stats' },
-    { icon: '💪', label: 'Days Active', value: '12', sub: 'Keep the streak!' },
-    { icon: '🔥', label: 'Current Streak', value: '3', sub: 'Best: 7 days' },
-    { icon: '👥', label: 'Followers', value: String(user.follower_count ?? 0), sub: 'Connections' },
+    { icon: '🏆', label: 'Profile Complete', value: profilePercent + '%', sub: profilePercent < 100 ? 'Fill in your stats to reach 100%' : 'Fully complete!', progress: profilePercent },
+    { icon: '💪', label: 'Days Active', value: String(daysActive), sub: daysActive > 0 ? 'Since joining CombatHub' : 'Just joined!' },
+    { icon: '📝', label: 'Forum Posts', value: String(postCount), sub: postCount > 0 ? 'Contributions to the community' : 'Start a discussion' },
+    { icon: '👥', label: 'Followers', value: String(user.follower_count ?? 0), sub: user.follower_count > 0 ? 'Connections in your network' : 'Follow others to grow' },
+    { icon: '🏅', label: 'Premium', value: p.is_premium ? 'ACTIVE' : 'STANDARD', sub: p.is_premium ? 'All premium features unlocked' : 'Upgrade to unlock premium' },
   ]
 
   const TIPS = [
@@ -402,9 +468,10 @@ function HomeDashboard() {
   const tip = TIPS[new Date().getDate() % TIPS.length]
 
   const activityFeed = [
-    { icon: '🎉', text: 'Welcome to CombatHub!', time: 'Just now' },
-    { icon: '📝', text: 'Profile created', time: 'Moments ago' },
-    { icon: '⚡', text: 'Ready to train — set up your fighter stats', time: 'Now' },
+    ...(user.created_at ? [{ icon: '🎉', text: 'Joined CombatHub', time: new Date(user.created_at).toLocaleDateString() }] : []),
+    ...(postCount > 0 ? [{ icon: '📝', text: 'Posted ' + postCount + ' forum ' + (postCount === 1 ? 'discussion' : 'discussions'), time: 'Active member' }] : []),
+    ...(user.follower_count > 0 ? [{ icon: '👥', text: user.follower_count + ' follower' + (user.follower_count !== 1 ? 's' : ''), time: 'Building network' }] : []),
+    ...(p.is_premium ? [{ icon: '🏅', text: 'Premium member', time: 'Verified account' }] : []),
   ]
 
   return (
@@ -603,13 +670,18 @@ function HomeDashboard() {
                   <div className="space-y-4">
                     {achievements.map((a) => (
                       <div key={a.label} className={'flex items-center gap-3 p-3 rounded-xl ' + (isLight ? 'bg-white/60 border border-nike-gray/50' : 'bg-nike-black/40 border border-white/5')}>
-                        <span className="text-xl">{a.icon}</span>
+                        <span className="text-xl shrink-0">{a.icon}</span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
                             <p className={'text-xs font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{a.label}</p>
                             <p className="text-xs font-black text-nike-red">{a.value}</p>
                           </div>
                           <p className={'text-[10px] tracking-wider mt-0.5 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{a.sub}</p>
+                          {a.progress !== undefined && (
+                            <div className={'mt-2 h-1.5 rounded-full overflow-hidden ' + (isLight ? 'bg-nike-gray/50' : 'bg-white/10')}>
+                              <div className="h-full rounded-full bg-gradient-to-r from-nike-red to-nike-amber" style={{ width: a.progress + '%' }} />
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -636,14 +708,19 @@ function HomeDashboard() {
             </div>
           </div>
 
-          <Reveal delay={350}>
-            <div className={'p-6 rounded-2xl border text-center backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
-              <p className={'text-sm ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
-                CombatHub <strong>v{appVersion}</strong> — Complete your{' '}
-                <Link to="/settings" className="text-nike-red hover:underline font-bold">profile</Link> to unlock all features.
-              </p>
-            </div>
-          </Reveal>
+           <Reveal delay={350}>
+             <div className={'p-6 rounded-2xl border text-center backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
+               <p className={'text-sm ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
+                 CombatHub <strong>v{appVersion}</strong> — {profilePercent < 100 ? (
+                   'Complete your' + ' '
+                   <Link to="/settings" className="text-nike-red hover:underline font-bold">profile</Link> + ' to unlock all features.'
+                 ) : (
+                   'Click to start your' + ' '
+                   <Link to="/settings" className="text-nike-red hover:underline font-bold">one-month premium trial</Link> + '!'
+                 )}
+               </p>
+             </div>
+           </Reveal>
         </div>
       </div>
     </div>
