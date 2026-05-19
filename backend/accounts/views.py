@@ -3,6 +3,7 @@ from django.core.mail import send_mail
 from django.db import models
 from django.db.models import Count, Prefetch, Q
 from django.utils import timezone
+from datetime import timedelta
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from rest_framework import status, generics, permissions
@@ -15,7 +16,9 @@ import jwt
 import pyotp
 
 from django.shortcuts import get_object_or_404
-from .models import User, SiteContent, Follow, Notification, Message, Post, PostLike, PostComment, GalleryItem, GalleryLike, GalleryComment, PostCommentLike, Bookmark, Report, BlockedUser
+from common.permissions import IsSeller, IsPremium, IsAdmin
+from .models import User, SiteContent, Follow, Notification, Message, Post, PostLike, PostComment, GalleryItem, GalleryLike, GalleryComment, PostCommentLike, Bookmark, Report, BlockedUser, PaymentInfo, PhoneVerificationCode
+from .sms import send_sms
 from .serializers import (
     RegisterSerializer, LoginSerializer, GoogleAuthSerializer,
     SetUsernameSerializer, PasswordResetSerializer,
@@ -92,6 +95,63 @@ class RegisterView(APIView):
                 pass
 
         return Response(resp, status=status.HTTP_201_CREATED)
+
+
+class SendEmailVerificationView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if user.email_verified:
+            return Response({'detail': 'Email already verified', 'email_verified': True})
+        from .models import EmailVerificationCode
+        EmailVerificationCode.objects.filter(user=user, type='signup', is_used=False).update(is_used=True)
+        code_obj = EmailVerificationCode.generate(user, 'signup')
+        try:
+            send_mail(
+                subject='Verify your CombatHub email',
+                message=(
+                    f'Hi {user.username or user.email},\n\n'
+                    f'Your email verification code is:\n\n'
+                    f'   {code_obj.code}\n\n'
+                    f'Enter this code on the verification page to confirm your email address.\n'
+                    f'This code expires in 10 minutes.\n\n'
+                    f'- The CombatHub Team'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+            return Response({'detail': 'Verification code sent to your email.'})
+        except Exception:
+            return Response({'error': 'Failed to send verification email. Try again.'}, status=500)
+
+
+class VerifyEmailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        code = request.data.get('code', '').strip()
+        if not code:
+            return Response({'error': 'Verification code is required'}, status=400)
+        user = request.user
+        if user.email_verified:
+            return Response({'detail': 'Email already verified', 'email_verified': True})
+        from .models import EmailVerificationCode
+        code_obj = EmailVerificationCode.objects.filter(
+            user=user, code=code, type='signup', is_used=False
+        ).first()
+        if not code_obj:
+            return Response({'error': 'Invalid or expired code'}, status=400)
+        if code_obj.is_expired:
+            code_obj.is_used = True
+            code_obj.save(update_fields=['is_used'])
+            return Response({'error': 'Code has expired. Request a new one.'}, status=400)
+        code_obj.is_used = True
+        code_obj.save(update_fields=['is_used'])
+        user.email_verified = True
+        user.save(update_fields=['email_verified'])
+        return Response({'detail': 'Email verified!', 'email_verified': True})
 
 
 
@@ -530,8 +590,8 @@ class FollowUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, user_id):
-        if request.user.role == 'vendor':
-            return Response({'error': 'Vendors cannot follow users'}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role in ('vendor', 'gym_owner'):
+            return Response({'error': 'Vendors and gym owners cannot follow users'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             target = User.objects.get(id=user_id, is_active=True)
@@ -571,8 +631,8 @@ class UnfollowUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, user_id):
-        if request.user.role == 'vendor':
-            return Response({'error': 'Vendors cannot unfollow users'}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role in ('vendor', 'gym_owner'):
+            return Response({'error': 'Vendors and gym owners cannot unfollow users'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             target = User.objects.get(id=user_id, is_active=True)
@@ -680,11 +740,19 @@ class ConversationListView(APIView):
                     online = True
             except:
                 pass
+            last_text = ''
+            if last:
+                if last.image and not last.content:
+                    last_text = '📷 Photo'
+                elif last.image and last.content:
+                    last_text = '📷 ' + last.content[:80]
+                else:
+                    last_text = last.content[:100]
             conversations.append({
                 'user_id': partner.id,
                 'username': partner.username or partner.display_name or partner.email,
                 'avatar': avatar,
-                'last_message': last.content[:100] if last else '',
+                'last_message': last_text,
                 'last_message_time': last.created_at if last else None,
                 'unread': unread,
                 'online': online,
@@ -730,6 +798,24 @@ class SendMessageView(APIView):
         if image_file:
             msg.image.save(image_file.name, image_file, save=False)
             msg.save()
+        try:
+            body = content or '📷 Image'
+            send_mail(
+                subject=f'New message from {request.user.username or request.user.email} on CombatHub',
+                message=(
+                    f'Hi {recipient.username or recipient.email},\n\n'
+                    f'You have a new message from {request.user.username or request.user.email}:\n\n'
+                    f'   "{body[:200]}"\n\n'
+                    f'Reply at:\n'
+                    f'{settings.FRONTEND_URL}/messages\n\n'
+                    f'- The CombatHub Team'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[recipient.email],
+                fail_silently=False,
+            )
+        except Exception:
+            pass
         return Response(MessageSerializer(msg, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 
@@ -741,6 +827,9 @@ class PostListView(generics.ListCreateAPIView):
         return Post.objects.select_related('author__profile').prefetch_related('likes', 'comments')
 
     def perform_create(self, serializer):
+        user = self.request.user
+        if user.role in ('vendor', 'gym_owner', 'coach') and not user.profile.is_premium:
+            raise permissions.exceptions.PermissionDenied(detail='Premium subscription required for vendors, gym owners, and coaches to create posts')
         serializer.save(author=self.request.user)
 
     def get_serializer_context(self):
@@ -806,8 +895,9 @@ class GalleryListView(generics.ListCreateAPIView):
         return GalleryItem.objects.select_related('user__profile').prefetch_related('likes', 'comments')
 
     def perform_create(self, serializer):
-        if not self.request.user.profile.is_premium:
-            raise permissions.exceptions.PermissionDenied(detail='Premium subscription required to upload to gallery')
+        user = self.request.user
+        if user.role in ('vendor', 'gym_owner', 'coach') and not user.profile.is_premium:
+            raise permissions.exceptions.PermissionDenied(detail='Premium subscription required for vendors, gym owners, and coaches to upload to gallery')
         serializer.save(user=self.request.user)
 
     def get_serializer_context(self):
@@ -957,12 +1047,25 @@ class CreateReportView(APIView):
         return Response({'id': report.id, 'status': 'pending'}, status=201)
 
 
+class RemoveFollowerView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, user_id):
+        target = get_object_or_404(User, id=user_id)
+        deleted, _ = Follow.objects.filter(follower=target, following=request.user).delete()
+        if deleted:
+            return Response({'detail': f'Removed follower {target.username or target.email}'})
+        return Response({'detail': 'User was not following you'}, status=400)
+
+
 class BlockUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     def post(self, request, user_id):
         blocked = get_object_or_404(User, id=user_id)
         if blocked == request.user:
             return Response({'error': 'Cannot block yourself'}, status=400)
+        Follow.objects.filter(follower=blocked, following=request.user).delete()
+        Follow.objects.filter(follower=request.user, following=blocked).delete()
         block, created = BlockedUser.objects.get_or_create(blocker=request.user, blocked=blocked)
         if not created:
             block.delete()
@@ -1013,8 +1116,56 @@ class MessageViewOnceView(APIView):
         return Response(MessageSerializer(msg, context={'request': request}).data)
 
 
-class CoachDashboardStatsView(APIView):
+class SendPhoneCodeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        phone = request.data.get('phone', '').strip()
+        if not phone:
+            return Response({'error': 'Phone number is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(phone) < 8:
+            return Response({'error': 'Invalid phone number'}, status=status.HTTP_400_BAD_REQUEST)
+
+        PhoneVerificationCode.objects.filter(user=request.user, is_used=False).update(is_used=True)
+
+        code_obj = PhoneVerificationCode.generate(request.user, phone)
+        message = f'Your CombatHub verification code is: {code_obj.code}. It expires in 10 minutes.'
+        sent = send_sms(phone, message)
+        if not sent:
+            return Response({'error': 'Failed to send SMS. Try again later.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'detail': 'Verification code sent.'})
+
+
+class VerifyPhoneView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        code = request.data.get('code', '').strip()
+        phone = request.data.get('phone', '').strip()
+        if not code or not phone:
+            return Response({'error': 'Code and phone number are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        code_obj = PhoneVerificationCode.objects.filter(
+            user=request.user, phone=phone, code=code, is_used=False
+        ).first()
+        if not code_obj:
+            return Response({'error': 'Invalid or expired code'}, status=status.HTTP_400_BAD_REQUEST)
+        if code_obj.is_expired:
+            code_obj.is_used = True
+            code_obj.save(update_fields=['is_used'])
+            return Response({'error': 'Code has expired. Request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        code_obj.is_used = True
+        code_obj.save(update_fields=['is_used'])
+        profile = request.user.profile
+        profile.phone = phone
+        profile.phone_verified = True
+        profile.save(update_fields=['phone', 'phone_verified'])
+        return Response({'detail': 'Phone number verified successfully.', 'phone_verified': True})
+
+
+class CoachDashboardStatsView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsSeller]
 
     def get(self, request):
         user = request.user
@@ -1032,7 +1183,7 @@ class CoachDashboardStatsView(APIView):
 
 
 class VendorDashboardStatsView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsSeller]
 
     def get(self, request):
         user = request.user
@@ -1042,8 +1193,183 @@ class VendorDashboardStatsView(APIView):
         products = Product.objects.filter(vendor=user)
         total_products = products.count()
         low_stock = products.filter(stock__lte=5)
+        followers_qs = User.objects.filter(following__following=user)
+        followers_data = []
+        for f in followers_qs[:50]:
+            avatar_url = None
+            try:
+                if hasattr(f, 'profile') and f.profile and f.profile.avatar:
+                    avatar_url = f.profile.avatar.url
+            except Exception:
+                pass
+            followers_data.append({
+                'id': f.id,
+                'username': f.username or f.display_name or f.email,
+                'avatar': avatar_url,
+            })
         return Response({
             'total_products': total_products,
             'low_stock_count': low_stock.count(),
             'low_stock_products': list(low_stock.values('id', 'name', 'stock', 'price')),
+            'follower_count': followers_qs.count(),
+            'followers': followers_data,
         })
+
+
+class StartPremiumTrialView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        profile = request.user.profile
+        if profile.is_premium:
+            return Response({'error': 'You are already a premium member'}, status=400)
+        if profile.premium_trial_started:
+            return Response({'error': 'You have already used your free trial'}, status=400)
+        from django.utils import timezone
+        now = timezone.now()
+        profile.is_premium = True
+        profile.premium_trial_started = now
+        profile.premium_expires_at = now + timedelta(days=30)
+        profile.premium_grace_end = None
+        profile.save(update_fields=['is_premium', 'premium_trial_started', 'premium_expires_at', 'premium_grace_end'])
+        Notification.objects.create(
+            recipient=request.user,
+            actor=request.user,
+            notification_type='premium_activated',
+            message='Welcome to Premium! Your one-month free trial is now active. Enjoy all premium features!',
+        )
+        return Response({
+            'is_premium': True,
+            'premium_trial_started': profile.premium_trial_started,
+            'premium_expires_at': profile.premium_expires_at,
+            'message': 'One-month premium trial activated!',
+        })
+
+
+class CheckPremiumView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        profile = request.user.profile
+        now = timezone.now()
+        active = profile.is_premium_active()
+        if profile.is_premium and not active:
+            profile.is_premium = False
+            profile.save(update_fields=['is_premium'])
+            Notification.objects.create(
+                recipient=request.user,
+                actor=request.user,
+                notification_type='premium_expired',
+                message='Your premium subscription has ended. Renew to regain access to premium features.',
+            )
+        in_grace = bool(profile.premium_grace_end and profile.premium_grace_end > now and profile.premium_expires_at and profile.premium_expires_at < now)
+        return Response({
+            'is_premium': active,
+            'trial_started': bool(profile.premium_trial_started),
+            'premium_expires_at': profile.premium_expires_at,
+            'premium_grace_end': profile.premium_grace_end,
+            'in_grace_period': in_grace,
+            'premium_features': [
+                {'icon': '📷', 'title': 'Gallery Uploads', 'desc': 'Upload photos to the community gallery.'},
+                {'icon': '⚡', 'title': 'Priority Support', 'desc': 'Get faster responses from our support team.'},
+                {'icon': '🏪', 'title': 'Vendor Dashboard', 'desc': 'Sell products with a dedicated vendor storefront.'},
+                {'icon': '📊', 'title': 'Advanced Analytics', 'desc': 'View detailed stats on your profile and content.'},
+                {'icon': '💎', 'title': 'Premium Badge', 'desc': 'Stand out with a verified premium badge on your profile.'},
+                {'icon': '🎯', 'title': 'Exclusive Content', 'desc': 'Access to premium-only content and features.'},
+                {'icon': '🛡️', 'title': 'Early Access', 'desc': 'Be the first to try new features before anyone else.'},
+                {'icon': '📱', 'title': 'Custom Profile', 'desc': 'Customize your profile with premium themes and layouts.'},
+            ],
+        })
+
+
+class PaymentSetupView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        profile = request.user.profile
+        if profile.is_premium:
+            return Response({'error': 'You are already a premium member'}, status=400)
+        from .serializers import PaymentInfoSerializer
+        serializer = PaymentInfoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        PaymentInfo.objects.update_or_create(
+            user=request.user,
+            defaults=serializer.validated_data,
+        )
+        plan = request.data.get('plan', 'monthly')
+        if plan == 'yearly':
+            days = 365
+            plan_label = 'yearly'
+        else:
+            days = 30
+            plan_label = 'monthly'
+        now = timezone.now()
+        profile.is_premium = True
+        profile.premium_trial_started = now
+        profile.premium_expires_at = now + timedelta(days=days)
+        profile.premium_grace_end = None
+        profile.save(update_fields=['is_premium', 'premium_trial_started', 'premium_expires_at', 'premium_grace_end'])
+        Notification.objects.create(
+            recipient=request.user,
+            actor=request.user,
+            notification_type='premium_activated',
+            message=f'Welcome to Premium! Your {plan_label} subscription is now active. Enjoy all premium features!',
+        )
+        return Response({
+            'is_premium': True,
+            'premium_trial_started': profile.premium_trial_started,
+            'premium_expires_at': profile.premium_expires_at,
+            'message': f'Payment info saved and {plan_label} subscription activated!',
+        })
+
+
+class CancelPremiumView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        profile = request.user.profile
+        if not profile.is_premium:
+            return Response({'error': 'You do not have an active premium subscription'}, status=400)
+        profile.is_premium = False
+        profile.premium_trial_started = None
+        profile.premium_expires_at = None
+        profile.premium_grace_end = None
+        profile.save(update_fields=['is_premium', 'premium_trial_started', 'premium_expires_at', 'premium_grace_end'])
+        Notification.objects.create(
+            recipient=request.user,
+            actor=request.user,
+            notification_type='premium_expired',
+            message='Your premium subscription has been cancelled. You can re-subscribe anytime.',
+        )
+        return Response({'message': 'Premium cancelled successfully', 'is_premium': False})
+
+
+class AdminUserListView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        users = User.objects.all().select_related('profile').order_by('-date_joined')
+        data = [{
+            'id': u.id,
+            'email': u.email,
+            'username': u.username or u.display_name or '',
+            'role': u.role,
+            'is_premium': u.profile.is_premium if hasattr(u, 'profile') else False,
+            'is_active': u.is_active,
+            'date_joined': u.date_joined,
+        } for u in users]
+        return Response(data)
+
+
+class AdminUpdateUserRoleView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+
+    def post(self, request, user_id):
+        role = request.data.get('role')
+        valid_roles = ['athlete', 'coach', 'gym_owner', 'vendor', 'admin']
+        if role not in valid_roles:
+            return Response({'error': f'Invalid role. Must be one of: {", ".join(valid_roles)}'}, status=400)
+        user = get_object_or_404(User, id=user_id)
+        user.role = role
+        user.save(update_fields=['role'])
+        return Response({'detail': f'Updated {user.email} role to {role}'})

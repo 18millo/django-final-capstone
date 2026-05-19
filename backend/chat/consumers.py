@@ -2,7 +2,9 @@ import json
 from urllib.parse import parse_qs
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken
 from accounts.models import Message, Profile
@@ -47,6 +49,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
+        await self.mark_online()
 
     async def disconnect(self, close_code):
         if hasattr(self, 'room_group_name'):
@@ -57,10 +60,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         if data.get('type') == 'message':
             content = data.get('content', '').strip()
+            view_once = data.get('view_once', False)
             if not content:
                 return
 
-            msg = await self.save_message(content)
+            msg = await self.save_message(content, view_once)
 
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -71,6 +75,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'content': content,
                     'created_at': msg.created_at.isoformat(),
                     'read': msg.read,
+                    'delivered': msg.delivered,
+                    'view_once': msg.view_once,
+                    'viewed': msg.viewed,
+                    'image_url': None,
                 }
             )
 
@@ -85,6 +93,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'created_at': msg.created_at.isoformat(),
                 }
             )
+
+            await self.send_message_email(content, self.other_user_id)
 
         elif data.get('type') == 'mark_read':
             await self.mark_messages_read()
@@ -114,6 +124,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             )
 
+        elif data.get('type') == 'message_delivered':
+            msg_id = data.get('message_id')
+            if msg_id:
+                await self.mark_delivered(msg_id)
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'message_delivered',
+                        'message_id': msg_id,
+                    }
+                )
+
     async def chat_message(self, event):
         await self.send(text_data=json.dumps(event))
 
@@ -127,6 +149,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def user_stop_typing(self, event):
         if event['user_id'] != self.user.id:
             await self.send(text_data=json.dumps(event))
+
+    async def message_delivered(self, event):
+        await self.send(text_data=json.dumps(event))
+
+    @database_sync_to_async
+    def mark_online(self):
+        Profile.objects.filter(user=self.user).update(last_seen=timezone.now())
+
+    @database_sync_to_async
+    def mark_delivered(self, message_id):
+        Message.objects.filter(id=message_id).update(delivered=True)
 
     @database_sync_to_async
     def get_user_by_id(self, user_id):
@@ -144,12 +177,35 @@ class ChatConsumer(AsyncWebsocketConsumer):
         ).update(read=True)
 
     @database_sync_to_async
-    def save_message(self, content):
+    def save_message(self, content, view_once=False):
         return Message.objects.create(
             sender=self.user,
             recipient_id=int(self.other_user_id),
-            content=content
+            content=content,
+            view_once=view_once,
         )
+
+    @database_sync_to_async
+    def send_message_email(self, content, recipient_id):
+        try:
+            recipient = User.objects.get(id=recipient_id)
+            body = content or '📷 Image'
+            send_mail(
+                subject=f'New message from {self.user.username or self.user.email} on CombatHub',
+                message=(
+                    f'Hi {recipient.username or recipient.email},\n\n'
+                    f'You have a new message from {self.user.username or self.user.email}:\n\n'
+                    f'   "{body[:200]}"\n\n'
+                    f'Reply at:\n'
+                    f'{settings.FRONTEND_URL}/messages\n\n'
+                    f'- The CombatHub Team'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[recipient.email],
+                fail_silently=False,
+            )
+        except Exception:
+            pass
 
 
 class NotificationConsumer(AsyncWebsocketConsumer):
@@ -179,6 +235,15 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         if hasattr(self, 'notif_group_name'):
             await self.channel_layer.group_discard(self.notif_group_name, self.channel_name)
+
+    async def receive(self, text_data):
+        try:
+            data = json.loads(text_data)
+        except json.JSONDecodeError:
+            return
+        if data.get('type') == 'ping':
+            await self.mark_online()
+            await self.send(text_data=json.dumps({'type': 'pong'}))
 
     async def notify_message(self, event):
         await self.send(text_data=json.dumps(event))

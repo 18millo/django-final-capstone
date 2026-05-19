@@ -23,6 +23,7 @@ import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
 import OrderHistory from './pages/OrderHistory'
 import OrderDetail from './pages/OrderDetail'
+import SellerOrders from './pages/SellerOrders'
 import VendorDashboard from './pages/VendorDashboard'
 import VendorProductForm from './pages/VendorProductForm'
 import CoachDashboard from './pages/CoachDashboard'
@@ -34,6 +35,11 @@ import CommunityGuidelines from './pages/CommunityGuidelines'
 import Terms from './pages/Terms'
 import Gallery from './pages/Gallery'
 import GalleryDetail from './pages/GalleryDetail'
+import PaymentSetup from './pages/PaymentSetup'
+import Premium from './pages/Premium'
+import EmailVerify from './pages/EmailVerify'
+import Newsletter from './pages/Newsletter'
+import AdminPage from './pages/AdminPage'
 import Spinner from './components/ui/Spinner'
 
 function ProtectedRoute({ children }) {
@@ -57,6 +63,7 @@ function SellerRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="flex items-center justify-center min-h-screen"><Spinner /></div>
   if (!user || !['vendor', 'coach', 'gym_owner'].includes(user.role)) return <Navigate to="/" />
+  if (!user.email_verified) return <Navigate to="/verify-email" />
   return children
 }
 
@@ -64,6 +71,7 @@ function CoachRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="flex items-center justify-center min-h-screen"><Spinner /></div>
   if (!user || user.role !== 'coach') return <Navigate to="/" />
+  if (!user.email_verified) return <Navigate to="/verify-email" />
   return children
 }
 
@@ -73,6 +81,7 @@ export default function AppRoutes() {
       <Route element={<MainLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
+        <Route path="/premium" element={<Premium />} />
         <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><ProfileView /></ProtectedRoute>} />
@@ -84,6 +93,7 @@ export default function AppRoutes() {
         <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
         <Route path="/orders" element={<ProtectedRoute><OrderHistory /></ProtectedRoute>} />
         <Route path="/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
+        <Route path="/seller/orders" element={<ProtectedRoute><SellerOrders /></ProtectedRoute>} />
         <Route path="/vendor" element={<SellerRoute><VendorDashboard /></SellerRoute>} />
         <Route path="/vendor/products/new" element={<SellerRoute><VendorProductForm /></SellerRoute>} />
         <Route path="/vendor/products/:id/edit" element={<SellerRoute><VendorProductForm /></SellerRoute>} />
@@ -97,7 +107,11 @@ export default function AppRoutes() {
         <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
         <Route path="/gallery/:id" element={<ProtectedRoute><GalleryDetail /></ProtectedRoute>} />
         <Route path="/2fa/setup" element={<ProtectedRoute><TotpSetup /></ProtectedRoute>} />
+        <Route path="/premium/setup" element={<ProtectedRoute><PaymentSetup /></ProtectedRoute>} />
+        <Route path="/newsletter" element={<Newsletter />} />
+        <Route path="/verify-email" element={<ProtectedRoute><EmailVerify /></ProtectedRoute>} />
         <Route path="/username-setup" element={<PublicRoute><AuthLayout><UsernameSetup /></AuthLayout></PublicRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
       </Route>
       <Route path="/login" element={<PublicRoute><AuthLayout><Login /></AuthLayout></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><AuthLayout><Register /></AuthLayout></PublicRoute>} />

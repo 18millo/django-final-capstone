@@ -376,15 +376,17 @@ export default function Community() {
                               💬
                             </Link>
                           )}
-                          <button
-                            onClick={() => toggleFollow(u.id, u.is_following)}
-                            className={'shrink-0 text-xs tracking-widest uppercase font-bold px-4 py-2 rounded-full transition-all duration-300 ' + (u.is_following
-                              ? (isLight ? 'bg-nike-gray text-nike-light hover:bg-nike-red hover:text-white' : 'bg-white/10 text-white/60 hover:bg-nike-red hover:text-white')
-                              : 'bg-nike-red text-white hover:bg-white hover:text-nike-black'
-                            ) + ' ' + (animatingId === u.id ? 'animate-followPop' : '')}
-                          >
-                            {u.is_following ? 'Following' : 'Follow'}
-                          </button>
+                          {user && user.role !== 'vendor' && user.role !== 'gym_owner' && user.id !== u.id && (
+                            <button
+                              onClick={() => toggleFollow(u.id, u.is_following)}
+                              className={'shrink-0 text-xs tracking-widest uppercase font-bold px-4 py-2 rounded-full transition-all duration-300 ' + (u.is_following
+                                ? (isLight ? 'bg-nike-gray text-nike-light hover:bg-nike-red hover:text-white' : 'bg-white/10 text-white/60 hover:bg-nike-red hover:text-white')
+                                : 'bg-nike-red text-white hover:bg-white hover:text-nike-black'
+                              ) + ' ' + (animatingId === u.id ? 'animate-followPop' : '')}
+                            >
+                              {u.is_following ? 'Following' : 'Follow'}
+                            </button>
+                          )}
                         </div>
                       </div>
 

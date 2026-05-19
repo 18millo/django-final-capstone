@@ -381,6 +381,7 @@ function HomeDashboard() {
   const [products, setProducts] = useState([])
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [postCount, setPostCount] = useState(0)
+  const [premiumInfo, setPremiumInfo] = useState(null)
   const isVendor = user?.role === 'vendor'
 
   useEffect(() => {
@@ -409,6 +410,13 @@ function HomeDashboard() {
       .finally(() => setLoadingProducts(false))
   }, [isVendor])
 
+  useEffect(() => {
+    api.get('/auth/premium/check/')
+      .then((res) => setPremiumInfo(res.data))
+      .catch(() => {})
+  }, [])
+
+  
   useEffect(() => {
     if (!bellRung) {
       const t = setTimeout(() => { playBell(); setBellRung(true) }, 600)
@@ -454,7 +462,7 @@ function HomeDashboard() {
     { icon: '💪', label: 'Days Active', value: String(daysActive), sub: daysActive > 0 ? 'Since joining CombatHub' : 'Just joined!' },
     { icon: '📝', label: 'Forum Posts', value: String(postCount), sub: postCount > 0 ? 'Contributions to the community' : 'Start a discussion' },
     { icon: '👥', label: 'Followers', value: String(user.follower_count ?? 0), sub: user.follower_count > 0 ? 'Connections in your network' : 'Follow others to grow' },
-    { icon: '🏅', label: 'Premium', value: p.is_premium ? 'ACTIVE' : 'STANDARD', sub: p.is_premium ? 'All premium features unlocked' : 'Upgrade to unlock premium' },
+    { icon: '🏅', label: 'Premium', value: p.is_premium ? 'ACTIVE' : 'STANDARD', sub: p.is_premium ? 'All premium features unlocked' : profilePercent >= 100 ? 'Click to start your free month' : 'Complete your profile first' },
   ]
 
   const TIPS = [
@@ -709,16 +717,59 @@ function HomeDashboard() {
           </div>
 
            <Reveal delay={350}>
-             <div className={'p-6 rounded-2xl border text-center backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
-               <p className={'text-sm ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
-                 CombatHub <strong>v{appVersion}</strong> — {profilePercent < 100 ? (
-                   'Complete your' + ' '
-                   <Link to="/settings" className="text-nike-red hover:underline font-bold">profile</Link> + ' to unlock all features.'
-                 ) : (
-                   'Click to start your' + ' '
-                   <Link to="/settings" className="text-nike-red hover:underline font-bold">one-month premium trial</Link> + '!'
-                 )}
-               </p>
+             <div className={'p-6 rounded-2xl border backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
+               {profilePercent < 100 ? (
+                 <p className={'text-sm text-center ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
+                   CombatHub <strong>v{appVersion}</strong> — Complete your{' '}
+                   <Link to="/settings" className="text-nike-red hover:underline font-bold">profile</Link>
+                   {' to unlock all features.'}
+                 </p>
+               ) : premiumInfo?.is_premium ? (
+                 <div>
+                   <div className="flex items-center gap-2 mb-4">
+                     <span className="text-lg">💎</span>
+                     <h3 className={'text-sm font-bold tracking-wider ' + (isLight ? 'text-nike-black' : 'text-white')}>PREMIUM FEATURES</h3>
+                   </div>
+                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                     {premiumInfo.premium_features.map((f) => (
+                       <div key={f.title} className={'flex items-start gap-2 p-2 rounded-lg ' + (isLight ? 'bg-white/60' : 'bg-white/5')}>
+                         <span className="text-lg shrink-0">{f.icon}</span>
+                         <div className="min-w-0">
+                           <p className={'text-[11px] font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{f.title}</p>
+                         </div>
+                       </div>
+                     ))}
+                   </div>
+                   {premiumInfo.premium_expires_at && (
+                      <p className={'text-xs mt-3 text-center ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
+                        {premiumInfo.in_grace_period ? (
+                          <span className="text-nike-amber font-bold">⏳ Grace period ends {new Date(premiumInfo.premium_grace_end).toLocaleDateString()}</span>
+                        ) : (
+                          <>Premium expires {new Date(premiumInfo.premium_expires_at).toLocaleDateString()} · <span className="text-nike-amber">7-day grace after expiry</span></>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                ) : profilePercent >= 100 ? (
+                  <div className="text-center">
+                    <p className={'text-sm ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
+                      Ready for the full experience?
+                    </p>
+                    <button
+                      onClick={() => navigate('/premium/setup')}
+                      className="mt-3 inline-flex items-center gap-2 bg-nike-red hover:bg-white hover:text-nike-black text-white px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300"
+                    >
+                      ⚡ Start Your Free Month of Premium
+                    </button>
+                    <p className={'text-[10px] mt-2 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
+                      No credit card required. 7-day grace period after expiry.
+                    </p>
+                  </div>
+               ) : (
+                 <p className={'text-sm text-center ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
+                   CombatHub <strong>v{appVersion}</strong>
+                 </p>
+               )}
              </div>
            </Reveal>
         </div>

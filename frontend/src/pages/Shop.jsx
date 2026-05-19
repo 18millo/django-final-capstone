@@ -44,7 +44,7 @@ export default function Shop() {
   }
 
   useEffect(() => { fetchProducts() }, [page])
-  useEffect(() => { setPage(1); fetchProducts() }, [filters.category, filters.brand, filters.featured, filters.limited])
+  useEffect(() => { setPage(1); fetchProducts() }, [filters.category, filters.brand, filters.featured, filters.limited, filters.search, filters.min_price, filters.max_price])
 
   useEffect(() => {
     api.get('/categories/').then((res) => setCategories(res.data)).catch(() => {})
@@ -97,17 +97,17 @@ export default function Shop() {
               <div className={'flex flex-wrap items-end gap-4 mt-4 pt-4 border-t ' + (isLight ? 'border-nike-gray' : 'border-white/5')}>
                 <div>
                   <label className={'block text-[10px] tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>Category</label>
-                  <select value={filters.category} onChange={(e) => setFilters((p) => ({ ...p, category: e.target.value }))} className={'text-xs px-3 py-2 rounded-xl border outline-none ' + (isLight ? 'bg-white border-nike-gray text-nike-black' : 'bg-white/5 border-white/10 text-white')}>
-                    <option value="">All</option>
-                    {categories.map((c) => <option key={c.id} value={c.slug}>{c.name}</option>)}
-                  </select>
+                    <select value={filters.category} onChange={(e) => setFilters((p) => ({ ...p, category: e.target.value }))} className={'text-xs px-3 py-2 rounded-xl border outline-none ' + (isLight ? 'bg-white border-nike-gray text-nike-black' : 'bg-white/5 border-white/10 text-white')}>
+                      <option value="" className="bg-nike-dark">All</option>
+                      {categories.map((c) => <option key={c.id} value={c.slug} className="bg-nike-dark">{c.name}</option>)}
+                    </select>
                 </div>
                 <div>
                   <label className={'block text-[10px] tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>Brand</label>
-                  <select value={filters.brand} onChange={(e) => setFilters((p) => ({ ...p, brand: e.target.value }))} className={'text-xs px-3 py-2 rounded-xl border outline-none ' + (isLight ? 'bg-white border-nike-gray text-nike-black' : 'bg-white/5 border-white/10 text-white')}>
-                    <option value="">All</option>
-                    {brands.map((b) => <option key={b} value={b}>{b}</option>)}
-                  </select>
+                    <select value={filters.brand} onChange={(e) => setFilters((p) => ({ ...p, brand: e.target.value }))} className={'text-xs px-3 py-2 rounded-xl border outline-none ' + (isLight ? 'bg-white border-nike-gray text-nike-black' : 'bg-white/5 border-white/10 text-white')}>
+                      <option value="" className="bg-nike-dark">All</option>
+                      {brands.map((b) => <option key={b} value={b} className="bg-nike-dark">{b}</option>)}
+                    </select>
                 </div>
                 <div>
                   <label className={'block text-[10px] tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>Min Price</label>

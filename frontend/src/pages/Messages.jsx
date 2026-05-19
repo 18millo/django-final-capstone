@@ -74,22 +74,38 @@ export default function Messages() {
   }, [])
 
   useEffect(() => {
-    if (!conversations.length) return
     const poll = setInterval(() => {
       api.get('/auth/conversations/')
         .then((res) => {
           setConversations((prev) => {
-            const merged = [...res.data]
-            for (const c of prev) {
-              if (!merged.find((m) => m.user_id === c.user_id)) merged.push(c)
-            }
-            return merged
+            const serverMap = new Map(res.data.map((c) => [c.user_id, c]))
+            const merged = prev.map((local) => {
+              const server = serverMap.get(local.user_id)
+              if (!server) return local
+              serverMap.delete(local.user_id)
+              return { ...server, unread: local.unread }
+            })
+            return [...merged, ...serverMap.values()]
           })
         })
         .catch(() => {})
-    }, 10000)
+    }, 30000)
+    api.get('/auth/conversations/')
+      .then((res) => {
+        setConversations((prev) => {
+          const serverMap = new Map(res.data.map((c) => [c.user_id, c]))
+          const merged = prev.map((local) => {
+            const server = serverMap.get(local.user_id)
+            if (!server) return local
+            serverMap.delete(local.user_id)
+            return { ...server, unread: local.unread }
+          })
+          return [...merged, ...serverMap.values()]
+        })
+      })
+      .catch(() => {})
     return () => clearInterval(poll)
-  }, [conversations.length > 0])
+  }, [])
 
   useEffect(() => {
     if (activeId) {
@@ -110,12 +126,24 @@ export default function Messages() {
     if (activeId && wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'mark_read' }))
     }
-  }, [activeId, messages])
+  }, [activeId])
 
   useEffect(() => {
-    if (!activeId) return
     const handler = (e) => {
-      if (e.detail.sender === activeId) {
+      const { sender, sender_name, content, created_at } = e.detail
+      if (!sender) return
+      setConversations((prev) => {
+        const existing = prev.find((c) => c.user_id === sender)
+        if (existing) {
+          return prev.map((c) =>
+            c.user_id === sender
+              ? { ...c, last_message: content || '📷 Photo', last_message_time: created_at || new Date().toISOString(), unread: c.user_id === activeId ? 0 : (c.unread || 0) + 1 }
+              : c
+          )
+        }
+        return [{ user_id: sender, username: sender_name || 'User', avatar: null, last_message: content || '📷 Photo', last_message_time: created_at || new Date().toISOString(), unread: 1 }, ...prev].sort((a, b) => new Date(b.last_message_time || 0) - new Date(a.last_message_time || 0))
+      })
+      if (sender === activeId) {
         api.get('/auth/conversations/' + activeId + '/')
           .then((res) => setMessages((prev) => {
             const fresh = res.data
@@ -172,15 +200,19 @@ export default function Messages() {
           })
           if (data.sender !== user.id) {
             playSuccess()
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({ type: 'message_delivered', message_id: data.id }))
+            }
           }
           setConversations((prev) => prev.map((c) =>
             c.user_id === (data.sender === user.id ? parseInt(activeId) : data.sender)
               ? { ...c, last_message: data.content || (data.view_once ? '📷 View once photo' : '📷 Photo'), last_message_time: data.created_at, unread: data.sender !== user.id ? (c.unread || 0) + 1 : c.unread }
               : c
+          ).sort((a, b) => new Date(b.last_message_time || 0) - new Date(a.last_message_time || 0)))
+        } else if (data.type === 'message_delivered') {
+          setMessages((prev) => prev.map((m) =>
+            m.id === data.message_id ? { ...m, delivered: true } : m
           ))
-          if (wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({ type: 'mark_read' }))
-          }
         } else if (data.type === 'messages_read') {
           setMessages((prev) => prev.map((m) =>
             m.sender === data.read_by ? { ...m, read: true } : m
@@ -230,12 +262,13 @@ export default function Messages() {
     setImagePreview(null)
   }
 
-  const handleViewOnceMessage = async (msgId) => {
+  const handleViewOnceMessage = async (msgId, imageUrl) => {
     try {
       await api.post('/auth/messages/' + msgId + '/view-once/')
       setMessages((prev) => prev.map((m) =>
         m.id === msgId ? { ...m, viewed: true } : m
       ))
+      setLightboxUrl(mediaUrl(imageUrl))
     } catch {
       toast('Failed to open view once image', 'error')
     }
@@ -254,6 +287,7 @@ export default function Messages() {
       sender: user.id,
       content: content || '',
       created_at: new Date().toISOString(),
+      delivered: false,
       read: false,
       image_url: imagePreview || null,
       view_once: viewOnce,
@@ -264,7 +298,7 @@ export default function Messages() {
       ...c,
       last_message: lastMsgText,
       last_message_time: new Date().toISOString(),
-    } : c))
+    } : c).sort((a, b) => new Date(b.last_message_time || 0) - new Date(a.last_message_time || 0)))
 
     if (imageFile) {
       const formData = new FormData()
@@ -282,7 +316,7 @@ export default function Messages() {
             ...c,
             last_message: lastText,
             last_message_time: data.created_at,
-          } : c))
+          } : c).sort((a, b) => new Date(b.last_message_time || 0) - new Date(a.last_message_time || 0)))
           playSuccess()
         })
         .catch(() => {
@@ -302,7 +336,7 @@ export default function Messages() {
 
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'message', content, view_once: viewOnce }))
-      setConversations((prev) => prev.map((c) => c.user_id === activeId ? { ...c, last_message: content, last_message_time: new Date().toISOString() } : c))
+      setConversations((prev) => prev.map((c) => c.user_id === activeId ? { ...c, last_message: content, last_message_time: new Date().toISOString() } : c).sort((a, b) => new Date(b.last_message_time || 0) - new Date(a.last_message_time || 0)))
       playSuccess()
     } else {
       setMessages((prev) => prev.filter((m) => m.id !== tempId))
@@ -310,7 +344,7 @@ export default function Messages() {
         .then(({ data }) => {
           setMessages((prev) => [data, ...prev])
           const lastText = data.content || (data.view_once ? '📷 View once photo' : '📷 Photo')
-          setConversations((prev) => prev.map((c) => c.user_id === activeId ? { ...c, last_message: lastText, last_message_time: data.created_at } : c))
+          setConversations((prev) => prev.map((c) => c.user_id === activeId ? { ...c, last_message: lastText, last_message_time: data.created_at } : c).sort((a, b) => new Date(b.last_message_time || 0) - new Date(a.last_message_time || 0)))
           playSuccess()
         })
         .catch(() => toast('Failed to send message', 'error'))
@@ -543,8 +577,8 @@ export default function Messages() {
                         )}>
                           {hasImage && isViewOnce && !isMe && !isViewed && (
                             <button
-                              onClick={() => handleViewOnceMessage(item.id)}
-                              className="flex flex-col items-center justify-center gap-2 p-8 w-full min-h-[160px]"
+                              onClick={() => handleViewOnceMessage(item.id, item.image_url)}
+                              className="flex flex-col items-center justify-center gap-2 p-8 w-full min-h-[160px] cursor-pointer"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 opacity-60"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                               <span className="text-xs font-bold opacity-80 text-center">Sensitive content<br/>Tap to view</span>
@@ -580,9 +614,15 @@ export default function Messages() {
                           )}
                           <div className={'flex items-center justify-end gap-1 px-4 pb-2.5 pt-1 ' + (isMe ? 'text-white/50' : (isLight ? 'text-nike-light' : 'text-white/30'))}>
                             <span className="text-[10px]">{formatTime(item.created_at)}</span>
-                            {isMe && !item.read && (
+                            {isMe && !item.delivered && (
                               <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-white/40">
                                 <path d="M2 6l3 3 5-5"/>
+                              </svg>
+                            )}
+                            {isMe && item.delivered && !item.read && (
+                              <svg viewBox="0 0 20 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-[14px] h-3 text-white/40">
+                                <path d="M2 6.5l3 3 5-5" opacity="0.4"/>
+                                <path d="M10 6.5l3 3 5-5"/>
                               </svg>
                             )}
                             {isMe && item.read && (

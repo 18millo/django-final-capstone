@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTheme } from '../providers/ThemeProvider'
+import { useAuth } from '../providers/AuthProvider'
 import api from '../utils/api'
 import Spinner from '../components/ui/Spinner'
 import { playClick, playSuccess } from '../utils/sounds'
 import { toast } from '../components/ui/Toast'
 
 export default function VendorProductForm() {
+  const { user } = useAuth()
   const { id } = useParams()
   const navigate = useNavigate()
   const { theme } = useTheme()
@@ -23,6 +25,13 @@ export default function VendorProductForm() {
     images: '', discount_active: false, discount_percent: '',
     limited_edition: false, featured: false, serial_number: '',
   })
+
+  useEffect(() => {
+    if (!isEdit && user && !user.profile?.is_premium) {
+      toast('Premium subscription required to create products', 'error')
+      navigate('/premium', { replace: true })
+    }
+  }, [user])
 
   useEffect(() => {
     api.get('/categories/')
@@ -133,9 +142,14 @@ export default function VendorProductForm() {
          toast('Product created!', 'success')
        }
        navigate('/vendor')
-     } catch (err) {
-       toast(err?.response?.data?.error || 'Save failed', 'error')
-     } finally {
+      } catch (err) {
+        const msg = err?.response?.data?.error || err?.response?.data?.detail || ''
+        if (msg.toLowerCase().includes('premium')) {
+          navigate('/premium')
+          return
+        }
+        toast(msg || 'Save failed', 'error')
+      } finally {
        setSaving(false)
      }
    }
@@ -180,10 +194,10 @@ export default function VendorProductForm() {
             </div>
              <div>
                <label className={'block text-xs font-bold mb-1.5 ' + mutedClass}>Category</label>
-               <select name="category" value={form.category} onChange={handleChange} className={selectClass}>
-                 <option value="">Select category</option>
-                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-               </select>
+                <select name="category" value={form.category} onChange={handleChange} className={selectClass}>
+                  <option value="" className="bg-nike-dark">Select category</option>
+                  {categories.map((c) => <option key={c.id} value={c.id} className="bg-nike-dark">{c.name}</option>)}
+                </select>
              </div>
             <div>
               <label className={'block text-xs font-bold mb-1.5 ' + mutedClass}>Price ($)</label>

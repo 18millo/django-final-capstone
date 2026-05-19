@@ -16,6 +16,9 @@ export default function VendorDashboard() {
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(null)
   const [togglingDiscount, setTogglingDiscount] = useState(null)
+  const [followers, setFollowers] = useState([])
+  const [removing, setRemoving] = useState(null)
+  const [blocking, setBlocking] = useState(null)
 
   const fetchData = () => {
     setLoading(true)
@@ -26,9 +29,39 @@ export default function VendorDashboard() {
       .then(([pRes, sRes]) => {
         setProducts(pRes.data.results || pRes.data || [])
         setStats(sRes.data)
+        setFollowers(sRes.data.followers || [])
       })
       .catch(() => toast('Failed to load data', 'error'))
       .finally(() => setLoading(false))
+  }
+
+  const removeFollower = async (followerId) => {
+    setRemoving(followerId)
+    try {
+      await api.post('/auth/users/' + followerId + '/remove-follower/')
+      setFollowers((prev) => prev.filter((f) => f.id !== followerId))
+      playSuccess()
+      toast('Follower removed', 'success')
+    } catch {
+      toast('Failed to remove follower', 'error')
+    } finally {
+      setRemoving(null)
+    }
+  }
+
+  const blockUser = async (userId) => {
+    if (!confirm('Block this user? They will be removed from your followers.')) return
+    setBlocking(userId)
+    try {
+      await api.post('/auth/users/' + userId + '/block/')
+      setFollowers((prev) => prev.filter((f) => f.id !== userId))
+      playSuccess()
+      toast('User blocked', 'success')
+    } catch {
+      toast('Failed to block user', 'error')
+    } finally {
+      setBlocking(null)
+    }
   }
 
   useEffect(() => { fetchData() }, [])
@@ -149,13 +182,59 @@ export default function VendorDashboard() {
                 View Shop
               </button>
               <button
-                onClick={() => { playClick(); navigate('/orders') }}
+                onClick={() => { playClick(); navigate('/seller/orders') }}
                 className={'flex items-center gap-2 px-5 py-3 rounded-xl text-xs tracking-widest uppercase font-bold border transition-all duration-300 ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-gray/50' : 'border-white/10 text-white/40 hover:bg-white/10')}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 Orders
               </button>
             </div>
+          </div>
+        </Reveal>
+
+        {/* Followers */}
+        <Reveal delay={120}>
+          <div className={'p-5 rounded-2xl border ' + borderClass + ' ' + cardBg}>
+            <div className="flex items-center justify-between mb-4">
+              <div className={'text-xs tracking-widest uppercase font-bold ' + mutedClass}>
+                Followers
+                <span className={'ml-2 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>({stats?.follower_count || 0})</span>
+              </div>
+            </div>
+            {followers.length === 0 ? (
+              <p className={'text-sm ' + mutedClass}>No followers yet.</p>
+            ) : (
+              <div className="grid gap-2">
+                {followers.map((f) => (
+                  <div key={f.id} className={'flex items-center justify-between p-3 rounded-xl ' + (isLight ? 'bg-nike-gray/20' : 'bg-white/5')}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 bg-nike-gray/30 flex items-center justify-center text-sm font-bold" style={{ color: 'var(--color-nike-light)' }}>
+                        {f.avatar ? <img src={f.avatar} className="w-full h-full object-cover" alt="" /> : (f.username || '?')[0].toUpperCase()}
+                      </div>
+                      <span className={'text-sm font-bold truncate ' + textClass}>
+                        {f.username || 'Anonymous'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => removeFollower(f.id)}
+                        disabled={removing === f.id}
+                        className={'px-3 py-1.5 rounded-lg text-[10px] tracking-widest uppercase font-bold border transition-all ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-gray/50' : 'border-white/10 text-white/40 hover:bg-white/10')}
+                      >
+                        {removing === f.id ? '...' : 'Remove'}
+                      </button>
+                      <button
+                        onClick={() => blockUser(f.id)}
+                        disabled={blocking === f.id}
+                        className="px-3 py-1.5 rounded-lg text-[10px] tracking-widest uppercase font-bold border border-nike-red/30 text-nike-red hover:bg-nike-red hover:text-white transition-all"
+                      >
+                        {blocking === f.id ? '...' : 'Block'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </Reveal>
 

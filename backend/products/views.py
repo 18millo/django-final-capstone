@@ -2,6 +2,8 @@ from django.db import models
 from django.db.models import Prefetch
 from django.utils import timezone
 from django.conf import settings
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from rest_framework import status, permissions, generics, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -82,10 +84,15 @@ class CategoryListView(generics.ListAPIView):
     queryset = Category.objects.all()
     pagination_class = None
 
+    @method_decorator(cache_page(60 * 30))
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+
 
 class BrandListView(APIView):
     permission_classes = [permissions.AllowAny]
 
+    @method_decorator(cache_page(60 * 30))
     def get(self, request):
         brands = Product.objects.values_list('brand', flat=True).distinct().order_by('brand')
         return Response([b for b in brands if b])
@@ -204,6 +211,25 @@ class OrderDetailView(generics.RetrieveAPIView):
         return Order.objects.filter(user=self.request.user)
 
 
+class SellerOrderListView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = OrderSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role not in ('vendor', 'coach', 'gym_owner'):
+            return Order.objects.none()
+        vendor_product_ids = list(Product.objects.filter(vendor=user).values_list('id', flat=True))
+        all_orders = Order.objects.all().order_by('-created_at')
+        matching = []
+        for order in all_orders:
+            for item in order.items:
+                if item.get('product_id') in vendor_product_ids:
+                    matching.append(order.id)
+                    break
+        return Order.objects.filter(id__in=matching).order_by('-created_at')
+
+
 class CheckoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -256,6 +282,20 @@ class CheckoutView(APIView):
             shipping_address=shipping_address,
         )
 
+        # Notify sellers about the order
+        from accounts.models import Notification
+        seller_ids = set()
+        for item in cart.items.all():
+            product = item.product
+            if product.vendor_id and product.vendor_id not in seller_ids:
+                seller_ids.add(product.vendor_id)
+                Notification.objects.create(
+                    recipient=product.vendor,
+                    actor=request.user,
+                    notification_type='new_order',
+                    message=f'New order received for {product.name} from {request.user.display_name or request.user.email}',
+                )
+
         cart.items.all().delete()
         return Response(OrderSerializer(order).data, status=201)
 
@@ -291,6 +331,9 @@ class VendorProductListView(generics.ListCreateAPIView):
         return Product.objects.filter(vendor=self.request.user)
 
     def perform_create(self, serializer):
+        from common.permissions import IsPremium
+        if not IsPremium().has_permission(self.request, self):
+            raise permissions.exceptions.PermissionDenied(detail='Premium subscription required to sell products. Start your free trial today!')
         serializer.save(vendor=self.request.user)
 
     def get_serializer_context(self):
@@ -304,6 +347,18 @@ class VendorProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return Product.objects.filter(vendor=self.request.user)
 
+    def perform_update(self, serializer):
+        from common.permissions import IsPremium
+        if not IsPremium().has_permission(self.request, self):
+            raise permissions.exceptions.PermissionDenied(detail='Premium subscription required to edit products.')
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        from common.permissions import IsPremium
+        if not IsPremium().has_permission(self.request, self):
+            raise permissions.exceptions.PermissionDenied(detail='Premium subscription required to delete products.')
+        instance.delete()
+
     def get_serializer_context(self):
         return {'request': self.request}
 
@@ -312,6 +367,9 @@ class VendorProductToggleDiscountView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsSeller]
 
     def post(self, request, product_id):
+        from common.permissions import IsPremium
+        if not IsPremium().has_permission(self.request, self):
+            return Response({'error': 'Premium subscription required to manage discounts.'}, status=403)
         product = Product.objects.filter(id=product_id, vendor=request.user).first()
         if not product:
             return Response({'error': 'Product not found'}, status=404)
@@ -324,6 +382,9 @@ class ProductImageUploadView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsSeller]
 
     def post(self, request):
+        from common.permissions import IsPremium
+        if not IsPremium().has_permission(self.request, self):
+            return Response({'error': 'Premium subscription required to upload images.'}, status=403)
         file = request.FILES.get('image')
         category_slug = request.data.get('category', 'other')
         if not file:

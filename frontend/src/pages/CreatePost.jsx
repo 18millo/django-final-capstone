@@ -51,8 +51,13 @@ export default function CreatePost() {
       playSuccess()
       toast('Post created!', 'success')
       navigate('/forum/' + res.data.id)
-    } catch {
-      toast('Failed to create post', 'error')
+    } catch (err) {
+      const msg = err?.response?.data?.detail || ''
+      if (msg.toLowerCase().includes('premium')) {
+        navigate('/premium')
+        return
+      }
+      toast(msg || 'Failed to create post', 'error')
     } finally {
       setSubmitting(false)
     }

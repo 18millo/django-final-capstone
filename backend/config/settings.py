@@ -90,6 +90,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
@@ -110,6 +111,16 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.AnonRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'user': '1000/day',
+        'anon': '30/hour',
+        'register': '3/hour',
+        'subscribe': '5/hour',
+    },
 }
 
 SIMPLE_JWT = {
@@ -125,11 +136,52 @@ CORS_ALLOW_CREDENTIALS = True
 
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173').split(',')[0]
 
+REDIS_HOST = config('REDIS_HOST', default='127.0.0.1')
+REDIS_PORT = config('REDIS_PORT', default=6379, cast=int)
+
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels.layers.InMemoryChannelLayer',
     },
 }
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'combathub-cache',
+        'TIMEOUT': 300,
+    },
+}
+
+try:
+    import redis
+    r = redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        socket_connect_timeout=2,
+    )
+    r.ping()
+    CACHES['default'] = {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': f'redis://{REDIS_HOST}:{REDIS_PORT}/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'IGNORE_EXCEPTIONS': True,
+        },
+        'TIMEOUT': 300,
+    }
+except Exception:
+    pass
+
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_CACHE_ALIAS = 'default'
+
+CELERY_BROKER_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/0'
+CELERY_RESULT_BACKEND = f'redis://{REDIS_HOST}:{REDIS_PORT}/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')

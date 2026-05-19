@@ -104,8 +104,14 @@ export function AuthProvider({ children }) {
     setUser((prev) => ({ ...prev, ...updated }))
   }
 
+  const refreshUser = async () => {
+    const { data } = await api.get('/auth/me/')
+    setUser(data)
+    return data
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, verifyLogin, verifyAccessCode, register, googleLogin, setUsername, logout, updateUser, setupTotp, verifyTotp, disableTotp }}>
+    <AuthContext.Provider value={{ user, loading, login, verifyLogin, verifyAccessCode, register, googleLogin, setUsername, logout, updateUser, refreshUser, setupTotp, verifyTotp, disableTotp }}>
       {children}
     </AuthContext.Provider>
   )

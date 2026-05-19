@@ -1,8 +1,6 @@
 import random
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
-from django.dispatch import receiver
-from django.db.models.signals import post_save
 from django.utils import timezone
 
 
@@ -42,6 +40,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     updated_at = models.DateTimeField(auto_now=True)
     totp_secret = models.CharField(max_length=64, blank=True)
     totp_enabled = models.BooleanField(default=False)
+    email_verified = models.BooleanField(default=False)
 
     objects = UserManager()
 
@@ -98,6 +97,12 @@ class Profile(models.Model):
 
     # premium subscription
     is_premium = models.BooleanField(default=False)
+    premium_trial_started = models.DateTimeField(null=True, blank=True)
+    premium_expires_at = models.DateTimeField(null=True, blank=True)
+    premium_grace_end = models.DateTimeField(null=True, blank=True)
+
+    # phone verification
+    phone_verified = models.BooleanField(default=False)
 
     # terms acceptance
     accepted_terms = models.BooleanField(default=False)
@@ -106,6 +111,28 @@ class Profile(models.Model):
 
     def __str__(self):
         return f"{self.user.email}'s profile"
+
+    def is_premium_active(self):
+        if not self.is_premium:
+            return False
+        from django.utils import timezone
+        now = timezone.now()
+        if self.premium_grace_end and self.premium_grace_end < now:
+            self.is_premium = False
+            self.save(update_fields=['is_premium'])
+            return False
+        if self.premium_expires_at and self.premium_expires_at < now:
+            if not self.premium_grace_end:
+                self.premium_grace_end = now + timezone.timedelta(days=7)
+                self.save(update_fields=['premium_grace_end'])
+                Notification.objects.create(
+                    recipient=self.user,
+                    actor=self.user,
+                    notification_type='premium_expiring',
+                    message='Your premium trial has ended. You\'ve been given a 1-week grace extension! Subscribe to keep premium features.',
+                )
+            return True
+        return True
 
 
 class Follow(models.Model):
@@ -138,6 +165,9 @@ class Notification(models.Model):
         NEW_POST = 'new_post', 'New Forum Post'
         NEW_GALLERY = 'new_gallery', 'New Gallery Upload'
         CONTENT_FLAG = 'content_flag', 'Content Flagged'
+        PREMIUM_ACTIVATED = 'premium_activated', 'Premium Activated'
+        PREMIUM_EXPIRING = 'premium_expiring', 'Premium Expiring'
+        PREMIUM_EXPIRED = 'premium_expired', 'Premium Expired'
 
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
     actor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='actor_notifications')
@@ -157,6 +187,7 @@ class Message(models.Model):
     image = models.ImageField(upload_to='message_images/', blank=True)
     view_once = models.BooleanField(default=False)
     viewed = models.BooleanField(default=False)
+    delivered = models.BooleanField(default=False)
     read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -203,32 +234,31 @@ class EmailVerificationCode(models.Model):
         return timezone.now() > self.expires_at
 
 
-from django.contrib.auth.models import Group
+class PhoneVerificationCode(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='phone_verification_codes')
+    code = models.CharField(max_length=6)
+    phone = models.CharField(max_length=20)
+    is_used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.phone} - {self.code}'
+
+    @classmethod
+    def generate(cls, user, phone):
+        code = ''.join(random.choices('0123456789', k=6))
+        expires_at = timezone.now() + timezone.timedelta(minutes=10)
+        return cls.objects.create(user=user, phone=phone, code=code, expires_at=expires_at)
+
+    @property
+    def is_expired(self):
+        return timezone.now() > self.expires_at
 
 
-def assign_group_to_user(user):
-    role_to_group = {
-        'athlete': 'Reader',
-        'coach': 'Author',
-        'gym_owner': 'Author',
-        'vendor': 'Author',
-        'admin': 'Admin',
-    }
-    group_name = role_to_group.get(user.role)
-    if group_name:
-        try:
-            group = Group.objects.get(name=group_name)
-            if group not in user.groups.all():
-                user.groups.add(group)
-        except Group.DoesNotExist:
-            pass
-
-
-@receiver(post_save, sender=User)
-def create_user_profile(sender, instance, created, **kwargs):
-    if created:
-        Profile.objects.create(user=instance)
-        assign_group_to_user(instance)
 
 
 class VendorAccessCode(models.Model):
@@ -464,65 +494,22 @@ class ContentFlag(models.Model):
         return f'Flag #{self.id} {self.reason} on {self.content_type}#{self.content_id}'
 
 
-# Signal receivers for content moderation and notifications
-@receiver(post_save, sender=Post)
-def auto_flag_and_notify_post(sender, instance, created, **kwargs):
-    if created:
-        from .moderation import flag_content
-        flag_content(instance.author, 'post', instance.id, instance.content)
-        followers = User.objects.filter(following__following=instance.author)
-        for follower in followers:
-            Notification.objects.create(
-                recipient=follower,
-                actor=instance.author,
-                notification_type='new_post',
-                message=f'{instance.author.username or instance.author.email} created a new post.',
-            )
+class PaymentInfo(models.Model):
+    PAYMENT_METHODS = [
+        ('mpesa', 'M-Pesa'),
+        ('card', 'Card'),
+    ]
 
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='payment_info')
+    method = models.CharField(max_length=10, choices=PAYMENT_METHODS)
+    mpesa_phone = models.CharField(max_length=20, blank=True)
+    card_last_four = models.CharField(max_length=4, blank=True)
+    card_brand = models.CharField(max_length=20, blank=True)
+    card_token = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-@receiver(post_save, sender=PostComment)
-def auto_flag_post_comment(sender, instance, created, **kwargs):
-    if created:
-        from .moderation import flag_content
-        flag_content(instance.author, 'post_comment', instance.id, instance.content)
-
-
-@receiver(post_save, sender=GalleryItem)
-def auto_flag_and_notify_gallery(sender, instance, created, **kwargs):
-    if created:
-        if instance.caption:
-            from .moderation import flag_content
-            flag_content(instance.user, 'gallery_item', instance.id, instance.caption)
-        followers = User.objects.filter(following__following=instance.user)
-        for follower in followers:
-            Notification.objects.create(
-                recipient=follower,
-                actor=instance.user,
-                notification_type='new_gallery',
-                message=f'{instance.user.username or instance.user.email} uploaded a new gallery photo.',
-            )
-
-
-@receiver(post_save, sender=GalleryComment)
-def auto_flag_gallery_comment(sender, instance, created, **kwargs):
-    if created:
-        from .moderation import flag_content
-        flag_content(instance.user, 'gallery_comment', instance.id, instance.content)
-
-
-@receiver(post_save, sender=Profile)
-def notify_and_flag_profile_update(sender, instance, **kwargs):
-    if instance.bio:
-        from .moderation import flag_content
-        flag_content(instance.user, 'profile', instance.user.id, instance.bio)
-    if instance.business_description:
-        from .moderation import flag_content
-        flag_content(instance.user, 'profile', instance.user.id, instance.business_description)
-    followers = User.objects.filter(following__following=instance.user)
-    for follower in followers:
-        Notification.objects.create(
-            recipient=follower,
-            actor=instance.user,
-            notification_type='profile_update',
-            message=f'{instance.user.username or instance.user.email} updated their profile.',
-        )
+    def __str__(self):
+        if self.method == 'mpesa':
+            return f'M-Pesa {self.mpesa_phone}'
+        return f'{self.card_brand} ****{self.card_last_four}'

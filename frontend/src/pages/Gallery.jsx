@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import api from '../utils/api'
 import { mediaUrl } from '../utils/media'
 import { useAuth } from '../providers/AuthProvider'
 import { useTheme } from '../providers/ThemeProvider'
 import PremiumBadge from '../components/ui/PremiumBadge'
+import { toast } from '../components/ui/Toast'
 import { useGsapStagger, useGsapReveal } from '../hooks/useGsapReveal'
 
 export default function Gallery() {
   const { user } = useAuth()
   const { theme } = useTheme()
+  const navigate = useNavigate()
   const isLight = theme === 'light'
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -51,7 +53,12 @@ export default function Gallery() {
       setImage(null)
       setPreview(null)
     } catch (err) {
-      alert(err.response?.data?.detail || 'Upload failed. Premium required.')
+      const msg = err.response?.data?.detail || ''
+      if (msg.toLowerCase().includes('premium')) {
+        navigate('/premium')
+        return
+      }
+      toast(msg || 'Upload failed', 'error')
     }
     setUploading(false)
   }
@@ -76,7 +83,7 @@ export default function Gallery() {
               Training moments, fight highlights, and gym culture from the community.
             </p>
           </div>
-          {user?.profile?.is_premium && (
+          {user && (
             <button
               onClick={() => setShowUpload(!showUpload)}
               className="flex items-center gap-2 bg-nike-red hover:bg-white hover:text-nike-black text-white px-5 py-2.5 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300"
@@ -128,7 +135,7 @@ export default function Gallery() {
           <div className={'text-center py-20 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>
             <div className="text-5xl mb-4">📸</div>
             <p className="text-sm">No gallery posts yet.</p>
-            {user?.profile?.is_premium && (
+          {user?.profile?.is_premium && (
               <button onClick={() => setShowUpload(true)} className="mt-4 text-nike-red text-xs tracking-widest uppercase font-bold hover:underline">
                 Be the first to upload
               </button>

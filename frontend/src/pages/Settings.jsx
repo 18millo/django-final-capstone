@@ -361,6 +361,10 @@ export default function Settings() {
   const [avatarPreview, setAvatarPreview] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
+  const [showPhoneVerify, setShowPhoneVerify] = useState(false)
+  const [phoneCode, setPhoneCode] = useState('')
+  const [sendingPhoneCode, setSendingPhoneCode] = useState(false)
+  const [verifyingPhone, setVerifyingPhone] = useState(false)
   const isLight = theme === 'light'
 
   useEffect(() => {
@@ -501,7 +505,81 @@ export default function Settings() {
                   </div>
                   <div className="grid md:grid-cols-2 gap-5">
                     <Input label="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
-                    <Input label="Phone" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                    <div>
+                      <Input label="Phone" type="tel" value={form.phone} onChange={(e) => { setForm({ ...form, phone: e.target.value }); setShowPhoneVerify(false) }} />
+                      <div className="flex items-center gap-2 mt-1.5">
+                        {user.profile?.phone_verified ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] tracking-widest uppercase font-bold text-green-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                            Verified
+                          </span>
+                        ) : form.phone && form.phone.length >= 8 && !showPhoneVerify ? (
+                          <button
+                            onClick={() => setShowPhoneVerify(true)}
+                            className="text-[10px] tracking-widest uppercase font-bold text-nike-red hover:underline"
+                          >
+                            Verify Phone
+                          </button>
+                        ) : null}
+                      </div>
+                      {showPhoneVerify && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <input
+                            type="text"
+                            maxLength={6}
+                            placeholder="Enter code"
+                            value={phoneCode}
+                            onChange={(e) => setPhoneCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            className="w-28 px-3 py-2 rounded-lg text-xs font-mono text-center tracking-widest outline-none transition-all duration-300"
+                            style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)', color: 'var(--color-nike-white)' }}
+                          />
+                          {phoneCode.length === 6 ? (
+                            <button
+                              onClick={async () => {
+                                setVerifyingPhone(true)
+                                try {
+                                  await api.post('/auth/phone/verify/', { phone: form.phone, code: phoneCode })
+                                  updateUser({ ...user, profile: { ...user.profile, phone_verified: true, phone: form.phone } })
+                                  toast('Phone verified!', 'success')
+                                  setShowPhoneVerify(false)
+                                  setPhoneCode('')
+                                } catch (err) {
+                                  toast(err.response?.data?.error || 'Invalid code', 'error')
+                                } finally {
+                                  setVerifyingPhone(false)
+                                }
+                              }}
+                              disabled={verifyingPhone}
+                              className="px-4 py-2 bg-nike-red text-white rounded-lg text-[10px] tracking-widest uppercase font-bold transition-all duration-300 disabled:opacity-50"
+                            >
+                              {verifyingPhone ? '…' : 'Verify'}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={async () => {
+                                setSendingPhoneCode(true)
+                                try {
+                                  await api.post('/auth/phone/send-code/', { phone: form.phone })
+                                  toast('Code sent!', 'success')
+                                } catch (err) {
+                                  toast(err.response?.data?.error || 'Failed to send code', 'error')
+                                } finally {
+                                  setSendingPhoneCode(false)
+                                }
+                              }}
+                              disabled={sendingPhoneCode || phoneCode.length > 0}
+                              className="px-4 py-2 rounded-lg text-[10px] tracking-widest uppercase font-bold border transition-all duration-300 disabled:opacity-50"
+                              style={{ borderColor: 'var(--color-nike-gray)', color: 'var(--color-nike-light)' }}
+                            >
+                              {sendingPhoneCode ? 'Sending…' : 'Send Code'}
+                            </button>
+                          )}
+                          <button onClick={() => { setShowPhoneVerify(false); setPhoneCode('') }} className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--color-nike-light)' }}>
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="mt-5 space-y-1.5">
                     <label className="block text-xs tracking-widest uppercase font-bold" style={{ color: 'var(--color-nike-light)' }}>Bio</label>
@@ -541,7 +619,7 @@ export default function Settings() {
                         <MapPicker
                           lat={form.latitude ? parseFloat(form.latitude) : null}
                           lng={form.longitude ? parseFloat(form.longitude) : null}
-                          onLocationChange={(lat, lng) => setForm({ ...form, latitude: lat, longitude: lng })}
+                          onLocationChange={(lat, lng) => setForm((p) => ({ ...p, latitude: lat, longitude: lng }))}
                         />
                       </div>
                       <div className="flex gap-4 text-xs" style={{ color: 'var(--color-nike-light)' }}>
@@ -549,9 +627,9 @@ export default function Settings() {
                         {form.longitude && <span>Lng: {form.longitude}</span>}
                       </div>
                     </div>
-                  </div>
-                )}
-            </Reveal>
+                    </div>
+                  )}
+                </Reveal>
             <Button type="submit" loading={loading} className="w-full">Save Changes</Button>
           </form>
         )}

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
-from .models import User, Profile, UsernameChange, SiteContent, VendorAccessCode, Post, PostComment, PostLike, GalleryItem, GalleryLike, GalleryComment, Bookmark, Report, BlockedUser, PostCommentLike, ContentFlag, IPLog
+from .models import User, Profile, UsernameChange, SiteContent, VendorAccessCode, Post, PostComment, PostLike, GalleryItem, GalleryLike, GalleryComment, Bookmark, Report, BlockedUser, PostCommentLike, ContentFlag, IPLog, PaymentInfo, PhoneVerificationCode
 
 
 @admin.register(User)
@@ -186,3 +186,17 @@ class IPLogAdmin(admin.ModelAdmin):
     def ip_short(self, obj):
         return obj.ip_hash[:16] + '...'
     ip_short.short_description = 'IP Hash'
+
+
+@admin.register(PaymentInfo)
+class PaymentInfoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'method', 'mpesa_phone', 'card_last_four', 'created_at')
+    list_filter = ('method', 'created_at')
+    search_fields = ('user__email', 'mpesa_phone')
+
+
+@admin.register(PhoneVerificationCode)
+class PhoneVerificationCodeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'phone', 'code', 'is_used', 'created_at')
+    list_filter = ('is_used', 'created_at')
+    search_fields = ('user__email', 'phone')

@@ -17,3 +17,5 @@ stripe
 celery
 cloudinary
 redis
+django-redis
+africastalking

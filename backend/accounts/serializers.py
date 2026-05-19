@@ -3,7 +3,7 @@ import string
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from rest_framework import serializers
-from .models import User, Profile, UsernameChange, SiteContent, Follow, Notification, Message, Post, PostLike, PostComment, GalleryItem, GalleryLike, GalleryComment, Bookmark, Report, BlockedUser, PostCommentLike
+from .models import User, Profile, UsernameChange, SiteContent, Follow, Notification, Message, Post, PostLike, PostComment, GalleryItem, GalleryLike, GalleryComment, Bookmark, Report, BlockedUser, PostCommentLike, PaymentInfo
 
 
 ACCESS_CODE_ROLES = {'vendor', 'coach', 'gym_owner'}
@@ -34,6 +34,8 @@ class RegisterSerializer(serializers.ModelSerializer):
     business_name = serializers.CharField(required=False, allow_blank=True)
     business_location = serializers.CharField(required=False, allow_blank=True)
     business_description = serializers.CharField(required=False, allow_blank=True)
+    latitude = serializers.FloatField(required=False, allow_null=True)
+    longitude = serializers.FloatField(required=False, allow_null=True)
 
     # coach fields
     specialization = serializers.CharField(required=False, allow_blank=True)
@@ -44,6 +46,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = (
             'email', 'username', 'password', 'role', 'vendor_access_code',
             'business_name', 'business_location', 'business_description',
+            'latitude', 'longitude',
             'specialization', 'certifications', 'accepted_terms',
         )
 
@@ -76,11 +79,13 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         profile_fields = [
             'business_name', 'business_location', 'business_description',
+            'latitude', 'longitude',
             'specialization', 'certifications',
         ]
         profile_data = {f: validated_data.pop(f, '') for f in profile_fields}
 
         password = validated_data.pop('password')
+        validated_data.pop('accepted_terms', None)
         user = User(**validated_data)
         user.display_name = validated_data.get('username', '')
         user.is_active = True
@@ -242,9 +247,9 @@ class ProfileSerializer(serializers.ModelSerializer):
             'business_name', 'business_location', 'business_description',
             'specialization', 'certifications',
             'vendor_access_code', 'latitude', 'longitude',
-            'is_premium',
+            'is_premium', 'phone_verified',
         )
-        read_only_fields = ('vendor_access_code', 'is_premium',)
+        read_only_fields = ('vendor_access_code', 'is_premium', 'phone_verified',)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -254,8 +259,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'email', 'username', 'display_name', 'role', 'profile', 'created_at', 'follower_count', 'following_count', 'totp_enabled')
-        read_only_fields = ('id', 'email', 'role', 'created_at', 'totp_enabled')
+        fields = ('id', 'email', 'username', 'display_name', 'role', 'profile', 'created_at', 'follower_count', 'following_count', 'totp_enabled', 'email_verified')
+        read_only_fields = ('id', 'email', 'role', 'created_at', 'totp_enabled', 'email_verified')
 
     def get_follower_count(self, obj):
         return obj.followers.count()
@@ -359,7 +364,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Message
-        fields = ('id', 'sender', 'recipient', 'content', 'image', 'image_url', 'view_once', 'viewed', 'read', 'created_at', 'sender_username', 'recipient_username')
+        fields = ('id', 'sender', 'recipient', 'content', 'image', 'image_url', 'view_once', 'viewed', 'delivered', 'read', 'created_at', 'sender_username', 'recipient_username')
         read_only_fields = ('sender',)
 
     def get_sender_username(self, obj):
@@ -596,3 +601,24 @@ class BlockedUserSerializer(serializers.ModelSerializer):
         model = BlockedUser
         fields = '__all__'
         read_only_fields = ('blocker',)
+
+
+class PaymentInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentInfo
+        fields = ('method', 'mpesa_phone', 'card_last_four', 'card_brand', 'card_token')
+        extra_kwargs = {
+            'mpesa_phone': {'required': False},
+            'card_last_four': {'required': False},
+            'card_brand': {'required': False},
+            'card_token': {'required': False},
+        }
+
+    def validate(self, data):
+        method = data.get('method')
+        if method == 'mpesa' and not data.get('mpesa_phone'):
+            raise serializers.ValidationError({'mpesa_phone': 'M-Pesa phone number is required.'})
+        if method == 'card':
+            if not data.get('card_last_four'):
+                raise serializers.ValidationError({'card_last_four': 'Last four digits of card are required.'})
+        return data

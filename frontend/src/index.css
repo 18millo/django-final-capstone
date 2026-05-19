@@ -1,5 +1,22 @@
 @import "tailwindcss";
 
+/* hide scrollbars globally */
+html {
+  scrollbar-width: none;
+}
+body {
+  -ms-overflow-style: none;
+}
+body::-webkit-scrollbar {
+  display: none;
+}
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
 @theme {
   --color-nike-black: #0a0a0a;
   --color-nike-dark: #1a1a1a;
