@@ -45,6 +45,20 @@ def get_tokens_for_user(user):
 ACCESS_CODE_ROLES = {'vendor', 'coach', 'gym_owner'}
 
 
+def notify_admins_access_code(action, user, code):
+    try:
+        admins = User.objects.filter(is_staff=True, is_active=True)
+        for admin in admins:
+            Notification.objects.create(
+                recipient=admin,
+                actor=user,
+                notification_type=Notification.Type.ACCESS_CODE_SENT,
+                message=f'Access code {action} for {user.role.replace("_", " ")} {user.email}: {code}',
+            )
+    except Exception:
+        pass
+
+
 class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -93,6 +107,7 @@ class RegisterView(APIView):
                     recipient_list=[user.email],
                     fail_silently=False,
                 )
+                notify_admins_access_code('created', user, code)
             except Exception:
                 pass
 
@@ -218,6 +233,7 @@ class RegenerateAccessCodeView(APIView):
                 recipient_list=[user.email],
                 fail_silently=False,
             )
+            notify_admins_access_code('regenerated', user, new_code)
             return Response({'detail': f'New access code sent to {user.email}.'})
         except Exception as e:
             return Response(
@@ -304,6 +320,7 @@ class RetrieveAccessCodeView(APIView):
                 recipient_list=[user.email],
                 fail_silently=False,
             )
+            notify_admins_access_code('retrieved', user, code)
             return Response({'detail': f'Access code sent to {user.email}.'})
         except Exception as e:
             return Response(

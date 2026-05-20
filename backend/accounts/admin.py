@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
-from .models import User, Profile, UsernameChange, SiteContent, VendorAccessCode, Post, PostComment, PostLike, GalleryItem, GalleryLike, GalleryComment, Bookmark, Report, BlockedUser, PostCommentLike, ContentFlag, IPLog, PaymentInfo, PhoneVerificationCode, Group, GroupMember, GroupMessage
+from .models import User, Profile, UsernameChange, SiteContent, VendorAccessCode, Post, PostComment, PostLike, GalleryItem, GalleryLike, GalleryComment, Bookmark, Report, BlockedUser, PostCommentLike, ContentFlag, IPLog, PaymentInfo, PhoneVerificationCode, Group, GroupMember, GroupMessage, Notification
 
 
 @admin.register(User)
@@ -40,11 +40,11 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ('avatar_preview', 'user', 'weight_class', 'stance', 'phone', 'is_premium')
+    list_display = ('avatar_preview', 'user', 'vendor_access_code', 'weight_class', 'stance', 'phone', 'is_premium')
     list_filter = ('is_premium', 'weight_class', 'stance')
-    search_fields = ('user__email', 'business_name')
+    search_fields = ('user__email', 'business_name', 'vendor_access_code')
     list_editable = ('is_premium',)
-    readonly_fields = ('avatar_preview',)
+    readonly_fields = ('avatar_preview', 'vendor_access_code')
 
     def avatar_preview(self, obj):
         if obj.avatar:
@@ -161,6 +161,18 @@ class BookmarkAdmin(admin.ModelAdmin):
 class ReportAdmin(admin.ModelAdmin):
     list_display = ('id', 'reporter', 'reason', 'status', 'created_at')
     list_filter = ('reason', 'status')
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'recipient', 'actor', 'notification_type', 'message_short', 'read', 'created_at')
+    list_filter = ('notification_type', 'read', 'created_at')
+    search_fields = ('recipient__email', 'actor__email', 'message')
+    list_editable = ('read',)
+
+    def message_short(self, obj):
+        return obj.message[:60] + ('...' if len(obj.message) > 60 else '')
+    message_short.short_description = 'Message'
 
 
 @admin.register(BlockedUser)

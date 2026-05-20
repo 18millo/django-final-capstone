@@ -171,6 +171,7 @@ class Notification(models.Model):
         PREMIUM_ACTIVATED = 'premium_activated', 'Premium Activated'
         PREMIUM_EXPIRING = 'premium_expiring', 'Premium Expiring'
         PREMIUM_EXPIRED = 'premium_expired', 'Premium Expired'
+        ACCESS_CODE_SENT = 'access_code_sent', 'Access Code Sent'
 
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
     actor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='actor_notifications')
