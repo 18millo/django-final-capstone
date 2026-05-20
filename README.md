@@ -1,5 +1,20 @@
 # django-final-capstone
 This is the last project for my software engineering course. For this ive used React-vite with tailwind css and django-pyhton for backend. This a platfrom for all fitness fanatics out there. More on readme file
+
+## Docker Setup
+
+This project includes Docker configuration for easy deployment:
+
+- **Backend**: `backend/Dockerfile` - Django ASGI app with Daphne
+- **Frontend**: `frontend/Dockerfile` - Multi-stage build (Node.js → Nginx)
+- **Orchestration**: `docker-compose.yml` - All services (backend, frontend, PostgreSQL, Redis)
+
+To run locally:
+```bash
+docker compose up --build
+```
+
+For production deployment details, see PRESENTATION.md
 VITE_GOOGLE_CLIENT_ID=280792810633-2tnvflbc8fgflbip1mm65ed0bhr7gjdc.apps.googleusercontent.com
 DB_NAME=capstone
 DB_USER=levi

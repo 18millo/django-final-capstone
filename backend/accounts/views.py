@@ -590,8 +590,8 @@ class FollowUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, user_id):
-        if request.user.role in ('vendor', 'gym_owner'):
-            return Response({'error': 'Vendors and gym owners cannot follow users'}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role in ('vendor', 'gym_owner', 'coach'):
+            return Response({'error': 'Vendors, gym owners, and coaches cannot follow users'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             target = User.objects.get(id=user_id, is_active=True)
@@ -631,8 +631,8 @@ class UnfollowUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, user_id):
-        if request.user.role in ('vendor', 'gym_owner'):
-            return Response({'error': 'Vendors and gym owners cannot unfollow users'}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role in ('vendor', 'gym_owner', 'coach'):
+            return Response({'error': 'Vendors, gym owners, and coaches cannot unfollow users'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             target = User.objects.get(id=user_id, is_active=True)

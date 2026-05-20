@@ -97,11 +97,13 @@ export default function PublicProfile() {
                 </div>
                 <div className={'flex gap-4 mt-2 text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
                   <span><strong className={'font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{profile.follower_count || 0}</strong> followers</span>
-                  <span><strong className={'font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{profile.following_count || 0}</strong> following</span>
+                  {profile.role === 'athlete' && (
+                    <span><strong className={'font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{profile.following_count || 0}</strong> following</span>
+                  )}
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                {!isOwn && user?.role !== 'vendor' && user?.role !== 'gym_owner' && (
+                {!isOwn && user?.role === 'athlete' && (
                   <button
                     onClick={toggleFollow}
                     className={'shrink-0 text-xs tracking-widest uppercase font-bold px-6 py-3 rounded-full transition-all duration-300 ' + (profile.is_following
@@ -136,22 +138,74 @@ export default function PublicProfile() {
             )}
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-              <div>
-                <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Weight Class</p>
-                <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{WEIGHT_LABELS[p.weight_class] || p.weight_class?.replace('_', ' ') || '—'}</p>
-              </div>
-              <div>
-                <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Stance</p>
-                <p className={'text-sm font-bold capitalize ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.stance || '—'}</p>
-              </div>
-              <div>
-                <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Height</p>
-                <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.height_ft ? p.height_ft + "'" + (p.height_in || 0) + '"' : '—'}</p>
-              </div>
-              <div>
-                <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Reach</p>
-                <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.reach_in ? p.reach_in + '"' : '—'}</p>
-              </div>
+              {profile.role === 'athlete' && (
+                <>
+                  <div>
+                    <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Weight Class</p>
+                    <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{WEIGHT_LABELS[p.weight_class] || p.weight_class?.replace('_', ' ') || '—'}</p>
+                  </div>
+                  <div>
+                    <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Stance</p>
+                    <p className={'text-sm font-bold capitalize ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.stance || '—'}</p>
+                  </div>
+                  <div>
+                    <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Height</p>
+                    <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.height_ft ? p.height_ft + "'" + (p.height_in || 0) + '"' : '—'}</p>
+                  </div>
+                  <div>
+                    <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Reach</p>
+                    <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.reach_in ? p.reach_in + '"' : '—'}</p>
+                  </div>
+                </>
+              )}
+              {profile.role === 'vendor' && (
+                <>
+                  <div>
+                    <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Brand</p>
+                    <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_name || '—'}</p>
+                  </div>
+                  <div>
+                    <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Location</p>
+                    <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_location || '—'}</p>
+                  </div>
+                  <div>
+                    <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Description</p>
+                    <p className={'text-sm font-bold text-xs ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_description || '—'}</p>
+                  </div>
+                </>
+              )}
+              {profile.role === 'gym_owner' && (
+                <>
+                  <div className="col-span-2">
+                    <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Gym Name</p>
+                    <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_name || '—'}</p>
+                  </div>
+                  <div>
+                    <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Location</p>
+                    <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_location || '—'}</p>
+                  </div>
+                  <div>
+                    <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Description</p>
+                    <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_description || '—'}</p>
+                  </div>
+                </>
+              )}
+              {profile.role === 'coach' && (
+                <>
+                  <div className="col-span-2">
+                    <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Name</p>
+                    <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_name || '—'}</p>
+                  </div>
+                  <div>
+                    <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Specialty</p>
+                    <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_description || '—'}</p>
+                  </div>
+                  <div>
+                    <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Location</p>
+                    <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_location || '—'}</p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </Reveal>

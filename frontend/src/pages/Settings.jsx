@@ -444,21 +444,24 @@ export default function Settings() {
             </div>
           </div>
         </div>
-        <nav className="flex-1 p-3 space-y-1">
-          {SIDEBAR_ITEMS.filter((item) => !item.vendorOnly || user?.role === 'vendor').map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setTab(item.id)}
-              className={'flex items-center gap-3 w-full px-4 py-3 text-xs tracking-widest uppercase font-bold rounded-xl transition-all duration-300 text-left ' + (tab === item.id ? 'bg-nike-red text-white shadow-lg shadow-nike-red/20' : 'hover:bg-white/5')}
-              style={tab !== item.id ? { color: 'var(--color-nike-light)' } : {}}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
-                <path d={item.icon} />
-              </svg>
-              {item.label}
-            </button>
-          ))}
-        </nav>
+         <nav className="flex-1 p-3 space-y-1">
+           {SIDEBAR_ITEMS
+             .filter((item) => !item.vendorOnly || user?.role === 'vendor')
+             .filter((item) => !(item.id === 'fighter' && ['vendor', 'gym_owner'].includes(user.role)))
+             .map((item) => (
+               <button
+                 key={item.id}
+                 onClick={() => setTab(item.id)}
+                 className={'flex items-center gap-3 w-full px-4 py-3 text-xs tracking-widest uppercase font-bold rounded-xl transition-all duration-300 text-left ' + (tab === item.id ? 'bg-nike-red text-white shadow-lg shadow-nike-red/20' : 'hover:bg-white/5')}
+                 style={tab !== item.id ? { color: 'var(--color-nike-light)' } : {}}
+               >
+                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0">
+                   <path d={item.icon} />
+                 </svg>
+                 {item.label}
+               </button>
+             ))}
+         </nav>
         <div className="p-4 border-t text-xs" style={{ borderColor: 'var(--color-nike-gray)', color: 'var(--color-nike-light)' }}>
           v{appVersion}
         </div>
@@ -634,7 +637,7 @@ export default function Settings() {
           </form>
         )}
 
-          {tab === 'fighter' && (
+          {tab === 'fighter' && user.role === 'athlete' && (
             <form onSubmit={handleSubmit} className="space-y-8">
               <Reveal>
                 <div className="p-8 rounded-2xl backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-dark) 90%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
@@ -646,7 +649,7 @@ export default function Settings() {
                         value={form.weight_class}
                         onChange={(e) => setForm({ ...form, weight_class: e.target.value })}
                         className="w-full rounded-xl px-4 py-3 focus:outline-none transition-all duration-300"
-                        style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)', color: 'var(--color-nike-white)' }}
+                        style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%', border: '1px solid var(--color-nike-gray)', color: 'var(--color-nike-white)' }}
                       >
                         {WEIGHT_CLASSES.map((wc) => (
                           <option key={wc.value} value={wc.value} style={{ backgroundColor: 'var(--color-nike-dark)' }}>{wc.label}</option>
@@ -659,7 +662,7 @@ export default function Settings() {
                         value={form.stance}
                         onChange={(e) => setForm({ ...form, stance: e.target.value })}
                         className="w-full rounded-xl px-4 py-3 focus:outline-none transition-all duration-300"
-                        style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)', color: 'var(--color-nike-white)' }}
+                        style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%', border: '1px solid var(--color-nike-gray)', color: 'var(--color-nike-white)' }}
                       >
                         {STANCES.map((s) => (
                           <option key={s.value} value={s.value} style={{ backgroundColor: 'var(--color-nike-dark)' }}>{s.label}</option>
