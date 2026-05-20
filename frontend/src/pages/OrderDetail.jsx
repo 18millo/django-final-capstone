@@ -42,7 +42,7 @@ export default function OrderDetail() {
           Back to Orders
         </Link>
 
-        <div className={'p-6 md:p-8 rounded-2xl border ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
+        <div className={'p-6 md:p-8 rounded-2xl border liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <div>
               <h1 className={'text-xl font-black tracking-tight ' + (isLight ? 'text-nike-black' : 'text-white')}>Order #{order.id}</h1>

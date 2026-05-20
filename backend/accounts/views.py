@@ -7,6 +7,7 @@ from datetime import timedelta
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from rest_framework import status, generics, permissions
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -17,7 +18,7 @@ import pyotp
 
 from django.shortcuts import get_object_or_404
 from common.permissions import IsSeller, IsPremium, IsAdmin
-from .models import User, SiteContent, Follow, Notification, Message, Post, PostLike, PostComment, GalleryItem, GalleryLike, GalleryComment, PostCommentLike, Bookmark, Report, BlockedUser, PaymentInfo, PhoneVerificationCode
+from .models import User, SiteContent, Follow, Notification, Message, Post, PostLike, PostComment, GalleryItem, GalleryLike, GalleryComment, PostCommentLike, Bookmark, Report, BlockedUser, PaymentInfo, PhoneVerificationCode, Group, GroupMember, GroupMessage
 from .sms import send_sms
 from .serializers import (
     RegisterSerializer, LoginSerializer, GoogleAuthSerializer,
@@ -29,6 +30,7 @@ from .serializers import (
     PostSerializer, PostCommentSerializer,
     GalleryItemSerializer, GalleryCommentSerializer,
     BookmarkSerializer, ReportSerializer, BlockedUserSerializer,
+    GroupSerializer, GroupMemberSerializer, GroupMessageSerializer,
 )
 
 
@@ -153,6 +155,41 @@ class VerifyEmailView(APIView):
         user.save(update_fields=['email_verified'])
         return Response({'detail': 'Email verified!', 'email_verified': True})
 
+
+class ChangeEmailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        new_email = request.data.get('email', '').strip()
+        if not new_email:
+            return Response({'error': 'Email is required'}, status=400)
+        if User.objects.filter(email=new_email).exclude(id=request.user.id).exists():
+            return Response({'error': 'This email is already in use'}, status=400)
+        user = request.user
+        user.email = new_email
+        user.email_verified = False
+        user.save(update_fields=['email', 'email_verified'])
+        try:
+            from .models import EmailVerificationCode
+            EmailVerificationCode.objects.filter(user=user, type='signup', is_used=False).update(is_used=True)
+            code_obj = EmailVerificationCode.generate(user, 'signup')
+            send_mail(
+                subject='Verify your new CombatHub email',
+                message=(
+                    f'Hi {user.username or user.email},\n\n'
+                    f'Your email verification code is:\n\n'
+                    f'   {code_obj.code}\n\n'
+                    f'Enter this code on the verification page to confirm your new email address.\n'
+                    f'This code expires in 10 minutes.\n\n'
+                    f'- The CombatHub Team'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+        except Exception:
+            pass
+        return Response({'detail': 'Email updated. A verification code has been sent to your new email.', 'email_verified': False})
 
 
 class RegenerateAccessCodeView(APIView):
@@ -469,6 +506,24 @@ class UserDetailView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
+    def update(self, request, *args, **kwargs):
+        data = request.data.copy() if hasattr(request.data, 'copy') else {**request.data}
+        profile = {}
+        for key in list(data.keys()):
+            if key.startswith('profile[') and key.endswith(']'):
+                field = key[8:-1]
+                profile[field] = data.pop(key)
+        if profile:
+            data['profile'] = profile
+        partial = kwargs.pop('partial', True)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        if getattr(instance, '_prefetched_objects_cache', None):
+            instance._prefetched_objects_cache = {}
+        return Response(serializer.data)
+
 
 class UserListView(generics.ListAPIView):
     serializer_class = PublicUserSerializer
@@ -484,8 +539,8 @@ class UserListView(generics.ListAPIView):
                 .exclude(role='admin')
                 .select_related('profile')
                 .annotate(
-                    _follower_count=Count('followers', distinct=True),
-                    _following_count=Count('following', distinct=True),
+                    follower_count=Count('followers', distinct=True),
+                    following_count=Count('following', distinct=True),
                 )
                 .prefetch_related(
                     Prefetch('followers',
@@ -507,8 +562,8 @@ class CoachListView(generics.ListAPIView):
         return (User.objects.filter(is_active=True, role='coach')
                 .select_related('profile')
                 .annotate(
-                    _follower_count=Count('followers', distinct=True),
-                    _following_count=Count('following', distinct=True),
+                    follower_count=Count('followers', distinct=True),
+                    following_count=Count('following', distinct=True),
                 )
                 .prefetch_related(
                     Prefetch('followers',
@@ -529,8 +584,8 @@ class VendorListView(generics.ListAPIView):
         return (User.objects.filter(is_active=True, role='vendor')
                 .select_related('profile')
                 .annotate(
-                    _follower_count=Count('followers', distinct=True),
-                    _following_count=Count('following', distinct=True),
+                    follower_count=Count('followers', distinct=True),
+                    following_count=Count('following', distinct=True),
                 ))
 
     def get_serializer_context(self):
@@ -545,8 +600,8 @@ class VendorDetailView(APIView):
             user = (User.objects
                     .select_related('profile')
                     .annotate(
-                        _follower_count=Count('followers', distinct=True),
-                        _following_count=Count('following', distinct=True),
+                        follower_count=Count('followers', distinct=True),
+                        following_count=Count('following', distinct=True),
                     )
                     .get(pk=pk, role='vendor', is_active=True))
         except User.DoesNotExist:
@@ -572,8 +627,8 @@ class PublicProfileView(generics.RetrieveAPIView):
                 .exclude(role='admin')
                 .select_related('profile')
                 .annotate(
-                    _follower_count=Count('followers', distinct=True),
-                    _following_count=Count('following', distinct=True),
+                    follower_count=Count('followers', distinct=True),
+                    following_count=Count('following', distinct=True),
                 )
                 .prefetch_related(
                     Prefetch('followers',
@@ -784,6 +839,8 @@ class SendMessageView(APIView):
             recipient = User.objects.get(id=user_id, is_active=True)
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        if recipient.messaging_blocked:
+            return Response({'error': 'This user has been restricted from receiving messages.'}, status=status.HTTP_403_FORBIDDEN)
         content = request.data.get('content', '').strip()
         view_once = request.data.get('view_once', False)
         image_file = request.FILES.get('image', None)
@@ -828,8 +885,10 @@ class PostListView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         user = self.request.user
-        if user.role in ('vendor', 'gym_owner', 'coach') and not user.profile.is_premium:
-            raise permissions.exceptions.PermissionDenied(detail='Premium subscription required for vendors, gym owners, and coaches to create posts')
+        if user.role == 'vendor':
+            raise permissions.exceptions.PermissionDenied(detail='Vendors cannot create forum posts')
+        if user.role in ('gym_owner', 'coach') and not user.profile.is_premium:
+            raise permissions.exceptions.PermissionDenied(detail='Premium subscription required to create posts')
         serializer.save(author=self.request.user)
 
     def get_serializer_context(self):
@@ -844,6 +903,13 @@ class PostDetailView(generics.RetrieveAPIView):
     def get_serializer_context(self):
         return {'request': self.request}
 
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        Post.objects.filter(id=instance.id).update(view_count=models.F('view_count') + 1)
+        instance.refresh_from_db()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
 
 class PostLikeToggleView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -855,13 +921,13 @@ class PostLikeToggleView(APIView):
         if existing:
             if existing.vote_type == vote_type:
                 existing.delete()
-                return Response({'liked': False, 'like_count': post.likes.filter(vote_type='like').count(), 'dislike_count': post.likes.filter(vote_type='dislike').count()})
+                return Response({'liked': False, 'disliked': False, 'like_count': post.likes.filter(vote_type='like').count(), 'dislike_count': post.likes.filter(vote_type='dislike').count()})
             else:
                 existing.vote_type = vote_type
                 existing.save()
-                return Response({'liked': vote_type == 'like', 'like_count': post.likes.filter(vote_type='like').count(), 'dislike_count': post.likes.filter(vote_type='dislike').count()})
+                return Response({'liked': vote_type == 'like', 'disliked': vote_type == 'dislike', 'like_count': post.likes.filter(vote_type='like').count(), 'dislike_count': post.likes.filter(vote_type='dislike').count()})
         PostLike.objects.create(post=post, user=request.user, vote_type=vote_type)
-        return Response({'liked': vote_type == 'like', 'like_count': post.likes.filter(vote_type='like').count(), 'dislike_count': post.likes.filter(vote_type='dislike').count()})
+        return Response({'liked': vote_type == 'like', 'disliked': vote_type == 'dislike', 'like_count': post.likes.filter(vote_type='like').count(), 'dislike_count': post.likes.filter(vote_type='dislike').count()})
 
 
 class PostCommentCreateView(generics.CreateAPIView):
@@ -896,9 +962,9 @@ class GalleryListView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         user = self.request.user
-        if user.role in ('vendor', 'gym_owner', 'coach') and not user.profile.is_premium:
-            raise permissions.exceptions.PermissionDenied(detail='Premium subscription required for vendors, gym owners, and coaches to upload to gallery')
-        serializer.save(user=self.request.user)
+        if not user.profile.is_premium_active():
+            raise permissions.exceptions.PermissionDenied(detail='Premium subscription required to upload to gallery')
+        serializer.save(user=user)
 
     def get_serializer_context(self):
         return {'request': self.request}
@@ -967,8 +1033,8 @@ class SearchView(APIView):
         posts = Post.objects.filter(content__icontains=q).prefetch_related('likes')[:5]
         post_data = [{'id': p.id, 'content': p.content[:100], 'type': 'post', 'author': p.author.username or p.author.display_name} for p in posts]
 
-        gallery = GalleryItem.objects.filter(caption__icontains=q)[:5]
-        gallery_data = [{'id': g.id, 'caption': g.caption[:100], 'type': 'gallery', 'image': resolve_avatar(g.user.profile, request) if g.user.profile.avatar else None} for g in gallery]
+        gallery = GalleryItem.objects.filter(caption__icontains=q).select_related('user__profile')[:5]
+        gallery_data = [{'id': g.id, 'caption': g.caption[:100], 'type': 'gallery', 'image': g.image.url if g.image else None} for g in gallery]
 
         from products.models import Product
         products = Product.objects.filter(models.Q(name__icontains=q) | models.Q(brand__icontains=q) | models.Q(description__icontains=q))[:5]
@@ -1158,6 +1224,9 @@ class VerifyPhoneView(APIView):
         code_obj.is_used = True
         code_obj.save(update_fields=['is_used'])
         profile = request.user.profile
+        from .models import Profile
+        if Profile.objects.filter(phone=phone).exclude(user=request.user).exists():
+            return Response({'error': 'This phone number is already in use by another account.'}, status=400)
         profile.phone = phone
         profile.phone_verified = True
         profile.save(update_fields=['phone', 'phone_verified'])
@@ -1165,7 +1234,7 @@ class VerifyPhoneView(APIView):
 
 
 class CoachDashboardStatsView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsSeller]
+    permission_classes = [permissions.IsAuthenticated, IsSeller, IsPremium]
 
     def get(self, request):
         user = request.user
@@ -1183,7 +1252,7 @@ class CoachDashboardStatsView(APIView):
 
 
 class VendorDashboardStatsView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsSeller]
+    permission_classes = [permissions.IsAuthenticated, IsSeller, IsPremium]
 
     def get(self, request):
         user = request.user
@@ -1199,7 +1268,7 @@ class VendorDashboardStatsView(APIView):
             avatar_url = None
             try:
                 if hasattr(f, 'profile') and f.profile and f.profile.avatar:
-                    avatar_url = f.profile.avatar.url
+                    avatar_url = resolve_avatar(f.profile, request)
             except Exception:
                 pass
             followers_data.append({
@@ -1216,6 +1285,22 @@ class VendorDashboardStatsView(APIView):
         })
 
 
+def is_profile_complete(user):
+    profile = user.profile
+    base_fields = [profile.bio, profile.avatar, profile.phone]
+    if user.role == 'athlete':
+        required = base_fields + [profile.weight_class, profile.height_ft, profile.height_in, profile.reach_in, profile.stance]
+    elif user.role == 'vendor':
+        required = base_fields + [profile.business_name, profile.business_location, profile.business_description]
+    elif user.role == 'coach':
+        required = base_fields + [profile.specialization, profile.certifications]
+    elif user.role == 'gym_owner':
+        required = base_fields + [profile.business_name, profile.business_location, profile.business_description]
+    else:
+        required = base_fields
+    return all(field for field in required)
+
+
 class StartPremiumTrialView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -1225,6 +1310,12 @@ class StartPremiumTrialView(APIView):
             return Response({'error': 'You are already a premium member'}, status=400)
         if profile.premium_trial_started:
             return Response({'error': 'You have already used your free trial'}, status=400)
+        if not is_profile_complete(request.user):
+            return Response({'error': 'Please complete your profile (bio, avatar, phone, and role-specific fields) before activating premium.'}, status=400)
+        if not request.user.email_verified:
+            return Response({'error': 'Please verify your email address before activating premium.'}, status=400)
+        if profile.premium_trial_used:
+            return Response({'error': 'You have already used your free trial.'}, status=400)
         from django.utils import timezone
         now = timezone.now()
         profile.is_premium = True
@@ -1265,6 +1356,10 @@ class CheckPremiumView(APIView):
         in_grace = bool(profile.premium_grace_end and profile.premium_grace_end > now and profile.premium_expires_at and profile.premium_expires_at < now)
         return Response({
             'is_premium': active,
+            'email_verified': request.user.email_verified,
+            'profile_complete': is_profile_complete(request.user),
+            'premium_trial_used': profile.premium_trial_used,
+            'show_views_publicly': profile.show_views_publicly,
             'trial_started': bool(profile.premium_trial_started),
             'premium_expires_at': profile.premium_expires_at,
             'premium_grace_end': profile.premium_grace_end,
@@ -1289,6 +1384,12 @@ class PaymentSetupView(APIView):
         profile = request.user.profile
         if profile.is_premium:
             return Response({'error': 'You are already a premium member'}, status=400)
+        if not is_profile_complete(request.user):
+            return Response({'error': 'Please complete your profile (bio, avatar, phone, and role-specific fields) before activating premium.'}, status=400)
+        if not request.user.email_verified:
+            return Response({'error': 'Please verify your email address before activating premium.'}, status=400)
+        if profile.premium_trial_used:
+            return Response({'error': 'You have already used your free trial. Premium re-subscription is not available at this time.'}, status=400)
         from .serializers import PaymentInfoSerializer
         serializer = PaymentInfoSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -1323,6 +1424,34 @@ class PaymentSetupView(APIView):
         })
 
 
+class GymOwnerDashboardStatsView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsSeller, IsPremium]
+
+    def get(self, request):
+        user = request.user
+        if user.role != 'gym_owner':
+            return Response({'error': 'Only gym owners can access this'}, status=403)
+        followers = User.objects.filter(following__following=user)
+        total_followers = followers.count()
+        recent_followers = followers.order_by('-following__created_at')[:5]
+        from .serializers import PublicUserSerializer
+        return Response({
+            'total_followers': total_followers,
+            'total_posts': Post.objects.filter(author=user).count(),
+            'recent_followers': PublicUserSerializer(recent_followers, many=True, context={'request': request}).data,
+        })
+
+
+class ToggleInsightsVisibilityView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPremium]
+
+    def post(self, request):
+        profile = request.user.profile
+        profile.show_views_publicly = not profile.show_views_publicly
+        profile.save(update_fields=['show_views_publicly'])
+        return Response({'show_views_publicly': profile.show_views_publicly})
+
+
 class CancelPremiumView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -1334,7 +1463,8 @@ class CancelPremiumView(APIView):
         profile.premium_trial_started = None
         profile.premium_expires_at = None
         profile.premium_grace_end = None
-        profile.save(update_fields=['is_premium', 'premium_trial_started', 'premium_expires_at', 'premium_grace_end'])
+        profile.premium_trial_used = True
+        profile.save(update_fields=['is_premium', 'premium_trial_started', 'premium_expires_at', 'premium_grace_end', 'premium_trial_used'])
         Notification.objects.create(
             recipient=request.user,
             actor=request.user,
@@ -1348,7 +1478,7 @@ class AdminUserListView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdmin]
 
     def get(self, request):
-        users = User.objects.all().select_related('profile').order_by('-date_joined')
+        users = User.objects.all().select_related('profile').order_by('-created_at')
         data = [{
             'id': u.id,
             'email': u.email,
@@ -1356,7 +1486,8 @@ class AdminUserListView(APIView):
             'role': u.role,
             'is_premium': u.profile.is_premium if hasattr(u, 'profile') else False,
             'is_active': u.is_active,
-            'date_joined': u.date_joined,
+            'messaging_blocked': u.messaging_blocked,
+            'date_joined': u.created_at,
         } for u in users]
         return Response(data)
 
@@ -1373,3 +1504,192 @@ class AdminUpdateUserRoleView(APIView):
         user.role = role
         user.save(update_fields=['role'])
         return Response({'detail': f'Updated {user.email} role to {role}'})
+
+
+class AdminToggleMessagingBlockView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+
+    def post(self, request, user_id):
+        target = get_object_or_404(User, id=user_id)
+        target.messaging_blocked = not target.messaging_blocked
+        target.save(update_fields=['messaging_blocked'])
+        return Response({'messaging_blocked': target.messaging_blocked})
+
+
+class GroupListView(generics.ListCreateAPIView):
+    serializer_class = GroupSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        return Group.objects.filter(
+            models.Q(is_private=False) | models.Q(members__user=user)
+        ).distinct().prefetch_related('members__user__profile')
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        if user.role not in ('gym_owner', 'coach'):
+            raise PermissionDenied('Only gym owners and coaches can create groups')
+        if not user.profile.is_premium_active():
+            raise PermissionDenied('Premium subscription required to create groups')
+        serializer.save(created_by=user)
+
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+
+class GroupDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Group.objects.prefetch_related('members__user__profile')
+    serializer_class = GroupSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+    def perform_update(self, serializer):
+        group = self.get_object()
+        if group.created_by != self.request.user:
+            raise PermissionDenied('Only the group creator can edit this group')
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.created_by != self.request.user:
+            raise PermissionDenied('Only the group creator can delete this group')
+        instance.delete()
+
+
+class GroupJoinView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, group_id):
+        group = get_object_or_404(Group, id=group_id)
+        user = request.user
+        existing = GroupMember.objects.filter(group=group, user=user).first()
+        if existing:
+            if existing.status == 'joined':
+                return Response({'error': 'You are already a member of this group'}, status=400)
+            if existing.status == 'pending':
+                return Response({'error': 'Your join request is pending approval'}, status=400)
+            if existing.status == 'invited':
+                existing.status = 'joined'
+                existing.save(update_fields=['status'])
+                return Response({'detail': 'You joined the group'})
+        if group.members.filter(status='joined').count() >= group.max_members:
+            return Response({'error': f'This group has reached its maximum capacity of {group.max_members} members'}, status=400)
+        if group.is_private:
+            GroupMember.objects.create(group=group, user=user, status='pending')
+            return Response({'detail': 'Join request sent. Waiting for approval.'})
+        GroupMember.objects.create(group=group, user=user, status='joined')
+        return Response({'detail': 'You joined the group'})
+
+
+class GroupLeaveView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, group_id):
+        group = get_object_or_404(Group, id=group_id)
+        gm = get_object_or_404(GroupMember, group=group, user=request.user, status='joined')
+        gm.delete()
+        return Response({'detail': 'You left the group'})
+
+
+class GroupMembersView(generics.ListAPIView):
+    serializer_class = GroupMemberSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return GroupMember.objects.filter(
+            group_id=self.kwargs['group_id'], status='joined'
+        ).select_related('user__profile')
+
+
+class GroupRequestsView(generics.ListAPIView):
+    serializer_class = GroupMemberSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        group = get_object_or_404(Group, id=self.kwargs['group_id'])
+        if group.created_by != self.request.user:
+            return GroupMember.objects.none()
+        return GroupMember.objects.filter(group=group, status='pending').select_related('user__profile')
+
+
+class GroupApproveRequestView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, group_id, user_id):
+        group = get_object_or_404(Group, id=group_id)
+        if group.created_by != request.user:
+            raise PermissionDenied('Only the group creator can approve requests')
+        gm = get_object_or_404(GroupMember, group=group, user_id=user_id, status='pending')
+        if group.members.filter(status='joined').count() >= group.max_members:
+            gm.delete()
+            return Response({'error': f'Group is full (max {group.max_members} members)'}, status=400)
+        gm.status = 'joined'
+        gm.save(update_fields=['status'])
+        return Response({'detail': 'Join request approved'})
+
+
+class GroupRejectRequestView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, group_id, user_id):
+        group = get_object_or_404(Group, id=group_id)
+        if group.created_by != request.user:
+            raise PermissionDenied('Only the group creator can reject requests')
+        gm = get_object_or_404(GroupMember, group=group, user_id=user_id, status='pending')
+        gm.delete()
+        return Response({'detail': 'Join request rejected'})
+
+
+class GroupInviteView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, group_id):
+        group = get_object_or_404(Group, id=group_id)
+        if group.created_by != request.user:
+            raise PermissionDenied('Only the group creator can invite users')
+        username = request.data.get('username', '').strip()
+        target = get_object_or_404(User, username=username)
+        if GroupMember.objects.filter(group=group, user=target).exists():
+            return Response({'error': 'User is already a member or has a pending request'}, status=400)
+        if group.members.filter(status='joined').count() >= group.max_members:
+            return Response({'error': f'Group is full (max {group.max_members} members)'}, status=400)
+        GroupMember.objects.create(group=group, user=target, status='invited')
+        return Response({'detail': f'Invited {username} to the group'})
+
+
+class GroupMessageListView(generics.ListAPIView):
+    serializer_class = GroupMessageSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        group = get_object_or_404(Group, id=self.kwargs['group_id'])
+        if not group.members.filter(user=self.request.user, status='joined').exists():
+            return GroupMessage.objects.none()
+        return GroupMessage.objects.filter(group=group).select_related('sender__profile')
+
+    def get_serializer_context(self):
+        return {'request': self.request}
+
+
+class GroupMessageCreateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, group_id):
+        group = get_object_or_404(Group, id=group_id)
+        if not group.members.filter(user=request.user, status='joined').exists():
+            return Response({'error': 'You are not a member of this group'}, status=403)
+        content = request.data.get('content', '').strip()
+        image_file = request.FILES.get('image', None)
+        if not content and not image_file:
+            return Response({'error': 'Message cannot be empty'}, status=400)
+        msg = GroupMessage.objects.create(
+            group=group,
+            sender=request.user,
+            content=content or '',
+        )
+        if image_file:
+            msg.image.save(image_file.name, image_file, save=False)
+            msg.save()
+        return Response(GroupMessageSerializer(msg, context={'request': request}).data, status=201)

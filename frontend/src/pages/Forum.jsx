@@ -21,7 +21,7 @@ export default function Forum() {
   const textClass = isLight ? 'text-nike-black' : 'text-white'
   const mutedClass = isLight ? 'text-nike-light' : 'text-white/40'
   const borderClass = isLight ? 'border-nike-gray' : 'border-white/10'
-  const cardClass = isLight ? 'bg-white border-nike-gray' : 'bg-nike-dark border-white/5'
+  const cardClass = isLight ? 'bg-white border-nike-gray liquid-glass-card' : 'bg-nike-dark border-white/5 liquid-glass-card'
 
   const fetchPosts = () => {
     setLoading(true)
@@ -35,11 +35,63 @@ export default function Forum() {
 
   const toggleLike = async (postId) => {
     playClick()
-    setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, is_liked: !p.is_liked, like_count: p.like_count + (p.is_liked ? -1 : 1) } : p))
+    setPosts((prev) => prev.map((p) => {
+      if (p.id !== postId) return p
+      const wasLiked = p.is_liked
+      return {
+        ...p,
+        is_liked: !wasLiked,
+        is_disliked: false,
+        like_count: p.like_count + (wasLiked ? -1 : 1),
+        dislike_count: p.is_disliked ? p.dislike_count - 1 : p.dislike_count,
+      }
+    }))
     try {
-      await api.post('/auth/posts/' + postId + '/like/')
+      const { data } = await api.post('/auth/posts/' + postId + '/like/', { vote_type: 'like' })
+      setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, is_liked: data.liked, is_disliked: data.disliked, like_count: data.like_count, dislike_count: data.dislike_count } : p))
     } catch {
-      setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, is_liked: !p.is_liked, like_count: p.like_count + (p.is_liked ? -1 : 1) } : p))
+      setPosts((prev) => prev.map((p) => {
+        if (p.id !== postId) return p
+        const wasLiked = p.is_liked
+        return {
+          ...p,
+          is_liked: !wasLiked,
+          is_disliked: false,
+          like_count: p.like_count + (wasLiked ? 1 : -1),
+          dislike_count: p.is_disliked ? p.dislike_count - 1 : p.dislike_count,
+        }
+      }))
+    }
+  }
+
+  const toggleDislike = async (postId) => {
+    playClick()
+    setPosts((prev) => prev.map((p) => {
+      if (p.id !== postId) return p
+      const wasDisliked = p.is_disliked
+      return {
+        ...p,
+        is_disliked: !wasDisliked,
+        is_liked: false,
+        dislike_count: p.dislike_count + (wasDisliked ? -1 : 1),
+        like_count: p.is_liked ? p.like_count - 1 : p.like_count,
+      }
+    }))
+    try {
+      const { data } = await api.post('/auth/posts/' + postId + '/like/', { vote_type: 'dislike' })
+      setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, is_liked: data.liked, is_disliked: data.disliked, like_count: data.like_count, dislike_count: data.dislike_count } : p))
+    } catch {
+      setPosts((prev) => prev.map((p) => {
+        if (p.id !== postId) return p
+        const wasDisliked = p.is_disliked
+        return {
+          ...p,
+          is_disliked: !wasDisliked,
+          is_liked: false,
+          dislike_count: p.dislike_count + (wasDisliked ? 1 : -1),
+          like_count: p.is_liked ? p.like_count - 1 : p.like_count,
+        }
+      }))
     }
   }
 
@@ -113,6 +165,19 @@ export default function Forum() {
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={p.is_liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
                       {p.like_count || ''}
                     </button>
+                    <button
+                      onClick={() => toggleDislike(p.id)}
+                      className={'flex items-center gap-1.5 text-xs font-bold transition-colors ' + (p.is_disliked ? 'text-red-400' : mutedClass + ' hover:text-red-400')}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={p.is_disliked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10zM17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg>
+                      {p.dislike_count || ''}
+                    </button>
+                    {p.view_count !== null && p.view_count !== undefined && (
+                      <span className={'flex items-center gap-1.5 text-xs font-bold ' + mutedClass}>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        {p.view_count || 0}
+                      </span>
+                    )}
                     <Link to={'/forum/' + p.id} className={'flex items-center gap-1.5 text-xs font-bold ' + mutedClass + ' hover:text-nike-red transition-colors'}>
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                       {p.comment_count || ''}

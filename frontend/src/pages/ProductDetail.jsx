@@ -125,7 +125,7 @@ export default function ProductDetail() {
         <div className="grid md:grid-cols-2 gap-8 md:gap-12">
           <Reveal delay={100}>
             <div className="space-y-4">
-              <div className={'aspect-square rounded-2xl overflow-hidden border group relative ' + (isLight ? 'border-nike-gray bg-white' : 'border-white/5 bg-nike-dark')}>
+              <div className={'aspect-square rounded-2xl overflow-hidden border group relative liquid-glass-card ' + (isLight ? 'border-nike-gray bg-white' : 'border-white/5 bg-nike-dark')}>
                 {images[selectedImage] ? (
                   <img src={images[selectedImage]} alt={product.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                 ) : (
@@ -272,6 +272,7 @@ export default function ProductDetail() {
                       <span className={'w-12 text-center text-sm font-bold ' + textClass}>{qty}</span>
                       <button onClick={() => setQty((p) => p + 1)} className={'w-10 h-10 flex items-center justify-center text-sm font-bold transition-all hover:scale-110 ' + (isLight ? 'hover:bg-nike-gray/30' : 'hover:bg-white/10')}>+</button>
                     </div>
+                    {user?.role === 'athlete' ? (
                     <button
                       onClick={handleAdd}
                       disabled={!inStock}
@@ -282,6 +283,11 @@ export default function ProductDetail() {
                     >
                       {inStock ? 'Add to Cart' : 'Out of Stock'}
                     </button>
+                    ) : !!user && (
+                    <div className={'flex-1 px-6 py-3 rounded-xl text-sm tracking-widest uppercase font-bold text-center ' + (isLight ? 'bg-nike-gray/30 text-nike-light' : 'bg-white/5 text-white/30')}>
+                      Browse Only
+                    </div>
+                    )}
                   </>
                 )}
                 {isVendor && (
@@ -347,7 +353,7 @@ export default function ProductDetail() {
                 </div>
               ) : (
                 product.comments.map((comment) => (
-                  <div key={comment.id} className={'p-4 rounded-2xl border transition-all hover:scale-[1.002] ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
+                  <div key={comment.id} className={'p-4 rounded-2xl border transition-all hover:scale-[1.002] liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
                     <div className="flex items-start gap-3">
                       <div className={'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ' + (comment.user_role === 'vendor' ? 'bg-emerald-500/20 text-emerald-400' : (isLight ? 'bg-nike-red/10 text-nike-red' : 'bg-nike-red/20 text-nike-red'))}>
                         {comment.user_name[0].toUpperCase()}

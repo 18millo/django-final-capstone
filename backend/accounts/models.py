@@ -41,6 +41,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     totp_secret = models.CharField(max_length=64, blank=True)
     totp_enabled = models.BooleanField(default=False)
     email_verified = models.BooleanField(default=False)
+    messaging_blocked = models.BooleanField(default=False)
 
     objects = UserManager()
 
@@ -71,7 +72,7 @@ class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     bio = models.TextField(blank=True)
     avatar = models.ImageField(upload_to='avatars/', blank=True)
-    phone = models.CharField(max_length=20, blank=True)
+    phone = models.CharField(max_length=20, unique=True, null=True, blank=True)
     weight_class = models.CharField(max_length=20, choices=WeightClass.choices, blank=True)
     height_ft = models.IntegerField(blank=True, null=True)
     height_in = models.IntegerField(blank=True, null=True)
@@ -100,6 +101,8 @@ class Profile(models.Model):
     premium_trial_started = models.DateTimeField(null=True, blank=True)
     premium_expires_at = models.DateTimeField(null=True, blank=True)
     premium_grace_end = models.DateTimeField(null=True, blank=True)
+    premium_trial_used = models.BooleanField(default=False)
+    show_views_publicly = models.BooleanField(default=True)
 
     # phone verification
     phone_verified = models.BooleanField(default=False)
@@ -262,13 +265,20 @@ class PhoneVerificationCode(models.Model):
 
 
 class VendorAccessCode(models.Model):
+    class RoleChoices(models.TextChoices):
+        VENDOR = 'vendor', 'Vendor'
+        GYM_OWNER = 'gym_owner', 'Gym Owner'
+        COACH = 'coach', 'Coach'
+
     code = models.CharField(max_length=50, unique=True)
+    role = models.CharField(max_length=20, choices=RoleChoices.choices, default=RoleChoices.VENDOR)
     description = models.CharField(max_length=200, blank=True)
     is_active = models.BooleanField(default=True)
+    used_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='used_access_codes')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.code
+        return f'{self.get_role_display()} - {self.code}'
 
 
 class Post(models.Model):
@@ -277,6 +287,7 @@ class Post(models.Model):
     file = models.FileField(upload_to='post_files/', blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    view_count = models.IntegerField(default=0)
 
     class Meta:
         ordering = ['-created_at']
@@ -513,3 +524,58 @@ class PaymentInfo(models.Model):
         if self.method == 'mpesa':
             return f'M-Pesa {self.mpesa_phone}'
         return f'{self.card_brand} ****{self.card_last_four}'
+
+
+class Group(models.Model):
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    avatar = models.ImageField(upload_to='group_avatars/', blank=True)
+    is_private = models.BooleanField(default=False)
+    max_members = models.IntegerField(default=100)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_groups')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
+
+
+class GroupMember(models.Model):
+    ROLE_CHOICES = [
+        ('admin', 'Admin'),
+        ('member', 'Member'),
+    ]
+    STATUS_CHOICES = [
+        ('joined', 'Joined'),
+        ('pending', 'Pending Approval'),
+        ('invited', 'Invited'),
+    ]
+
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='members')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='group_memberships')
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='member')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='joined')
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('group', 'user')
+
+    def __str__(self):
+        return f'{self.user.email} in {self.group.name}'
+
+
+class GroupMessage(models.Model):
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='group_messages')
+    content = models.TextField(blank=True)
+    image = models.ImageField(upload_to='group_message_images/', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.sender.email} in {self.group.name}'

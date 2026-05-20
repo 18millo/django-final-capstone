@@ -54,7 +54,7 @@ export default function Checkout() {
         visa_last_four: paymentMethod === 'visa' ? visaCard.replace(/\s/g, '').slice(-4) : '',
         shipping_address: address,
       }
-      const res = await api.post('/products/checkout/', payload)
+      const res = await api.post('/checkout/', payload)
       playSuccess()
       toast('Order placed! Payment is pending.', 'success')
       navigate('/orders/' + res.data.id)

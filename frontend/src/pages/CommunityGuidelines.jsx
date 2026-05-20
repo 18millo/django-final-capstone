@@ -56,7 +56,7 @@ export default function CommunityGuidelines() {
       <div className="max-w-4xl mx-auto px-6 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {guidelines.map((g, i) => (
-            <div key={i} className={'rounded-2xl border p-6 transition-all hover:scale-[1.02] ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
+            <div key={i} className={'rounded-2xl border p-6 transition-all hover:scale-[1.02] liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
               <div className="text-3xl mb-3">{g.icon}</div>
               <h3 className={'text-base font-black tracking-tight mb-2 ' + textClass}>{g.title}</h3>
               <p className={'text-sm leading-relaxed ' + mutedClass}>{g.desc}</p>
@@ -64,7 +64,7 @@ export default function CommunityGuidelines() {
           ))}
         </div>
 
-        <div className={'mt-12 p-6 rounded-2xl border text-center ' + (isLight ? 'bg-nike-red/5 border-nike-red/20' : 'bg-nike-red/10 border-nike-red/20')}>
+        <div className={'mt-12 p-6 rounded-2xl border text-center liquid-glass-card ' + (isLight ? 'bg-nike-red/5 border-nike-red/20' : 'bg-nike-red/10 border-nike-red/20')}>
           <p className={'text-sm font-bold ' + textClass}>Violations may result in account warnings, temporary suspension, or permanent removal from CombatHub.</p>
         </div>
 

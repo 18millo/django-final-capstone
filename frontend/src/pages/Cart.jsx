@@ -45,7 +45,7 @@ export default function Cart() {
         ) : (
           <div className="space-y-4">
             {items.map((item) => (
-              <div key={item.id} className={'flex items-center gap-4 p-4 rounded-2xl border transition-all hover:scale-[1.005] ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
+              <div key={item.id} className={'flex items-center gap-4 p-4 rounded-2xl border transition-all hover:scale-[1.005] liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
                 <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl overflow-hidden shrink-0 bg-nike-gray/20">
                   {item.product_image ? (
                     <img src={item.product_image} alt={item.product_name} className="w-full h-full object-cover" />
@@ -74,7 +74,7 @@ export default function Cart() {
               </div>
             ))}
 
-            <div className={'p-6 rounded-2xl border ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
+            <div className={'p-6 rounded-2xl border liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
               <div className="flex items-center justify-between text-sm">
                 <span className={'font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>Total</span>
                 <span className="text-xl font-black text-nike-red">${total.toFixed(2)}</span>

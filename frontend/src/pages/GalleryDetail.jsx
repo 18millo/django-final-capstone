@@ -117,7 +117,7 @@ export default function GalleryDetail() {
           </div>
         </div>
 
-        <div ref={commentsRef} style={{ opacity: 0 }} className={'mt-8 p-6 md:p-8 rounded-2xl border backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
+        <div ref={commentsRef} style={{ opacity: 0 }} className={'mt-8 p-6 md:p-8 rounded-2xl border backdrop-blur-sm liquid-glass-card ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
           <h3 className="text-xs tracking-widest uppercase font-bold mb-6">Comments ({item.comment_count})</h3>
 
           <div className="flex gap-3 mb-8">

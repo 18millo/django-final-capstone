@@ -70,7 +70,7 @@ export default function CreatePost() {
       <div className="relative z-10 max-w-2xl mx-auto px-6 py-8">
         <Link to="/forum" className={'text-xs tracking-widest uppercase font-bold transition-colors mb-6 inline-block ' + mutedClass + ' hover:text-nike-red'}>← Back to Forum</Link>
 
-        <div className={'rounded-2xl border p-6 ' + (isLight ? 'bg-white border-nike-gray' : 'bg-nike-dark border-white/5')}>
+        <div className={'rounded-2xl border p-6 liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray' : 'bg-nike-dark border-white/5')}>
           <h1 className={'text-xl font-black tracking-tight mb-1 ' + textClass}>New Post</h1>
           <p className={'text-sm mb-6 ' + mutedClass}>Start a discussion with the community</p>
 

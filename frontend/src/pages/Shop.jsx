@@ -149,7 +149,7 @@ export default function Shop() {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
                 {products.map((p, i) => (
                   <Reveal key={p.id} delay={i * 50}>
-                    <div className={'group relative rounded-2xl overflow-hidden border transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
+                    <div className={'group relative rounded-2xl overflow-hidden border transition-all duration-300 hover:scale-[1.02] hover:shadow-lg liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
                       <Link to={'/shop/' + p.id}>
                         <div className="aspect-square overflow-hidden bg-nike-gray/20">
                           {p.images?.[0] ? (
@@ -173,6 +173,7 @@ export default function Shop() {
                         </Link>
                         <div className="flex items-center justify-between mt-3">
                           <p className="text-base font-black text-nike-red">${parseFloat(p.price).toFixed(2)}</p>
+                          {user?.role === 'athlete' ? (
                           <button
                             onClick={() => addItem(p.id)}
                             disabled={p.stock < 1}
@@ -181,6 +182,9 @@ export default function Shop() {
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
                           </button>
+                          ) : (
+                          <span className={'text-[10px] tracking-widest uppercase font-bold ' + (isLight ? 'text-nike-light' : 'text-white/30')}>Browse</span>
+                          )}
                         </div>
                       </div>
                     </div>

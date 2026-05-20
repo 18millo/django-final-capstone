@@ -1,17 +1,18 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
-from .models import User, Profile, UsernameChange, SiteContent, VendorAccessCode, Post, PostComment, PostLike, GalleryItem, GalleryLike, GalleryComment, Bookmark, Report, BlockedUser, PostCommentLike, ContentFlag, IPLog, PaymentInfo, PhoneVerificationCode
+from .models import User, Profile, UsernameChange, SiteContent, VendorAccessCode, Post, PostComment, PostLike, GalleryItem, GalleryLike, GalleryComment, Bookmark, Report, BlockedUser, PostCommentLike, ContentFlag, IPLog, PaymentInfo, PhoneVerificationCode, Group, GroupMember, GroupMessage
 
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ('email', 'username', 'display_name', 'avatar_preview', 'role', 'is_premium', 'is_active', 'is_staff', 'created_at')
-    list_filter = ('role', 'is_active', 'is_staff', 'profile__is_premium')
+    list_display = ('email', 'username', 'display_name', 'avatar_preview', 'role', 'is_premium', 'messaging_blocked', 'is_active', 'is_staff', 'created_at')
+    list_filter = ('role', 'is_active', 'is_staff', 'profile__is_premium', 'messaging_blocked')
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
         ('Personal Info', {'fields': ('username', 'display_name', 'role', 'google_id')}),
         ('2FA', {'fields': ('totp_secret', 'totp_enabled'), 'classes': ('collapse',)}),
+        ('Moderation', {'fields': ('messaging_blocked',), 'classes': ('collapse',)}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login',)}),
     )
@@ -66,8 +67,10 @@ class SiteContentAdmin(admin.ModelAdmin):
 
 @admin.register(VendorAccessCode)
 class VendorAccessCodeAdmin(admin.ModelAdmin):
-    list_display = ('code', 'description', 'is_active', 'created_at')
-    list_filter = ('is_active',)
+    list_display = ('code', 'role', 'description', 'is_active', 'used_by', 'created_at')
+    list_filter = ('is_active', 'role')
+    search_fields = ('code', 'description')
+    list_editable = ('is_active', 'role')
 
 
 @admin.register(Post)
@@ -200,3 +203,35 @@ class PhoneVerificationCodeAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'phone', 'code', 'is_used', 'created_at')
     list_filter = ('is_used', 'created_at')
     search_fields = ('user__email', 'phone')
+
+
+@admin.register(Group)
+class GroupAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'created_by', 'is_private', 'member_count', 'created_at')
+    list_filter = ('is_private',)
+    search_fields = ('name', 'created_by__email')
+
+    def member_count(self, obj):
+        return obj.members.filter(status='joined').count()
+    member_count.short_description = 'Members'
+
+
+@admin.register(GroupMember)
+class GroupMemberAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'group', 'role', 'status', 'joined_at')
+    list_filter = ('role', 'status')
+
+
+@admin.register(GroupMessage)
+class GroupMessageAdmin(admin.ModelAdmin):
+    list_display = ('id', 'sender', 'group', 'short_content', 'has_image', 'created_at')
+    list_filter = ('group',)
+
+    def short_content(self, obj):
+        return obj.content[:40] + ('...' if len(obj.content) > 40 else '')
+    short_content.short_description = 'Content'
+
+    def has_image(self, obj):
+        return bool(obj.image)
+    has_image.boolean = True
+    has_image.short_description = 'Image'

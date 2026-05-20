@@ -35,7 +35,7 @@ Frontend (React + Vite)  ←→  REST API (DRF)  ←→  PostgreSQL
 | Feature | Implementation |
 |---------|---------------|
 | Role-based auth (5 roles) | Custom User model with `role` field + Django Groups |
-| E-commerce (shop/cart/checkout) | Product model with variants, Cart, Order, Stripe-ready |
+| E-commerce (shop/cart/checkout) | Product model with variants, Cart, Order, Stripe-ready — cart restricted to athletes only |
 | Social (posts, gallery, likes, comments) | Post/GalleryItem models, follower system, favorites |
 | Direct messaging | WebSocket consumer with view-once image support |
 | Premium subscriptions | 30-day trial → 7-day grace → automatic removal |
@@ -196,7 +196,11 @@ def is_premium_active(self):
 
 **A:** A 500 error on the Home page was caused by mixing string concatenation with JSX — something like `{user.name + <span>badge</span>}`. React can't render a string + JSX element as a single expression. The fix was wrapping the mixed content in a `<></>` fragment. This was subtle because the error message pointed to the wrong line in the bundle, and the dev server didn't show it initially due to Hot Module Replacement masking the refresh. I traced it by checking the browser network tab, found the 500, and inspected the backend logs to confirm it was a template rendering error, not an API failure.
 
-### Q13: "How would you monetize this app? What's missing?"
+### Q13: "Why can't coaches or vendors use the shopping cart?"
+
+**A:** Vendors, coaches, and gym owners are content creators on the platform — they post products, manage inventory, and handle orders. Athletes are the buyers. Restricting the cart to the `athlete` role prevents sellers from accidentally buying from their own category and keeps the UX clean. The restriction is enforced at three layers: **frontend** (cart button hidden, routes guarded by `AthleteRoute`), **backend views** (403 if role is vendor/coach/gym_owner on cart/checkout endpoints), and **API permissions** (CartAddItemView and CheckoutView explicitly check the user's role).
+
+### Q14: "How would you monetize this app? What's missing?"
 
 **A:** The architecture is ready — premium gating, payment info collection, trial/grace/expiry cycle. To actually collect money:
 

@@ -41,7 +41,7 @@ export default function VendorAbout() {
   const textClass = isLight ? 'text-nike-black' : 'text-white'
   const mutedClass = isLight ? 'text-nike-light' : 'text-white/40'
   const borderClass = isLight ? 'border-nike-gray' : 'border-white/10'
-  const cardBg = isLight ? 'bg-white' : 'bg-nike-dark/80'
+  const cardBg = 'liquid-glass-card'
 
   return (
     <div className={'min-h-screen ' + (isLight ? 'bg-nike-gray/20' : 'bg-nike-black')}>

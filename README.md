@@ -1,41 +1,103 @@
-# django-final-capstone
-This is the last project for my software engineering course. For this ive used React-vite with tailwind css and django-pyhton for backend. This a platfrom for all fitness fanatics out there. More on readme file
+# CombatHub — Combat Sports Ecosystem
 
-## Docker Setup
+A full-stack combat sports platform where athletes, coaches, gym owners, and vendors connect. Built as the capstone project for a software engineering course.
 
-This project includes Docker configuration for easy deployment:
+**Stack:** Django REST Framework (backend) + React + Vite (frontend) + PostgreSQL + Redis + WebSockets (Django Channels)
 
-- **Backend**: `backend/Dockerfile` - Django ASGI app with Daphne
-- **Frontend**: `frontend/Dockerfile` - Multi-stage build (Node.js → Nginx)
-- **Orchestration**: `docker-compose.yml` - All services (backend, frontend, PostgreSQL, Redis)
+## Features
 
-To run locally:
+- **Role-based platform** — 5 user roles: athlete, coach, gym_owner, vendor, admin
+- **Social network** — Posts, gallery, likes, comments, follower system, bookmarks
+- **Marketplace** — Products with variants, cart (athletes only), checkout with M-Pesa/Visa
+- **Messaging** — Real-time DMs via WebSockets with view-once image support
+- **Community** — User discovery with search, filter, and role tabs
+- **Groups** — Private/public groups with invite system and messaging
+- **Premium subscriptions** — 30-day trial → 7-day grace → auto-removal
+- **Content moderation** — Regex-based flagging for profanity, violence, spam
+- **Security** — JWT auth, role-based permissions, rate limiting, CORS, IP hashing
+
+## Quick Start
+
+### Prerequisites
+- Python 3.12+
+- Node.js 20+
+- PostgreSQL 16+
+- Redis 7+
+
+### Backend Setup
 ```bash
-docker compose up --build
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+# Set up .env (see .env.example)
+python manage.py migrate
+python manage.py runserver
 ```
 
-For production deployment details, see PRESENTATION.md
-VITE_GOOGLE_CLIENT_ID=280792810633-2tnvflbc8fgflbip1mm65ed0bhr7gjdc.apps.googleusercontent.com
-DB_NAME=capstone
-DB_USER=levi
-DB_PASSWORD=2962
-DB_HOST=localhost
-DB_PORT=5432
-SECRET_KEY=django-insecure-xg6^&3s8#k@1mp$2qr%5t7y9u0i*op4w!e+r
-DEBUG=True
-ACCESS_TOKEN_LIFETIME_MINUTES=30
-REFRESH_TOKEN_LIFETIME_DAYS=1
-GOOGLE_CLIENT_ID=280792810633-2tnvflbc8fgflbip1mm65ed0bhr7gjdc.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=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
-STRIPE_PUBLISHABLE_KEY=your-publishable-key
-STRIPE_SECRET_KEY=your-secret-key
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_HOST_USER=mungailevi1@gmail.com
-EMAIL_HOST_PASSWORD=yyoh xefl bigy hcsa
-FROM_EMAIL=mungailevi1@gmail.com
-CLOUDINARY_CLOUD_NAME=your-cloud
-CLOUDINARY_API_KEY=your-key
-CLOUDINARY_API_SECRET=your-secret
-FRONTEND_URL=http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177,http://localhost:5178
-ALLOWED_HOSTS=localhost,127.0.0.1,testserver
+### Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Docker (alternative)
+```bash
+docker compose up --build -d
+```
+
+## Architecture
+
+```
+Frontend (React + Vite)  ←→  REST API (DRF)  ←→  PostgreSQL
+     ↕ WebSockets                    ↕ Redis
+  Real-time chat                 Cache + Sessions
+```
+
+## Environment Variables
+
+Create `backend/.env` with the following (see `.env.example`):
+
+| Variable | Description |
+|----------|-------------|
+| `SECRET_KEY` | Django secret key |
+| `DEBUG` | Set to `True` for development |
+| `ALLOWED_HOSTS` | Comma-separated allowed hosts |
+| `FRONTEND_URL` | Comma-separated frontend origins |
+| `DB_NAME` | PostgreSQL database name |
+| `DB_USER` | PostgreSQL user |
+| `DB_PASSWORD` | PostgreSQL password |
+| `DB_HOST` | PostgreSQL host |
+| `DB_PORT` | PostgreSQL port |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `EMAIL_HOST` | SMTP server |
+| `EMAIL_HOST_USER` | SMTP user |
+| `EMAIL_HOST_PASSWORD` | SMTP password |
+| `STRIPE_PUBLISHABLE_KEY` | Stripe publishable key |
+| `STRIPE_SECRET_KEY` | Stripe secret key |
+
+## Project Structure
+```
+backend/
+├── accounts/    # Users, auth, profiles, social features
+├── products/    # Marketplace, cart, checkout, orders
+├── chat/        # WebSocket consumers for messaging
+├── gyms/        # Gym management
+├── events/      # Event management
+├── reviews/     # Product/gym reviews
+├── payments/    # Payment processing
+├── subscriptions/  # Premium tiers
+├── common/      # Shared permissions, throttling
+└── config/      # Django settings, URLs, ASGI
+
+frontend/
+├── src/
+│   ├── pages/        # Route pages
+│   ├── components/   # Reusable UI components
+│   ├── layouts/      # Main/Auth layouts
+│   ├── providers/    # React context providers
+│   └── utils/        # API client, sounds, helpers
+└── public/           # Static assets
+```

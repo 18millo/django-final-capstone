@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import ProductReview
+from accounts.serializers import resolve_avatar
 
 
 class ProductReviewSerializer(serializers.ModelSerializer):
@@ -15,10 +16,8 @@ class ProductReviewSerializer(serializers.ModelSerializer):
         return obj.user.email
 
     def get_user_avatar(self, obj):
-        avatar = getattr(obj.user.profile, 'avatar', None)
-        if avatar:
-            return avatar.url
-        return None
+        request = self.context.get('request')
+        return resolve_avatar(obj.user.profile, request)
 
     def validate_rating(self, value):
         if value < 1 or value > 5:

@@ -179,6 +179,134 @@ function VendorProducts() {
   )
 }
 
+function EmailVerification() {
+  const { user, refreshUser } = useAuth()
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
+  const [code, setCode] = useState('')
+  const [sending, setSending] = useState(false)
+  const [verifying, setVerifying] = useState(false)
+  const [codeSent, setCodeSent] = useState(false)
+  const [changingEmail, setChangingEmail] = useState(false)
+  const [newEmail, setNewEmail] = useState('')
+  const [changing, setChanging] = useState(false)
+  const [message, setMessage] = useState('')
+
+  const handleSendCode = async () => {
+    setSending(true)
+    setMessage('')
+    try {
+      await api.post('/auth/email/send-code/')
+      setCodeSent(true)
+      setMessage('Verification code sent to your email.')
+    } catch (err) {
+      setMessage(err?.response?.data?.error || 'Failed to send code')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const handleVerify = async () => {
+    if (code.length !== 6) return
+    setVerifying(true)
+    setMessage('')
+    try {
+      await api.post('/auth/email/verify/', { code })
+      setMessage('✅ Email verified successfully!')
+      await refreshUser()
+    } catch (err) {
+      setMessage(err?.response?.data?.error || 'Invalid code')
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  const handleChangeEmail = async () => {
+    if (!newEmail.trim() || !newEmail.includes('@')) return
+    setChanging(true)
+    setMessage('')
+    try {
+      await api.post('/auth/email/change/', { email: newEmail.trim() })
+      setMessage('Email updated. Verification code sent to your new email.')
+      setChangingEmail(false)
+      setCodeSent(true)
+      setCode('')
+      await refreshUser()
+    } catch (err) {
+      setMessage(err?.response?.data?.error || 'Failed to change email')
+    } finally {
+      setChanging(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {message && (
+        <div className={'text-sm px-4 py-3 rounded-xl ' + (message.includes('✅') ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : message.includes('updated') ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400' : 'bg-nike-red/10 border border-nike-red/20 text-nike-red')}>
+          {message}
+        </div>
+      )}
+
+      <div>
+        <label className={'text-xs tracking-widest uppercase font-bold mb-1.5 block ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Current Email</label>
+        <div className="flex items-center gap-2">
+          <span className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{user?.email}</span>
+          {user?.email_verified && <span className="text-[10px] text-emerald-400 font-bold">✓ Verified</span>}
+        </div>
+      </div>
+
+      {changingEmail ? (
+        <div className="space-y-3">
+          <input
+            type="email"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            placeholder="Enter new email"
+            className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none transition-all duration-300"
+            style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)', color: 'var(--color-nike-white)' }}
+          />
+          <div className="flex gap-2">
+            <Button onClick={handleChangeEmail} loading={changing}>Save & Send Code</Button>
+            <button onClick={() => { setChangingEmail(false); setNewEmail(''); setMessage('') }} className="text-xs px-3 hover:underline" style={{ color: 'var(--color-nike-light)' }}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => setChangingEmail(true)} className="text-xs hover:underline font-bold" style={{ color: 'var(--color-nike-light)' }}>
+          Change email
+        </button>
+      )}
+
+      {!user?.email_verified && !changingEmail && (
+        <div className="pt-2 border-t border-white/10">
+          {!codeSent ? (
+            <Button onClick={handleSendCode} loading={sending}>Send Verification Code</Button>
+          ) : (
+            <div className="space-y-3">
+              <p className={'text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Enter the 6-digit code sent to your email:</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  maxLength={6}
+                  inputMode="numeric"
+                  className="w-32 rounded-xl px-4 py-3 text-center text-lg tracking-[0.5em] font-bold focus:outline-none transition-all duration-300"
+                  style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)', color: 'var(--color-nike-white)' }}
+                />
+                <Button onClick={handleVerify} loading={verifying}>Verify</Button>
+              </div>
+              <button onClick={handleSendCode} className="text-xs hover:underline" style={{ color: 'var(--color-nike-light)' }}>
+                Resend code
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function EnableTotp() {
   const { setupTotp, verifyTotp } = useAuth()
   const [step, setStep] = useState('idle')
@@ -404,19 +532,25 @@ export default function Settings() {
       const formData = new FormData()
       formData.append('username', form.username)
       Object.entries(form).forEach(([key, val]) => {
-        if (key !== 'username') formData.append('profile.' + key, val)
+        if (key !== 'username') {
+          const emptyNumerics = ['height_ft', 'height_in', 'reach_in', 'latitude', 'longitude']
+          if (emptyNumerics.includes(key) && val === '') return
+          formData.append('profile[' + key + ']', val)
+        }
       })
-      if (avatar) formData.append('profile.avatar', avatar)
+      if (avatar) formData.append('profile[avatar]', avatar)
 
-      const { data } = await api.patch('/auth/me/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      const { data } = await api.patch('/auth/me/', formData)
       updateUser(data)
       playSuccess()
       setMessage({ type: 'success', text: 'Profile updated!' })
     } catch (err) {
       const errData = err.response?.data
-      const msg = errData?.username?.[0] || errData?.detail || 'Failed to update profile'
+      const msg = typeof errData === 'string' ? errData :
+        errData?.username?.[0] ||
+        (errData?.profile ? Object.values(errData.profile).flat().join(', ') : null) ||
+        errData?.detail ||
+        'Failed to update profile'
       setMessage({ type: 'error', text: msg })
     } finally {
       setLoading(false)
@@ -721,6 +855,23 @@ export default function Settings() {
 
           {tab === 'security' && (
             <div className="space-y-6">
+              <Reveal>
+                <div className="p-8 rounded-2xl backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-dark) 90%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--color-nike-gray)' }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" style={{ color: 'var(--color-nike-light)' }}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg" style={{ color: 'var(--color-nike-white)' }}>Email Verification</h3>
+                      <p className="text-sm mt-1" style={{ color: 'var(--color-nike-light)' }}>
+                        {user.email_verified ? '✅ Email verified' : 'Verify your email to access premium features'}
+                      </p>
+                    </div>
+                  </div>
+                  {!user.email_verified && <EmailVerification />}
+                </div>
+              </Reveal>
+
               <Reveal>
                 <div className="p-8 rounded-2xl backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-dark) 90%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
                   <div className="flex items-center gap-4 mb-6">

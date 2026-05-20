@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../providers/AuthProvider'
 import { useTheme } from '../providers/ThemeProvider'
 import api from '../utils/api'
@@ -41,6 +42,7 @@ function dateLabel(date) {
 export default function Messages() {
   const { user } = useAuth()
   const { theme } = useTheme()
+  const navigate = useNavigate()
   const isLight = theme === 'light'
   const [conversations, setConversations] = useState([])
   const [activeId, setActiveId] = useState(null)
@@ -303,7 +305,7 @@ export default function Messages() {
     if (imageFile) {
       const formData = new FormData()
       formData.append('content', content || '')
-      formData.append('view_once', String(viewOnce))
+      if (viewOnce) formData.append('view_once', 'true')
       formData.append('image', imageFile)
 
       api.post('/auth/conversations/' + activeId + '/send/', formData, {
@@ -335,12 +337,16 @@ export default function Messages() {
     setViewOnce(false)
 
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'message', content, view_once: viewOnce }))
+      const wsPayload = { type: 'message', content }
+      if (viewOnce) wsPayload.view_once = true
+      wsRef.current.send(JSON.stringify(wsPayload))
       setConversations((prev) => prev.map((c) => c.user_id === activeId ? { ...c, last_message: content, last_message_time: new Date().toISOString() } : c).sort((a, b) => new Date(b.last_message_time || 0) - new Date(a.last_message_time || 0)))
       playSuccess()
     } else {
       setMessages((prev) => prev.filter((m) => m.id !== tempId))
-      api.post('/auth/conversations/' + activeId + '/send/', { content, view_once: viewOnce })
+      const jsonPayload = { content }
+      if (viewOnce) jsonPayload.view_once = true
+      api.post('/auth/conversations/' + activeId + '/send/', jsonPayload)
         .then(({ data }) => {
           setMessages((prev) => [data, ...prev])
           const lastText = data.content || (data.view_once ? '📷 View once photo' : '📷 Photo')
@@ -440,19 +446,30 @@ export default function Messages() {
       <div className="relative h-full flex">
 
         {/* Sidebar */}
-        <div className={'w-72 shrink-0 border-r flex flex-col ' + (isLight ? 'border-nike-gray bg-white/90' : 'border-white/5 bg-nike-dark/80')}>
+        <div className={'w-72 shrink-0 flex flex-col liquid-glass-card'}>
           <div className={'p-4 border-b flex items-center justify-between ' + (isLight ? 'border-nike-gray' : 'border-white/5')}>
             <div className={'flex items-center gap-2.5 px-3 py-2 rounded-xl ' + (isLight ? 'bg-nike-gray/30' : 'bg-white/5')}>
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={'w-4 h-4 shrink-0 ' + (isLight ? 'text-nike-light' : 'text-white/30')}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               <span className={'text-xs tracking-widest uppercase font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>Messages</span>
             </div>
-            <button
-              onClick={openNewChat}
-              className={'w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/40 hover:text-white')}
-              title="New conversation"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M12 5v14M5 12h14"/></svg>
-            </button>
+            <div className="flex items-center gap-1">
+              {['gym_owner', 'coach'].includes(user?.role) && user?.profile?.is_premium && (
+                <button
+                  onClick={() => { playClick(); navigate('/groups') }}
+                  className={'w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/40 hover:text-white')}
+                  title="Create Group"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                </button>
+              )}
+              <button
+                onClick={openNewChat}
+                className={'w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/40 hover:text-white')}
+                title="New conversation"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M12 5v14M5 12h14"/></svg>
+              </button>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto">
             {loading ? (
@@ -519,7 +536,7 @@ export default function Messages() {
           {activeId ? (
             <>
               {/* Chat header */}
-              <div className={'p-4 border-b flex items-center gap-3 ' + (isLight ? 'border-nike-gray bg-white/90' : 'border-white/5 bg-nike-dark/80')}>
+              <div className={'p-4 border-b flex items-center gap-3 liquid-glass-card ' + (isLight ? 'border-nike-gray' : '')} style={!isLight ? { borderBottomColor: 'rgba(255,255,255,0.05)' } : {}}>
                 <div className="relative shrink-0">
                   <div className="w-9 h-9 rounded-full overflow-hidden ring-2" style={{ '--tw-ring-color': 'var(--color-nike-gray)' }}>
                     {activeConv?.avatar ? (
@@ -590,7 +607,13 @@ export default function Messages() {
                               <span className="text-xs opacity-80 text-center">View once image<br/>has been opened</span>
                             </div>
                           )}
-                          {hasImage && !(isViewOnce && !isMe) && (
+                          {hasImage && isViewOnce && isMe && (
+                            <div className="flex flex-col items-center justify-center gap-2 p-8 w-full min-h-[120px]">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 opacity-60"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                              <span className="text-xs opacity-80 text-center">📷 View once photo<br/>Sent</span>
+                            </div>
+                          )}
+                          {hasImage && !isViewOnce && (
                             <div className="relative">
                               <img
                                 src={mediaUrl(item.image_url)}
@@ -599,12 +622,6 @@ export default function Messages() {
                                 style={{ maxHeight: '300px' }}
                                 onClick={() => setLightboxUrl(mediaUrl(item.image_url))}
                               />
-                              {isViewOnce && isMe && (
-                                <div className="absolute top-2 right-2 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                                  View once
-                                </div>
-                              )}
                             </div>
                           )}
                           {(item.content || !hasImage) && (
@@ -644,7 +661,7 @@ export default function Messages() {
               </div>
 
               {/* Input */}
-              <div className={'p-4 border-t ' + (isLight ? 'border-nike-gray bg-white/90' : 'border-white/5 bg-nike-dark/80')}>
+              <div className={'p-4 border-t liquid-glass-card ' + (isLight ? 'border-nike-gray' : '')} style={!isLight ? { borderTopColor: 'rgba(255,255,255,0.05)' } : {}}>
                 {imagePreview && (
                   <div className="relative mb-2 inline-block">
                     <img src={imagePreview} alt="Preview" className="h-20 w-20 object-cover rounded-xl" />
@@ -736,7 +753,7 @@ export default function Messages() {
       {showNewChat && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowNewChat(false)} />
-          <div className={'relative w-full max-w-md mx-4 rounded-2xl border shadow-2xl overflow-hidden ' + (isLight ? 'bg-white border-nike-gray shadow-lg' : 'bg-nike-dark border-white/5')}>
+          <div className={'relative w-full max-w-md mx-4 rounded-2xl shadow-2xl overflow-hidden liquid-glass-card'}>
             <div className={'px-6 py-5 border-b flex items-center justify-between ' + (isLight ? 'border-nike-gray' : 'border-white/5')}>
               <div>
                 <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>New Conversation</p>

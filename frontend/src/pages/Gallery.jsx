@@ -83,7 +83,7 @@ export default function Gallery() {
               Training moments, fight highlights, and gym culture from the community.
             </p>
           </div>
-          {user && (
+          {user && user?.profile?.is_premium && (
             <button
               onClick={() => setShowUpload(!showUpload)}
               className="flex items-center gap-2 bg-nike-red hover:bg-white hover:text-nike-black text-white px-5 py-2.5 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300"
@@ -92,10 +92,19 @@ export default function Gallery() {
               Upload
             </button>
           )}
+          {user && !user?.profile?.is_premium && (
+            <Link
+              to="/premium"
+              className="flex items-center gap-2 bg-nike-gray hover:bg-nike-red text-white/60 hover:text-white px-5 py-2.5 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Premium Required
+            </Link>
+          )}
         </div>
 
-        {showUpload && (
-          <div className={'mb-10 p-6 rounded-2xl border backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
+        {showUpload && user?.profile?.is_premium && (
+          <div className={'mb-10 p-6 rounded-2xl border backdrop-blur-sm liquid-glass-card ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
             <h3 className="text-xs tracking-widest uppercase font-bold mb-4">New Gallery Post</h3>
             <div className="flex flex-col gap-4">
               {preview && (
@@ -147,7 +156,7 @@ export default function Gallery() {
               <Link
                 key={item.id}
                 to={'/gallery/' + item.id}
-                className={'group relative rounded-2xl overflow-hidden border transition-all duration-300 hover:scale-[1.02] hover:shadow-xl ' + (isLight ? 'bg-white border-nike-gray' : 'bg-nike-dark border-white/5')}
+                className={'group relative rounded-2xl overflow-hidden border transition-all duration-300 hover:scale-[1.02] hover:shadow-xl liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray' : 'bg-nike-dark border-white/5')}
               >
                 <div className="aspect-square overflow-hidden">
                   <img

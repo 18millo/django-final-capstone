@@ -65,6 +65,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 return
 
             msg = await self.save_message(content, view_once)
+            if msg is None:
+                await self.send(text_data=json.dumps({'type': 'error', 'message': 'This user has been restricted from receiving messages.'}))
+                return
 
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -178,6 +181,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def save_message(self, content, view_once=False):
+        try:
+            recipient = User.objects.get(id=int(self.other_user_id))
+            if recipient.messaging_blocked:
+                return None
+        except User.DoesNotExist:
+            return None
         return Message.objects.create(
             sender=self.user,
             recipient_id=int(self.other_user_id),

@@ -49,7 +49,7 @@ export default function OrderHistory() {
           <div className="space-y-4">
             {orders.map((order, i) => (
               <Reveal key={order.id} delay={i * 80}>
-                <Link to={'/orders/' + order.id} className={'block p-6 rounded-2xl border transition-all duration-200 hover:scale-[1.005] ' + (isLight ? 'bg-white border-nike-gray shadow-sm hover:shadow-md' : 'bg-nike-dark border-white/5')}>
+                <Link to={'/orders/' + order.id} className={'block p-6 rounded-2xl border transition-all duration-200 hover:scale-[1.005] liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray shadow-sm hover:shadow-md' : 'bg-nike-dark border-white/5')}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <span className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>#{order.id}</span>

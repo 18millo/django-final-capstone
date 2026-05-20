@@ -3,7 +3,7 @@ import string
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from rest_framework import serializers
-from .models import User, Profile, UsernameChange, SiteContent, Follow, Notification, Message, Post, PostLike, PostComment, GalleryItem, GalleryLike, GalleryComment, Bookmark, Report, BlockedUser, PostCommentLike, PaymentInfo
+from .models import User, Profile, UsernameChange, SiteContent, Follow, Notification, Message, Post, PostLike, PostComment, GalleryItem, GalleryLike, GalleryComment, Bookmark, Report, BlockedUser, PostCommentLike, PaymentInfo, Group, GroupMember, GroupMessage, VendorAccessCode
 
 
 ACCESS_CODE_ROLES = {'vendor', 'coach', 'gym_owner'}
@@ -29,6 +29,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     username = serializers.CharField(required=True)
     vendor_access_code = serializers.CharField(read_only=True, source='profile.vendor_access_code')
     accepted_terms = serializers.BooleanField(required=True, write_only=True)
+    registration_code = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     # vendor fields
     business_name = serializers.CharField(required=False, allow_blank=True)
@@ -45,6 +46,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = (
             'email', 'username', 'password', 'role', 'vendor_access_code',
+            'registration_code',
             'business_name', 'business_location', 'business_description',
             'latitude', 'longitude',
             'specialization', 'certifications', 'accepted_terms',
@@ -76,6 +78,20 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("This username is already taken.")
         return value
 
+    def validate(self, data):
+        role = data.get('role')
+        registration_code = data.get('registration_code', '')
+        if role in ACCESS_CODE_ROLES:
+            if registration_code:
+                code_obj = VendorAccessCode.objects.filter(
+                    code=registration_code, role=role, is_active=True, used_by__isnull=True
+                ).first()
+                if not code_obj:
+                    raise serializers.ValidationError({'registration_code': f'Invalid or already-used access code for {role.replace("_", " ")}.'})
+            else:
+                raise serializers.ValidationError({'registration_code': f'A registration access code is required for {role.replace("_", " ")} accounts. Contact an admin to get one.'})
+        return data
+
     def create(self, validated_data):
         profile_fields = [
             'business_name', 'business_location', 'business_description',
@@ -83,6 +99,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             'specialization', 'certifications',
         ]
         profile_data = {f: validated_data.pop(f, '') for f in profile_fields}
+        registration_code = validated_data.pop('registration_code', '')
 
         password = validated_data.pop('password')
         validated_data.pop('accepted_terms', None)
@@ -98,6 +115,14 @@ class RegisterSerializer(serializers.ModelSerializer):
                 setattr(profile, attr, value)
         if user.role in ACCESS_CODE_ROLES:
             profile.vendor_access_code = generate_access_code()
+            if registration_code:
+                code_obj = VendorAccessCode.objects.filter(
+                    code=registration_code, role=user.role, is_active=True, used_by__isnull=True
+                ).first()
+                if code_obj:
+                    code_obj.used_by = user
+                    code_obj.is_active = False
+                    code_obj.save(update_fields=['used_by', 'is_active'])
         profile.save()
 
         return user
@@ -240,6 +265,15 @@ class AvatarField(serializers.ImageField):
 class ProfileSerializer(serializers.ModelSerializer):
     avatar = AvatarField(allow_null=True, required=False)
 
+    def validate_phone(self, value):
+        if value:
+            qs = Profile.objects.filter(phone=value)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError("This phone number is already in use.")
+        return value
+
     class Meta:
         model = Profile
         fields = (
@@ -308,8 +342,8 @@ class UserSerializer(serializers.ModelSerializer):
 
 class PublicUserSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer()
-    follower_count = serializers.IntegerField(source='_follower_count', read_only=True)
-    following_count = serializers.IntegerField(source='_following_count', read_only=True)
+    follower_count = serializers.IntegerField(read_only=True)
+    following_count = serializers.IntegerField(read_only=True)
     is_following = serializers.SerializerMethodField()
 
     class Meta:
@@ -401,14 +435,16 @@ class PostSerializer(serializers.ModelSerializer):
     dislike_count = serializers.SerializerMethodField()
     comment_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
+    is_disliked = serializers.SerializerMethodField()
     user_vote = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
+    view_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
         fields = ('id', 'author', 'author_name', 'author_role', 'author_avatar', 'author_is_premium',
                   'content', 'file', 'file_url', 'like_count', 'dislike_count', 'comment_count',
-                  'is_liked', 'user_vote', 'created_at', 'updated_at')
+                  'is_liked', 'is_disliked', 'user_vote', 'view_count', 'created_at', 'updated_at')
         read_only_fields = ('author',)
 
     def get_author_name(self, obj):
@@ -429,10 +465,25 @@ class PostSerializer(serializers.ModelSerializer):
     def get_comment_count(self, obj):
         return obj.comments.count()
 
+    def get_view_count(self, obj):
+        author = obj.author
+        if author.role == 'vendor':
+            return obj.view_count
+        profile = getattr(author, 'profile', None)
+        if profile and profile.is_premium_active() and not profile.show_views_publicly:
+            return None
+        return obj.view_count
+
     def get_is_liked(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.likes.filter(user=request.user, vote_type='like').exists()
+        return False
+
+    def get_is_disliked(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.likes.filter(user=request.user, vote_type='dislike').exists()
         return False
 
     def get_user_vote(self, obj):
@@ -622,3 +673,92 @@ class PaymentInfoSerializer(serializers.ModelSerializer):
             if not data.get('card_last_four'):
                 raise serializers.ValidationError({'card_last_four': 'Last four digits of card are required.'})
         return data
+
+
+class GroupMemberSerializer(serializers.ModelSerializer):
+    username = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GroupMember
+        fields = ('id', 'user', 'username', 'avatar', 'role', 'status', 'joined_at')
+        read_only_fields = ('id', 'joined_at')
+
+    def get_username(self, obj):
+        return obj.user.username or obj.user.display_name or obj.user.email
+
+    def get_avatar(self, obj):
+        request = self.context.get('request')
+        return resolve_avatar(obj.user.profile, request)
+
+
+class GroupSerializer(serializers.ModelSerializer):
+    member_count = serializers.SerializerMethodField()
+    members = serializers.SerializerMethodField()
+    is_member = serializers.SerializerMethodField()
+    my_status = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
+    created_by_avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Group
+        fields = ('id', 'name', 'description', 'avatar', 'is_private', 'max_members',
+                  'created_by', 'created_by_name', 'created_by_avatar',
+                  'member_count', 'members', 'is_member', 'my_status',
+                  'created_at', 'updated_at')
+        read_only_fields = ('id', 'created_by', 'created_at', 'updated_at')
+
+    def get_member_count(self, obj):
+        return obj.members.filter(status='joined').count()
+
+    def get_members(self, obj):
+        joined = obj.members.filter(status='joined').select_related('user__profile')
+        return GroupMemberSerializer(joined, many=True, context=self.context).data
+
+    def get_is_member(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.members.filter(user=request.user, status='joined').exists()
+        return False
+
+    def get_my_status(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            gm = obj.members.filter(user=request.user).first()
+            if gm:
+                return gm.status
+        return None
+
+    def get_created_by_name(self, obj):
+        return obj.created_by.username or obj.created_by.display_name or obj.created_by.email
+
+    def get_created_by_avatar(self, obj):
+        request = self.context.get('request')
+        return resolve_avatar(obj.created_by.profile, request)
+
+
+class GroupMessageSerializer(serializers.ModelSerializer):
+    sender_name = serializers.SerializerMethodField()
+    sender_avatar = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GroupMessage
+        fields = ('id', 'group', 'sender', 'sender_name', 'sender_avatar', 'content', 'image', 'image_url', 'created_at')
+        read_only_fields = ('id', 'sender', 'created_at')
+
+    def get_sender_name(self, obj):
+        return obj.sender.username or obj.sender.display_name or obj.sender.email
+
+    def get_sender_avatar(self, obj):
+        request = self.context.get('request')
+        return resolve_avatar(obj.sender.profile, request)
+
+    def get_image_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get('request')
+        url = obj.image.url
+        if url.startswith('http'):
+            return url
+        return request.build_absolute_uri(url) if request else url

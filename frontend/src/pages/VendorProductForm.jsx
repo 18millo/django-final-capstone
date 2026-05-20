@@ -180,7 +180,7 @@ export default function VendorProductForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-        <div className={'rounded-2xl border p-6 space-y-5 ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
+        <div className={'rounded-2xl border p-6 space-y-5 liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
           <h2 className={'text-sm font-black tracking-widest uppercase ' + textClass}>Details</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -215,7 +215,7 @@ export default function VendorProductForm() {
           </div>
         </div>
 
-        <div className={'rounded-2xl border p-6 space-y-5 ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
+        <div className={'rounded-2xl border p-6 space-y-5 liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
           <h2 className={'text-sm font-black tracking-widest uppercase ' + textClass}>Images</h2>
 
           <div className="flex flex-wrap gap-3">
@@ -245,7 +245,7 @@ export default function VendorProductForm() {
           </div>
         </div>
 
-        <div className={'rounded-2xl border p-6 space-y-5 ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
+        <div className={'rounded-2xl border p-6 space-y-5 liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
           <h2 className={'text-sm font-black tracking-widest uppercase ' + textClass}>Discount</h2>
 
           <label className={'flex items-center gap-3 cursor-pointer ' + textClass}>
@@ -261,7 +261,7 @@ export default function VendorProductForm() {
           )}
         </div>
 
-        <div className={'rounded-2xl border p-6 space-y-5 ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
+        <div className={'rounded-2xl border p-6 space-y-5 liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
           <h2 className={'text-sm font-black tracking-widest uppercase ' + textClass}>Extras</h2>
 
           <div className="flex items-center gap-6">

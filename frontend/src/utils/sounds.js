@@ -1,8 +1,10 @@
 let ctx = null
 
 function getCtx() {
-  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)()
-  if (ctx.state === 'suspended') ctx.resume()
+  try {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)()
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+  } catch {}
   return ctx
 }
 

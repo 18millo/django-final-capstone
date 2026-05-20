@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../providers/AuthProvider'
 import { useTheme } from '../providers/ThemeProvider'
 import api from '../utils/api'
@@ -45,6 +45,42 @@ function AnimatedNumber({ n }) {
   return v
 }
 
+function GroupPreviewList() {
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
+  const textClass = isLight ? 'text-nike-black' : 'text-white'
+  const mutedClass = isLight ? 'text-nike-light' : 'text-white/40'
+  const [groups, setGroups] = useState([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    api.get('/auth/groups/')
+      .then((res) => setGroups((res.data.results || res.data || []).slice(0, 4)))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+  if (loading) return <Skeleton count={2} />
+  if (groups.length === 0) return <p className={'text-sm ' + mutedClass}>No groups yet — be the first to create one!</p>
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {groups.map((g) => (
+        <Link
+          key={g.id}
+          to={'/groups/' + g.id}
+          className={'group flex items-center gap-3 p-3 rounded-xl border transition-all hover:scale-[1.02] ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5 hover:border-white/20')}
+        >
+          <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-nike-gray/20 flex items-center justify-center text-sm font-bold" style={{ color: 'var(--color-nike-light)' }}>
+            {g.avatar ? <img src={mediaUrl(g.avatar)} className="w-full h-full object-cover" alt="" /> : (g.name || 'G')[0].toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className={'text-sm font-bold truncate ' + textClass}>{g.name}</p>
+            <p className={'text-[10px] ' + mutedClass}>{g.member_count} member{(g.member_count || 0) !== 1 ? 's' : ''}{g.is_private ? ' · Private' : ' · Public'}</p>
+          </div>
+        </Link>
+      ))}
+    </div>
+  )
+}
+
 function RoleBadge({ role }) {
   const c = ROLE_COLORS[role] || ROLE_COLORS.athlete
   return (
@@ -60,6 +96,7 @@ function RoleBadge({ role }) {
 export default function Community() {
   const { user } = useAuth()
   const { theme } = useTheme()
+  const navigate = useNavigate()
   const isLight = theme === 'light'
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -310,6 +347,23 @@ export default function Community() {
             </Reveal>
           </div>
         )}
+
+        {/* Groups section */}
+        <div className="max-w-5xl mx-auto px-6 mb-10">
+          <Reveal delay={100}>
+            <div className="mb-4 flex items-center gap-3">
+              <div className={'flex items-center gap-2 text-xs tracking-widest uppercase font-bold ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zM6 10h.01M18 10h.01"/></svg>
+                Training Groups
+              </div>
+              <div className={'h-px flex-1 ' + (isLight ? 'bg-nike-gray/50' : 'bg-white/10')} />
+              <button onClick={() => { playClick(); navigate('/groups') }} className={'text-[10px] tracking-widest uppercase font-bold hover:underline ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')}>
+                View all
+              </button>
+            </div>
+            <GroupPreviewList />
+          </Reveal>
+        </div>
 
         {/* User grid */}
         <div className="max-w-5xl mx-auto px-6 pb-20">

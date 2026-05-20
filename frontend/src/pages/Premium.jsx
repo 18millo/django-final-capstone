@@ -115,19 +115,30 @@ const ATHLETE_FEATURES = [
   },
 ]
 
+const BUSINESS_ROLES = ['vendor', 'coach', 'gym_owner']
+
 export default function Premium() {
   const { user } = useAuth()
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const [openFaq, setOpenFaq] = useState(null)
 
+  const userRole = user?.role
+  const isBusiness = BUSINESS_ROLES.includes(userRole)
+  const isAthlete = userRole === 'athlete'
+
+  const roleGridCols =
+    isAthlete ? 'md:grid-cols-1 max-w-sm mx-auto' :
+    isBusiness ? 'md:grid-cols-3' :
+    'md:grid-cols-4'
+
   const cardClass = (clickable) =>
-    'block p-6 rounded-2xl border text-center transition-all duration-300 ' +
+    'block p-6 rounded-2xl border text-center transition-all duration-300 liquid-glass-card ' +
     (isLight ? 'bg-nike-gray/20 border-nike-gray ' : 'bg-white/5 border-white/10 ') +
     (clickable ? 'hover:border-nike-red/30 hover:scale-[1.02] cursor-pointer ' : '')
 
   const featureCardClass = (clickable) =>
-    'flex gap-4 p-5 rounded-2xl border transition-all duration-300 ' +
+    'flex gap-4 p-5 rounded-2xl border transition-all duration-300 liquid-glass-card ' +
     (isLight ? 'bg-nike-gray/20 border-nike-gray ' : 'bg-white/5 border-white/10 ') +
     (clickable ? 'hover:border-nike-red/30 hover:scale-[1.02] cursor-pointer ' : '')
 
@@ -147,12 +158,21 @@ export default function Premium() {
             Unlock powerful tools to grow your combat sports presence. Free 30-day trial — no charges during trial.
           </p>
           {user ? (
-            <Link
-              to="/premium/setup"
-              className="inline-flex items-center gap-2 bg-nike-red hover:bg-white hover:text-nike-black text-white px-8 py-4 rounded-full text-sm tracking-widest uppercase font-bold transition-all duration-300"
-            >
-              {user.profile?.is_premium ? '⚡ Manage Premium' : '🔓 Start Free Trial'}
-            </Link>
+            user.email_verified ? (
+              <Link
+                to="/premium/setup"
+                className="inline-flex items-center gap-2 bg-nike-red hover:bg-white hover:text-nike-black text-white px-8 py-4 rounded-full text-sm tracking-widest uppercase font-bold transition-all duration-300"
+              >
+                {user.profile?.is_premium ? '⚡ Manage Premium' : '🔓 Start Free Trial'}
+              </Link>
+            ) : (
+              <Link
+                to="/settings"
+                className="inline-flex items-center gap-2 bg-nike-amber hover:bg-white hover:text-nike-black text-white px-8 py-4 rounded-full text-sm tracking-widest uppercase font-bold transition-all duration-300"
+              >
+                📧 Verify Email to Access Premium
+              </Link>
+            )
           ) : (
             <Link
               to="/register"
@@ -168,37 +188,50 @@ export default function Premium() {
           <h2 className={'text-xl font-black tracking-tight mb-6 text-center ' + (isLight ? 'text-nike-black' : 'text-white')}>
             Who Needs Premium?
           </h2>
-          <div className="grid md:grid-cols-4 gap-6">
-            <Link to="/shop" className={cardClass(true)}>
-              <div className="text-3xl mb-3">🏪</div>
-              <h3 className={'font-bold text-sm tracking-widest uppercase mb-2 ' + (isLight ? 'text-nike-black' : 'text-white')}>Vendors</h3>
-              <p className={'text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Sell products, manage inventory, view sales stats</p>
-            </Link>
-            <Link to="/community" className={cardClass(true)}>
-              <div className="text-3xl mb-3">🥊</div>
-              <h3 className={'font-bold text-sm tracking-widest uppercase mb-2 ' + (isLight ? 'text-nike-black' : 'text-white')}>Coaches</h3>
-              <p className={'text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Showcase certifications, manage clients, track growth</p>
-            </Link>
-            <Link to="/community" className={cardClass(true)}>
-              <div className="text-3xl mb-3">🏋️</div>
-              <h3 className={'font-bold text-sm tracking-widest uppercase mb-2 ' + (isLight ? 'text-nike-black' : 'text-white')}>Gym Owners</h3>
-              <p className={'text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Manage gym profile, showcase facility, attract members</p>
-            </Link>
-            <a href="#athlete-features" className={cardClass(true)} onClick={(e) => {
-              e.preventDefault()
-              document.getElementById('athlete-features')?.scrollIntoView({ behavior: 'smooth' })
-            }}>
-              <div className="text-3xl mb-3">🏃</div>
-              <h3 className={'font-bold text-sm tracking-widest uppercase mb-2 ' + (isLight ? 'text-nike-black' : 'text-white')}>Athletes</h3>
-              <p className={'text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Enhanced profiles, analytics, priority access, ad-free browsing</p>
-            </a>
+          <div className={'grid gap-6 mx-auto ' + roleGridCols}>
+            {(!isAthlete || !user) && (
+              <Link to="/shop" className={cardClass(true)}>
+                <div className="text-3xl mb-3">🏪</div>
+                <h3 className={'font-bold text-sm tracking-widest uppercase mb-2 ' + (isLight ? 'text-nike-black' : 'text-white')}>Vendors</h3>
+                <p className={'text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Sell products, manage inventory, view sales stats</p>
+              </Link>
+            )}
+            {(!isAthlete || !user) && (
+              <Link to="/community" className={cardClass(true)}>
+                <div className="text-3xl mb-3">🥊</div>
+                <h3 className={'font-bold text-sm tracking-widest uppercase mb-2 ' + (isLight ? 'text-nike-black' : 'text-white')}>Coaches</h3>
+                <p className={'text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Showcase certifications, manage clients, track growth</p>
+              </Link>
+            )}
+            {(!isAthlete || !user) && (
+              <Link to="/community" className={cardClass(true)}>
+                <div className="text-3xl mb-3">🏋️</div>
+                <h3 className={'font-bold text-sm tracking-widest uppercase mb-2 ' + (isLight ? 'text-nike-black' : 'text-white')}>Gym Owners</h3>
+                <p className={'text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Manage gym profile, showcase facility, attract members</p>
+              </Link>
+            )}
+            {(!isBusiness || !user) && (
+              <a href="#athlete-features" className={cardClass(true)} onClick={(e) => {
+                e.preventDefault()
+                document.getElementById('athlete-features')?.scrollIntoView({ behavior: 'smooth' })
+              }}>
+                <div className="text-3xl mb-3">🏃</div>
+                <h3 className={'font-bold text-sm tracking-widest uppercase mb-2 ' + (isLight ? 'text-nike-black' : 'text-white')}>Athletes</h3>
+                <p className={'text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Enhanced profiles, analytics, priority access, ad-free browsing</p>
+              </a>
+            )}
           </div>
           <p className={'text-center text-xs mt-6 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>
-            Athletes and regular users can use CombatHub for free. Premium gives everyone extra perks.
+            {isAthlete
+              ? 'Athletes can use CombatHub for free. Premium gives you extra perks — advanced analytics, priority access, and ad-free browsing.'
+              : isBusiness
+                ? 'Business roles require Premium to unlock selling, dashboards, gallery uploads, and analytics.'
+                : 'Athletes and regular users can use CombatHub for free. Premium gives everyone extra perks.'}
           </p>
         </div>
 
         {/* Athlete Premium Features */}
+        {(!isBusiness || !user) && (
         <div id="athlete-features" className={'rounded-3xl border p-8 md:p-12 mb-12 backdrop-blur-sm scroll-mt-24 ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
           <h2 className={'text-xl font-black tracking-tight mb-2 text-center ' + (isLight ? 'text-nike-black' : 'text-white')}>
             🏃 Premium for Athletes
@@ -218,8 +251,10 @@ export default function Premium() {
             ))}
           </div>
         </div>
+        )}
 
         {/* Business Features Grid */}
+        {(!isAthlete || !user) && (
         <div className={'rounded-3xl border p-8 md:p-12 mb-12 backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
           <h2 className={'text-xl font-black tracking-tight mb-2 text-center ' + (isLight ? 'text-nike-black' : 'text-white')}>
             🏪 Business Tools
@@ -249,6 +284,7 @@ export default function Premium() {
             })}
           </div>
         </div>
+        )}
 
         {/* Pricing */}
         <div className={'rounded-3xl border p-8 md:p-12 mt-12 backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
@@ -257,7 +293,7 @@ export default function Premium() {
           </h2>
           <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             {/* Trial */}
-            <div className={'p-6 rounded-2xl border-2 text-center flex flex-col ' + (isLight ? 'border-nike-gray bg-nike-gray/10' : 'border-white/10 bg-white/5')}>
+            <div className={'p-6 rounded-2xl border-2 text-center flex flex-col liquid-glass-card ' + (isLight ? 'border-nike-gray bg-nike-gray/10' : 'border-white/10 bg-white/5')}>
               <div className={'text-xs tracking-widest uppercase font-bold mb-3 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Free Trial</div>
               <div className="text-4xl font-black tracking-tight mb-2 text-nike-red">$0</div>
               <div className={'text-xs mb-4 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>/30 days</div>
@@ -276,9 +312,15 @@ export default function Premium() {
                 </li>
               </ul>
               {user ? (
-                <Link to="/premium/setup" className="block w-full bg-nike-red hover:bg-white hover:text-nike-black text-white px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">
-                  {user.profile?.is_premium ? 'Manage Premium' : 'Start Free Trial'}
-                </Link>
+                user.email_verified ? (
+                  <Link to="/premium/setup" className="block w-full bg-nike-red hover:bg-white hover:text-nike-black text-white px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">
+                    {user.profile?.is_premium ? 'Manage Premium' : 'Start Free Trial'}
+                  </Link>
+                ) : (
+                  <Link to="/settings" className="block w-full bg-nike-amber hover:bg-white hover:text-nike-black text-white px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">
+                    Verify Email First
+                  </Link>
+                )
               ) : (
                 <Link to="/register" className="block w-full bg-nike-red hover:bg-white hover:text-nike-black text-white px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">
                   Sign Up
@@ -287,7 +329,7 @@ export default function Premium() {
             </div>
 
             {/* Monthly */}
-            <div className={'p-6 rounded-2xl border-2 border-nike-red/30 text-center flex flex-col relative overflow-hidden ' + (isLight ? 'bg-white' : 'bg-nike-dark/80')} style={isLight ? {} : { backgroundColor: 'color-mix(in srgb, var(--color-nike-dark) 90%, transparent)' }}>
+            <div className={'p-6 rounded-2xl border-2 border-nike-red/30 text-center flex flex-col relative overflow-hidden liquid-glass-card ' + (isLight ? 'bg-white' : 'bg-nike-dark/80')} style={isLight ? {} : { backgroundColor: 'color-mix(in srgb, var(--color-nike-dark) 90%, transparent)' }}>
               <div className="absolute top-3 right-3 bg-nike-red text-white text-[10px] px-2 py-0.5 rounded-full tracking-widest uppercase font-bold">Popular</div>
               <div className={'text-xs tracking-widest uppercase font-bold mb-3 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Monthly</div>
               <div className="text-4xl font-black tracking-tight mb-2 text-nike-red">$35</div>
@@ -315,9 +357,15 @@ export default function Premium() {
                 </li>
               </ul>
               {user ? (
-                <Link to="/premium/setup?plan=monthly" className="block w-full bg-nike-red hover:bg-white hover:text-nike-black text-white px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">
-                  Subscribe Monthly
-                </Link>
+                user.email_verified ? (
+                  <Link to="/premium/setup?plan=monthly" className="block w-full bg-nike-red hover:bg-white hover:text-nike-black text-white px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">
+                    Subscribe Monthly
+                  </Link>
+                ) : (
+                  <Link to="/settings" className="block w-full bg-nike-amber hover:bg-white hover:text-nike-black text-white px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">
+                    Verify Email First
+                  </Link>
+                )
               ) : (
                 <Link to="/register" className="block w-full bg-nike-red hover:bg-white hover:text-nike-black text-white px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">
                   Sign Up
@@ -326,7 +374,7 @@ export default function Premium() {
             </div>
 
             {/* Yearly */}
-            <div className={'p-6 rounded-2xl border-2 text-center flex flex-col relative overflow-hidden ' + (isLight ? 'border-emerald-500 bg-emerald-50' : 'border-emerald-500/30 bg-emerald-500/5')}>
+            <div className={'p-6 rounded-2xl border-2 text-center flex flex-col relative overflow-hidden liquid-glass-card ' + (isLight ? 'border-emerald-500 bg-emerald-50' : 'border-emerald-500/30 bg-emerald-500/5')}>
               <div className="absolute top-3 right-3 bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded-full tracking-widest uppercase font-bold">Best Value</div>
               <div className={'text-xs tracking-widest uppercase font-bold mb-3 ' + (isLight ? 'text-emerald-700' : 'text-emerald-400')}>Yearly</div>
               <div className="text-4xl font-black tracking-tight mb-1 text-emerald-500">$357</div>
@@ -358,9 +406,15 @@ export default function Premium() {
                 </li>
               </ul>
               {user ? (
-                <Link to="/premium/setup?plan=yearly" className="block w-full bg-emerald-500 hover:bg-white hover:text-emerald-500 text-white px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">
-                  Subscribe Yearly
-                </Link>
+                user.email_verified ? (
+                  <Link to="/premium/setup?plan=yearly" className="block w-full bg-emerald-500 hover:bg-white hover:text-emerald-500 text-white px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">
+                    Subscribe Yearly
+                  </Link>
+                ) : (
+                  <Link to="/settings" className="block w-full bg-nike-amber hover:bg-white hover:text-nike-black text-white px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">
+                    Verify Email First
+                  </Link>
+                )
               ) : (
                 <Link to="/register" className="block w-full bg-emerald-500 hover:bg-white hover:text-emerald-500 text-white px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">
                   Sign Up
@@ -378,7 +432,7 @@ export default function Premium() {
           <h2 className={'text-xl font-black tracking-tight mb-4 text-center ' + (isLight ? 'text-nike-black' : 'text-white')}>
             How to Cancel Premium
           </h2>
-          <div className={'max-w-2xl mx-auto p-6 rounded-2xl border ' + (isLight ? 'bg-nike-gray/20 border-nike-gray' : 'bg-white/5 border-white/10')}>
+            <div className={'max-w-2xl mx-auto p-6 rounded-2xl border liquid-glass-card ' + (isLight ? 'bg-nike-gray/20 border-nike-gray' : 'bg-white/5 border-white/10')}>
             <div className="flex items-start gap-4">
               <div className="text-2xl shrink-0">ℹ️</div>
               <div>
@@ -427,7 +481,7 @@ export default function Premium() {
               { q: 'Can I switch payment methods?', a: 'Yes. On the payment setup page, just enter your new payment info. It will replace your existing method on file.' },
               { q: 'I still have questions. How do I get help?', a: 'Send us a message through the app or contact support at mungailevi1@gmail.com. Premium users get priority responses.' },
             ].map((faq, i) => (
-              <div key={i} className={'rounded-2xl border overflow-hidden transition-all duration-200 ' + (isLight ? 'border-nike-gray' : 'border-white/10')}>
+              <div key={i} className={'rounded-2xl border overflow-hidden transition-all duration-200 liquid-glass-card ' + (isLight ? 'border-nike-gray' : 'border-white/10')}>
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   className={'flex items-center justify-between w-full px-5 py-4 text-left transition-all duration-200 ' + (isLight ? 'hover:bg-nike-gray/20' : 'hover:bg-white/5')}

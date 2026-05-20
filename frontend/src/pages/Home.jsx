@@ -6,7 +6,7 @@ import { useTheme } from '../providers/ThemeProvider'
 import { useAuth } from '../providers/AuthProvider'
 import api from '../utils/api'
 import { mediaUrl } from '../utils/media'
-import { playAmbient, stopAmbient, playBell, isAmbientEnabled, toggleAmbient as toggleAmbientSound } from '../utils/sounds'
+import { playBell } from '../utils/sounds'
 import { ROLE_ICONS, ROLE_LABELS, ROLE_COLORS } from '../utils/roles'
 import { useGsapReveal, useCountUp, useGsapParallax } from '../hooks/useGsapReveal'
 
@@ -48,7 +48,6 @@ function HomeMarketing() {
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const img = IMAGES[theme]
-  const [soundOn, setSoundOn] = useState(isAmbientEnabled())
   const [featuredProducts, setFeaturedProducts] = useState([])
   const heroTextRef = useRef(null)
   const statsRef = useRef(null)
@@ -88,16 +87,6 @@ function HomeMarketing() {
     }).catch(() => {})
   }, [])
 
-  useEffect(() => {
-    if (isAmbientEnabled()) playAmbient()
-    return () => stopAmbient()
-  }, [])
-
-  const toggleSound = () => {
-    const on = toggleAmbientSound()
-    setSoundOn(on)
-  }
-
   return (
     <div>
       <section className="relative min-h-screen flex items-center overflow-hidden">
@@ -115,16 +104,6 @@ function HomeMarketing() {
               <span className="bg-nike-red/20 backdrop-blur-sm text-nike-red text-xs tracking-widest uppercase font-bold px-4 py-2 rounded-full border border-nike-red/20">
                 Now Live — Beta Access
               </span>
-              <button
-                onClick={toggleSound}
-                className={'backdrop-blur-sm text-xs tracking-widest uppercase font-bold px-3 py-2 rounded-full border transition-all duration-300 ' + (soundOn
-                  ? 'bg-nike-red/20 text-nike-red border-nike-red/20'
-                  : (isLight ? 'bg-white/50 text-nike-light border-nike-gray' : 'bg-white/5 text-white/40 border-white/10')
-                )}
-                title={soundOn ? 'Mute ambient' : 'Play ambient'}
-              >
-                {soundOn ? '🔊' : '🔇'} Sound
-              </button>
             </div>
             <h1 ref={heroTextRef} className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-6 perspective-[800px]">
               <span className="hero-word inline-block">YOUR</span><br />
@@ -221,7 +200,7 @@ function HomeMarketing() {
               },
             ].map((item, i) => (
               <Reveal key={item.title} delay={i * 150} gsap>
-                <div ref={(el) => (tiltRefs.current[i] = el)} className={'group relative rounded-2xl overflow-hidden transition-all duration-500 perspective-[1200px] ' + (isLight ? 'bg-nike-dark border-nike-gray shadow-sm hover:shadow-md border hover:border-nike-red/30' : 'bg-nike-dark border-white/5 hover:border-white/20 border')}>
+                <div ref={(el) => (tiltRefs.current[i] = el)} className={'group relative rounded-2xl overflow-hidden transition-all duration-500 perspective-[1200px] liquid-glass-card ' + (isLight ? 'bg-nike-dark border-nike-gray shadow-sm hover:shadow-md border hover:border-nike-red/30' : 'bg-nike-dark border-white/5 hover:border-white/20 border')}>
                   <div className="h-40 overflow-hidden">
                     <img
                       src={item.image}
@@ -259,7 +238,7 @@ function HomeMarketing() {
           <div className="grid md:grid-cols-3 gap-5">
             {TESTIMONIALS.map((t, i) => (
               <Reveal key={t.name} delay={i * 150} gsap>
-                <div className={'relative p-6 rounded-2xl border transition-all duration-300 hover:scale-[1.02] ' + (isLight
+                <div className={'relative p-6 rounded-2xl border transition-all duration-300 hover:scale-[1.02] liquid-glass-card ' + (isLight
                   ? 'bg-white border-nike-gray shadow-sm'
                   : 'bg-nike-dark border-white/5'
                 )}>
@@ -296,7 +275,7 @@ function HomeMarketing() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {featuredProducts.map((p, i) => (
               <Reveal key={p.id} delay={i * 100} gsap>
-                <Link to={'/shop/' + p.id} className={'group relative rounded-2xl overflow-hidden border transition-all duration-300 hover:scale-[1.02] ' + (isLight
+                <Link to={'/shop/' + p.id} className={'group relative rounded-2xl overflow-hidden border transition-all duration-300 hover:scale-[1.02] liquid-glass-card ' + (isLight
                   ? 'bg-white border-nike-gray shadow-sm'
                   : 'bg-nike-dark border-white/5'
                 )}>
@@ -517,7 +496,7 @@ function HomeDashboard() {
 
           {/* Daily tip */}
           <Reveal delay={50}>
-            <div className={'flex items-center gap-3 p-4 mb-8 rounded-2xl border backdrop-blur-sm transition-all duration-300 hover:scale-[1.01] ' + (isLight
+            <div className={'flex items-center gap-3 p-4 mb-8 rounded-2xl border backdrop-blur-sm transition-all duration-300 hover:scale-[1.01] liquid-glass-card ' + (isLight
               ? 'bg-gradient-to-r from-nike-amber/5 to-transparent border-nike-amber/20'
               : 'bg-gradient-to-r from-nike-amber/5 to-transparent border-nike-amber/10'
             )}>
@@ -538,7 +517,7 @@ function HomeDashboard() {
               <Reveal key={action.label} delay={i * 100}>
                 <Link
                   to={action.to}
-                  className={'flex items-center gap-4 p-5 rounded-2xl transition-all duration-300 group backdrop-blur-sm ' + (isLight
+                  className={'flex items-center gap-4 p-5 rounded-2xl transition-all duration-300 group backdrop-blur-sm liquid-glass-card ' + (isLight
                     ? 'bg-white/90 border border-nike-gray shadow-sm hover:shadow-md hover:border-nike-red/30'
                     : 'bg-nike-dark/80 border border-white/5 hover:border-white/20'
                   )}
@@ -563,7 +542,7 @@ function HomeDashboard() {
           {/* Messages Preview */}
           {conversations.length > 0 && (
             <Reveal delay={150}>
-              <div className={'mb-8 p-6 rounded-2xl border backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
+              <div className={'mb-8 p-6 rounded-2xl border backdrop-blur-sm liquid-glass-card ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xs tracking-widest uppercase font-bold">Recent Messages</h2>
                   <Link to="/messages" className={'text-[10px] tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')}>
@@ -598,7 +577,7 @@ function HomeDashboard() {
 
           {/* Trending Gear / Vendor Products */}
           <Reveal delay={175}>
-            <div className={'mb-12 p-6 rounded-2xl border backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
+            <div className={'mb-12 p-6 rounded-2xl border backdrop-blur-sm liquid-glass-card ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xs tracking-widest uppercase font-bold">{isVendor ? 'My Products' : 'Trending Gear'}</h2>
                 <Link to={isVendor ? '/vendor/products/new' : '/shop'} className={'text-[10px] tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')}>
@@ -614,7 +593,7 @@ function HomeDashboard() {
                     <div
                     key={p.id}
                     onClick={() => navigate('/shop/' + p.id)}
-                    className={'cursor-pointer group relative rounded-xl overflow-hidden border transition-all duration-200 hover:scale-[1.02] ' + (isLight ? 'bg-white border-nike-gray' : 'bg-nike-black/60 border-white/5')}
+                    className={'cursor-pointer group relative rounded-xl overflow-hidden border transition-all duration-200 hover:scale-[1.02] liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray' : 'bg-nike-black/60 border-white/5')}
                   >
                     {isVendor && (
                       <button
@@ -637,196 +616,192 @@ function HomeDashboard() {
             </div>
           </Reveal>
 
-          <div className="grid md:grid-cols-3 gap-8 mb-12">
-            {/* Stats */}
-            <div className="md:col-span-2">
-              <Reveal delay={200}>
-                <div className={'p-8 rounded-2xl border backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-black tracking-tight">YOUR STATS</h2>
-                    <Link to="/settings" className={'text-xs tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')}>
-                      Edit →
-                    </Link>
-                  </div>
-                  <div className="grid sm:grid-cols-3 gap-5">
-                    {user.role === 'athlete' && (
-                      <>
-                        <div className={'flex items-center gap-4 p-4 rounded-xl ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-nike-red/10">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                          </div>
-                          <div className="min-w-0">
-                            <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Weight Class</p>
-                            <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.weight_class ? p.weight_class.replace('_', ' ') : '—'}</p>
-                          </div>
-                        </div>
-                        <div className={'flex items-center gap-4 p-4 rounded-xl ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-nike-red/10">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red"><path d="M6.5 6.5L17.5 17.5M6.5 17.5L17.5 6.5M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/></svg>
-                          </div>
-                          <div className="min-w-0">
-                            <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Stance</p>
-                            <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.stance ? p.stance.charAt(0).toUpperCase() + p.stance.slice(1) : '—'}</p>
-                          </div>
-                        </div>
-                        <div className={'flex items-center gap-4 p-4 rounded-xl ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
-                          <div className={'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ' + (rc ? rc.bg : 'bg-nike-red/10')}>
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={'w-5 h-5 ' + (rc ? rc.text : 'text-nike-red')}><path d={ROLE_ICONS[user.role] || ROLE_ICONS.athlete} /></svg>
-                          </div>
-                          <div className="min-w-0">
-                            <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Role</p>
-                            <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{ROLE_LABELS[user.role] || user.role?.replace('_', ' ') || '—'}</p>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    {user.role === 'vendor' && (
-                      <>
-                        <div className={'flex items-center gap-4 p-4 rounded-xl ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-nike-red/10">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-                          </div>
-                          <div className="min-w-0">
-                            <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Products</p>
-                            <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{products.length} listed</p>
-                          </div>
-                        </div>
-                        <div className={'flex items-center gap-4 p-4 rounded-xl ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-nike-red/10">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                          </div>
-                          <div className="min-w-0">
-                            <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Brand</p>
-                            <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_name || '—'}</p>
-                          </div>
-                        </div>
-                        <div className={'flex items-center gap-4 p-4 rounded-xl ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
-                          <div className={'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ' + (rc ? rc.bg : 'bg-nike-red/10')}>
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={'w-5 h-5 ' + (rc ? rc.text : 'text-nike-red')}><path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 14c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z"/></svg>
-                          </div>
-                          <div className="min-w-0">
-                            <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Role</p>
-                            <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{ROLE_LABELS[user.role] || user.role?.replace('_', ' ') || '—'}</p>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    {user.role === 'gym_owner' && (
-                      <>
-                        <div className={'flex items-center gap-4 p-4 rounded-xl ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-nike-red/10">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                          </div>
-                          <div className="min-w-0">
-                            <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Business</p>
-                            <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_name || '—'}</p>
-                          </div>
-                        </div>
-                        <div className={'flex items-center gap-4 p-4 rounded-xl ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-nike-red/10">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                          </div>
-                          <div className="min-w-0">
-                            <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Location</p>
-                            <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_location || '—'}</p>
-                          </div>
-                        </div>
-                        <div className={'flex items-center gap-4 p-4 rounded-xl ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
-                          <div className={'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ' + (rc ? rc.bg : 'bg-nike-red/10')}>
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={'w-5 h-5 ' + (rc ? rc.text : 'text-nike-red')}><path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 14c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z"/></svg>
-                          </div>
-                          <div className="min-w-0">
-                            <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Role</p>
-                            <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{ROLE_LABELS[user.role] || user.role?.replace('_', ' ') || '—'}</p>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    {user.role === 'coach' && (
-                      <>
-                        <div className={'flex items-center gap-4 p-4 rounded-xl ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-nike-red/10">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                          </div>
-                          <div className="min-w-0">
-                            <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Business</p>
-                            <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_name || '—'}</p>
-                          </div>
-                        </div>
-                        <div className={'flex items-center gap-4 p-4 rounded-xl ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-nike-red/10">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                          </div>
-                          <div className="min-w-0">
-                            <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Specialty</p>
-                            <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_description || '—'}</p>
-                          </div>
-                        </div>
-                        <div className={'flex items-center gap-4 p-4 rounded-xl ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
-                          <div className={'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ' + (rc ? rc.bg : 'bg-nike-red/10')}>
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={'w-5 h-5 ' + (rc ? rc.text : 'text-nike-red')}><path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 14c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z"/></svg>
-                          </div>
-                          <div className="min-w-0">
-                            <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Role</p>
-                            <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{ROLE_LABELS[user.role] || user.role?.replace('_', ' ') || '—'}</p>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </Reveal>
-            </div>
-
-            {/* Achievements / Activity */}
-            <div>
-              <Reveal delay={250}>
-                <div className={'p-8 rounded-2xl border backdrop-blur-sm mb-8 ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
-                  <h2 className="text-lg font-black tracking-tight mb-6">ACHIEVEMENTS</h2>
-                  <div className="space-y-4">
-                    {achievements.map((a) => (
-                      <div key={a.label} className={'flex items-center gap-3 p-3 rounded-xl ' + (isLight ? 'bg-white/60 border border-nike-gray/50' : 'bg-nike-black/40 border border-white/5')}>
-                        <span className="text-xl shrink-0">{a.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <p className={'text-xs font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{a.label}</p>
-                            <p className="text-xs font-black text-nike-red">{a.value}</p>
-                          </div>
-                          <p className={'text-[10px] tracking-wider mt-0.5 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{a.sub}</p>
-                          {a.progress !== undefined && (
-                            <div className={'mt-2 h-1.5 rounded-full overflow-hidden ' + (isLight ? 'bg-nike-gray/50' : 'bg-white/10')}>
-                              <div className="h-full rounded-full bg-gradient-to-r from-nike-red to-nike-amber" style={{ width: a.progress + '%' }} />
-                            </div>
-                          )}
-                        </div>
+          {/* Stats - full width */}
+          <Reveal delay={200}>
+            <div className={'p-8 rounded-2xl border backdrop-blur-sm liquid-glass-card mb-8 ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-black tracking-tight">YOUR STATS</h2>
+                <Link to="/settings" className={'text-xs tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')}>
+                  Edit →
+                </Link>
+              </div>
+              <div className="grid sm:grid-cols-3 gap-5">
+                {user.role === 'athlete' && (
+                  <>
+                    <div className={'flex items-center gap-4 p-4 rounded-xl liquid-glass-card ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-nike-red/10">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </Reveal>
-
-              <Reveal delay={300}>
-                <div className={'p-6 rounded-2xl border backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
-                  <h3 className="text-xs tracking-widest uppercase font-bold mb-4" style={{ color: 'var(--color-nike-light)' }}>Recent Activity</h3>
-                  <div className="space-y-3">
-                    {activityFeed.map((item, i) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <span className="text-sm">{item.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className={'text-xs truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{item.text}</p>
-                          <p className={'text-[10px] ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{item.time}</p>
-                        </div>
+                      <div className="min-w-0">
+                        <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Weight Class</p>
+                        <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.weight_class ? p.weight_class.replace('_', ' ') : '—'}</p>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </Reveal>
+                    </div>
+                    <div className={'flex items-center gap-4 p-4 rounded-xl liquid-glass-card ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-nike-red/10">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red"><path d="M6.5 6.5L17.5 17.5M6.5 17.5L17.5 6.5M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/></svg>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Stance</p>
+                        <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.stance ? p.stance.charAt(0).toUpperCase() + p.stance.slice(1) : '—'}</p>
+                      </div>
+                    </div>
+                    <div className={'flex items-center gap-4 p-4 rounded-xl liquid-glass-card ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
+                      <div className={'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ' + (rc ? rc.bg : 'bg-nike-red/10')}>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={'w-5 h-5 ' + (rc ? rc.text : 'text-nike-red')}><path d={ROLE_ICONS[user.role] || ROLE_ICONS.athlete} /></svg>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Role</p>
+                        <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{ROLE_LABELS[user.role] || user.role?.replace('_', ' ') || '—'}</p>
+                      </div>
+                    </div>
+                  </>
+                )}
+                {user.role === 'vendor' && (
+                  <>
+                    <div className={'flex items-center gap-4 p-4 rounded-xl liquid-glass-card ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-nike-red/10">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Products</p>
+                        <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{products.length} listed</p>
+                      </div>
+                    </div>
+                    <div className={'flex items-center gap-4 p-4 rounded-xl liquid-glass-card ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-nike-red/10">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Brand</p>
+                        <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_name || '—'}</p>
+                      </div>
+                    </div>
+                    <div className={'flex items-center gap-4 p-4 rounded-xl liquid-glass-card ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
+                      <div className={'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ' + (rc ? rc.bg : 'bg-nike-red/10')}>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={'w-5 h-5 ' + (rc ? rc.text : 'text-nike-red')}><path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 14c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z"/></svg>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Role</p>
+                        <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{ROLE_LABELS[user.role] || user.role?.replace('_', ' ') || '—'}</p>
+                      </div>
+                    </div>
+                  </>
+                )}
+                {user.role === 'gym_owner' && (
+                  <>
+                    <div className={'flex items-center gap-4 p-4 rounded-xl liquid-glass-card ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-nike-red/10">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Business</p>
+                        <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_name || '—'}</p>
+                      </div>
+                    </div>
+                    <div className={'flex items-center gap-4 p-4 rounded-xl liquid-glass-card ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-nike-red/10">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Location</p>
+                        <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_location || '—'}</p>
+                      </div>
+                    </div>
+                    <div className={'flex items-center gap-4 p-4 rounded-xl liquid-glass-card ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
+                      <div className={'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ' + (rc ? rc.bg : 'bg-nike-red/10')}>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={'w-5 h-5 ' + (rc ? rc.text : 'text-nike-red')}><path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 14c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z"/></svg>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Role</p>
+                        <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{ROLE_LABELS[user.role] || user.role?.replace('_', ' ') || '—'}</p>
+                      </div>
+                    </div>
+                  </>
+                )}
+                {user.role === 'coach' && (
+                  <>
+                    <div className={'flex items-center gap-4 p-4 rounded-xl liquid-glass-card ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-nike-red/10">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Business</p>
+                        <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_name || '—'}</p>
+                      </div>
+                    </div>
+                    <div className={'flex items-center gap-4 p-4 rounded-xl liquid-glass-card ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-nike-red/10">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-nike-red"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Specialty</p>
+                        <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_description || '—'}</p>
+                      </div>
+                    </div>
+                    <div className={'flex items-center gap-4 p-4 rounded-xl liquid-glass-card ' + (isLight ? 'bg-white border border-nike-gray' : 'bg-nike-black/60 border border-white/5')}>
+                      <div className={'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ' + (rc ? rc.bg : 'bg-nike-red/10')}>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={'w-5 h-5 ' + (rc ? rc.text : 'text-nike-red')}><path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 14c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z"/></svg>
+                      </div>
+                      <div className="min-w-0">
+                        <p className={'text-xs tracking-widest uppercase truncate ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Role</p>
+                        <p className={'text-sm font-bold mt-0.5 truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{ROLE_LABELS[user.role] || user.role?.replace('_', ' ') || '—'}</p>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
+          </Reveal>
+
+          {/* Achievements & Activity - side by side */}
+          <div className="grid md:grid-cols-2 gap-8 mb-8">
+            <Reveal delay={250}>
+              <div className={'p-8 rounded-2xl border backdrop-blur-sm liquid-glass-card ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
+                <h2 className="text-lg font-black tracking-tight mb-6">ACHIEVEMENTS</h2>
+                <div className="space-y-4">
+                  {achievements.map((a) => (
+                    <div key={a.label} className={'flex items-center gap-3 p-3 rounded-xl ' + (isLight ? 'bg-nike-gray/20' : 'bg-white/5')}>
+                      <span className="text-xl shrink-0">{a.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className={'text-xs font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{a.label}</p>
+                          <p className="text-xs font-black text-nike-red">{a.value}</p>
+                        </div>
+                        <p className={'text-[10px] tracking-wider mt-0.5 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{a.sub}</p>
+                        {a.progress !== undefined && (
+                          <div className={'mt-2 h-1.5 rounded-full overflow-hidden ' + (isLight ? 'bg-nike-gray/50' : 'bg-white/10')}>
+                            <div className="h-full rounded-full bg-gradient-to-r from-nike-red to-nike-amber" style={{ width: a.progress + '%' }} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Reveal>
+
+            <Reveal delay={300}>
+              <div className={'p-6 rounded-2xl border backdrop-blur-sm liquid-glass-card ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
+                <h3 className="text-xs tracking-widest uppercase font-bold mb-4" style={{ color: 'var(--color-nike-light)' }}>Recent Activity</h3>
+                <div className="space-y-3">
+                  {activityFeed.map((item, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="text-sm">{item.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className={'text-xs truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{item.text}</p>
+                        <p className={'text-[10px] ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{item.time}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Reveal>
           </div>
 
            <Reveal delay={350}>
-             <div className={'p-6 rounded-2xl border backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
-               {profilePercent < 100 ? (
+             <div className={'p-6 rounded-2xl border backdrop-blur-sm liquid-glass-card ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
+                {profilePercent < 100 ? (
                  <p className={'text-sm text-center ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
                    CombatHub <strong>v{appVersion}</strong> — Complete your{' '}
                    <Link to="/settings" className="text-nike-red hover:underline font-bold">profile</Link>
@@ -888,5 +863,6 @@ function HomeDashboard() {
 
 export default function Home() {
   const { user } = useAuth()
-  return user ? <HomeDashboard /> : <HomeMarketing />
+  if (user) return <HomeDashboard />
+  return <HomeMarketing />
 }

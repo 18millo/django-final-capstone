@@ -15,6 +15,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState(null)
+  const [blockingId, setBlockingId] = useState(null)
 
   const textClass = isLight ? 'text-nike-black' : 'text-white'
   const mutedClass = isLight ? 'text-nike-light' : 'text-white/40'
@@ -42,6 +43,21 @@ export default function AdminPage() {
     }
   }
 
+  const toggleMessagingBlock = async (userId) => {
+    playClick()
+    setBlockingId(userId)
+    try {
+      const res = await api.post('/auth/admin/users/' + userId + '/toggle-messaging-block/')
+      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, messaging_blocked: res.data.messaging_blocked } : u))
+      playSuccess()
+      toast(res.data.messaging_blocked ? 'Messaging blocked' : 'Messaging unblocked', 'success')
+    } catch {
+      toast('Failed to toggle messaging block', 'error')
+    } finally {
+      setBlockingId(null)
+    }
+  }
+
   if (user?.role !== 'admin') {
     return <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] text-white/40">Access denied.</div>
   }
@@ -53,11 +69,11 @@ export default function AdminPage() {
       <div className={'border-b ' + borderClass}>
         <div className="max-w-7xl mx-auto px-6 py-6">
           <h1 className={'text-2xl font-black tracking-tight ' + textClass}>Admin Panel</h1>
-          <p className={'text-sm mt-0.5 ' + mutedClass}>Manage users and roles</p>
+          <p className={'text-sm mt-0.5 ' + mutedClass}>Manage users, roles, and messaging permissions</p>
         </div>
       </div>
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className={'rounded-2xl border overflow-hidden ' + borderClass}>
+        <div className={'rounded-2xl border overflow-hidden liquid-glass-card ' + borderClass}>
           <table className="w-full text-sm">
             <thead>
               <tr className={isLight ? 'bg-nike-gray/30' : 'bg-white/5'}>
@@ -67,6 +83,7 @@ export default function AdminPage() {
                 <th className={'px-4 py-3 text-left text-xs tracking-widest uppercase font-bold ' + mutedClass}>Role</th>
                 <th className={'px-4 py-3 text-left text-xs tracking-widest uppercase font-bold ' + mutedClass}>Premium</th>
                 <th className={'px-4 py-3 text-left text-xs tracking-widest uppercase font-bold ' + mutedClass}>Active</th>
+                <th className={'px-4 py-3 text-left text-xs tracking-widest uppercase font-bold ' + mutedClass}>Messaging</th>
                 <th className={'px-4 py-3 text-left text-xs tracking-widest uppercase font-bold ' + mutedClass}>Joined</th>
               </tr>
             </thead>
@@ -92,6 +109,18 @@ export default function AdminPage() {
                   </td>
                   <td className={'px-4 py-3 ' + (u.is_premium ? 'text-emerald-400' : mutedClass)}>{u.is_premium ? 'Yes' : 'No'}</td>
                   <td className={'px-4 py-3 ' + (u.is_active ? 'text-emerald-400' : 'text-nike-red')}>{u.is_active ? 'Yes' : 'No'}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => toggleMessagingBlock(u.id)}
+                      disabled={blockingId === u.id}
+                      className={'text-xs font-bold px-2 py-1.5 rounded-lg border transition-colors ' + (u.messaging_blocked
+                        ? 'bg-nike-red/10 text-nike-red border-nike-red/30 hover:bg-nike-red/20'
+                        : (isLight ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20')
+                      )}
+                    >
+                      {blockingId === u.id ? '...' : u.messaging_blocked ? 'Blocked' : 'Allowed'}
+                    </button>
+                  </td>
                   <td className={'px-4 py-3 ' + mutedClass}>{new Date(u.date_joined).toLocaleDateString()}</td>
                 </tr>
               ))}

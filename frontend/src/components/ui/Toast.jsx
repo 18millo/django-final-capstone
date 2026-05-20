@@ -31,10 +31,10 @@ export default function ToastContainer() {
           key={t.id}
           onClick={() => setItems((prev) => prev.filter((x) => x.id !== t.id))}
           className={
-            'pointer-events-auto max-w-sm px-4 py-3 rounded-2xl text-sm font-bold shadow-2xl backdrop-blur-xl border cursor-pointer animate-slideDown ' +
-            (t.type === 'error' ? 'bg-nike-red/90 text-white border-nike-red/30'
-            : t.type === 'info' ? 'bg-nike-dark/95 text-white border-white/10'
-            : 'bg-emerald-600/90 text-white border-emerald-400/30')
+            'pointer-events-auto max-w-sm px-4 py-3 rounded-2xl text-sm font-bold shadow-2xl cursor-pointer animate-slideDown text-white liquid-glass-card ' +
+            (t.type === 'error' ? 'border-nike-red/30'
+            : t.type === 'info' ? 'border-white/10'
+            : 'border-emerald-400/30')
           }
         >
           {t.msg}

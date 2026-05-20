@@ -6,6 +6,7 @@ import Spinner from '../components/ui/Spinner'
 import Reveal from '../components/ui/Reveal'
 import { playClick, playSuccess } from '../utils/sounds'
 import { toast } from '../components/ui/Toast'
+import { mediaUrl } from '../utils/media'
 
 export default function VendorDashboard() {
   const { theme } = useTheme()
@@ -99,7 +100,7 @@ export default function VendorDashboard() {
   const textClass = isLight ? 'text-nike-black' : 'text-white'
   const mutedClass = isLight ? 'text-nike-light' : 'text-white/40'
   const borderClass = isLight ? 'border-nike-gray' : 'border-white/10'
-  const cardBg = isLight ? 'bg-white' : 'bg-nike-dark/80'
+  const cardBg = 'liquid-glass-card'
 
   const lowStockProducts = products.filter((p) => p.stock <= 5)
 
@@ -209,7 +210,7 @@ export default function VendorDashboard() {
                   <div key={f.id} className={'flex items-center justify-between p-3 rounded-xl ' + (isLight ? 'bg-nike-gray/20' : 'bg-white/5')}>
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 bg-nike-gray/30 flex items-center justify-center text-sm font-bold" style={{ color: 'var(--color-nike-light)' }}>
-                        {f.avatar ? <img src={f.avatar} className="w-full h-full object-cover" alt="" /> : (f.username || '?')[0].toUpperCase()}
+                        {f.avatar ? <img src={mediaUrl(f.avatar)} className="w-full h-full object-cover" alt="" /> : (f.username || '?')[0].toUpperCase()}
                       </div>
                       <span className={'text-sm font-bold truncate ' + textClass}>
                         {f.username || 'Anonymous'}

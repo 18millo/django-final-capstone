@@ -7,7 +7,7 @@ from django.views.decorators.cache import cache_page
 from rest_framework import status, permissions, generics, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from common.permissions import IsVendor, IsSeller
+from common.permissions import IsVendor, IsSeller, IsPremium
 from accounts.models import User
 from .models import Category, Product, ProductVariant, Drop, DropNotification, Cart, CartItem, Order, Favorite, ProductComment
 from .serializers import (
@@ -126,16 +126,18 @@ class CartDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        cart, _ = Cart.objects.get_or_create(user=request.user)
-        return Response(CartSerializer(cart, context={'request': request}).data)
+        if request.user.role == 'athlete':
+            cart, _ = Cart.objects.get_or_create(user=request.user)
+            return Response(CartSerializer(cart, context={'request': request}).data)
+        return Response({'items': [], 'total': 0})
 
 
 class CartAddItemView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        if request.user.role == 'vendor':
-            return Response({'error': 'Vendors cannot add items to cart'}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role in ('vendor', 'coach', 'gym_owner'):
+            return Response({'error': 'Only athletes can add items to cart'}, status=status.HTTP_403_FORBIDDEN)
         product_id = request.data.get('product_id')
         variant_id = request.data.get('variant_id')
         quantity = request.data.get('quantity', 1)
@@ -212,7 +214,7 @@ class OrderDetailView(generics.RetrieveAPIView):
 
 
 class SellerOrderListView(generics.ListAPIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsSeller, IsPremium]
     serializer_class = OrderSerializer
 
     def get_queryset(self):
@@ -234,8 +236,8 @@ class CheckoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        if request.user.role == 'vendor':
-            return Response({'error': 'Vendors cannot place orders'}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role in ('vendor', 'coach', 'gym_owner'):
+            return Response({'error': 'Only athletes can place orders'}, status=status.HTTP_403_FORBIDDEN)
         cart = Cart.objects.filter(user=request.user).first()
         if not cart or not cart.items.exists():
             return Response({'error': 'Cart is empty'}, status=400)

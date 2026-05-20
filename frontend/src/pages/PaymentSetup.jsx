@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useTheme } from '../providers/ThemeProvider'
 import { useAuth } from '../providers/AuthProvider'
 import api from '../utils/api'
@@ -101,11 +101,31 @@ export default function PaymentSetup() {
     return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
   }
 
+  const [insightsPublic, setInsightsPublic] = useState(true)
+  const [togglingInsights, setTogglingInsights] = useState(false)
+
+  const handleToggleInsights = async () => {
+    setTogglingInsights(true)
+    try {
+      const { data } = await api.post('/auth/premium/toggle-insights/')
+      setInsightsPublic(data.show_views_publicly)
+      setPremiumInfo((prev) => ({ ...prev, show_views_publicly: data.show_views_publicly }))
+    } catch { }
+    setTogglingInsights(false)
+  }
+
+  useEffect(() => {
+    if (premiumInfo?.show_views_publicly !== undefined) {
+      setInsightsPublic(premiumInfo.show_views_publicly)
+    }
+  }, [premiumInfo?.show_views_publicly])
+
   if (loading) {
     return <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center"><Spinner /></div>
   }
 
   const isPremium = premiumInfo?.is_premium
+  const emailVerified = user?.email_verified
 
   if (isPremium) {
     return (
@@ -122,7 +142,7 @@ export default function PaymentSetup() {
               </p>
             </div>
 
-            <div className={'rounded-2xl border p-5 mb-6 ' + (isLight ? 'bg-green-500/5 border-green-500/20' : 'bg-green-500/5 border-green-500/20')}>
+            <div className={'rounded-2xl border p-5 mb-6 liquid-glass-card ' + (isLight ? 'bg-green-500/5 border-green-500/20' : 'bg-green-500/5 border-green-500/20')}>
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
                 <span className={'text-xs tracking-widest uppercase font-bold text-green-400'}>Premium Active</span>
@@ -149,7 +169,7 @@ export default function PaymentSetup() {
               </div>
             </div>
 
-            <div className={'rounded-2xl border p-5 mb-6 ' + (isLight ? 'bg-nike-gray/20 border-nike-gray' : 'bg-white/5 border-white/10')}>
+            <div className={'rounded-2xl border p-5 mb-6 liquid-glass-card ' + (isLight ? 'bg-nike-gray/20 border-nike-gray' : 'bg-white/5 border-white/10')}>
               <h3 className={'font-bold text-xs tracking-widest uppercase mb-3 ' + (isLight ? 'text-nike-black' : 'text-white')}>Premium Features</h3>
               <div className="grid grid-cols-2 gap-2">
                 {(premiumInfo?.premium_features || []).map((f, i) => (
@@ -159,6 +179,30 @@ export default function PaymentSetup() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className={'rounded-2xl border p-5 mb-6 liquid-glass-card ' + (isLight ? 'bg-nike-gray/20 border-nike-gray' : 'bg-white/5 border-white/10')}>
+              <h3 className={'font-bold text-xs tracking-widest uppercase mb-3 ' + (isLight ? 'text-nike-black' : 'text-white')}>Insights Privacy</h3>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>
+                    {insightsPublic ? '📍 Public' : '🔒 Private'}
+                  </p>
+                  <p className={'text-xs mt-0.5 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
+                    {insightsPublic ? 'Post view counts visible to everyone' : 'Post view counts hidden (only you can see)'}
+                  </p>
+                </div>
+                <button
+                  onClick={handleToggleInsights}
+                  disabled={togglingInsights}
+                  className={'relative inline-flex h-6 w-11 items-center rounded-full transition-colors ' + (insightsPublic ? 'bg-nike-red' : 'bg-nike-gray')}
+                >
+                  <span className={'inline-block h-4 w-4 transform rounded-full bg-white transition-transform ' + (insightsPublic ? 'translate-x-6' : 'translate-x-1')} />
+                </button>
+              </div>
+              <p className={'text-[10px] mt-2 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>
+                Vendors always show view counts publicly for transparency.
+              </p>
             </div>
 
             <div className="space-y-3">
@@ -185,15 +229,29 @@ export default function PaymentSetup() {
       <div className={'absolute inset-0 ' + (isLight ? 'bg-white/85' : 'bg-nike-black/85')} />
       <div className="relative z-10 w-full max-w-lg mx-4">
         <div className={'rounded-3xl border p-8 backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray shadow-xl' : 'bg-nike-dark/80 border-white/5')}>
-          <div className="text-center mb-6">
-            <div className="text-4xl mb-3">💎</div>
-            <h1 className={'text-2xl font-black tracking-tight ' + (isLight ? 'text-nike-black' : 'text-white')}>Set Up Payment</h1>
-            <p className={'text-sm mt-2 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
-              {plan === 'yearly' ? 'Subscribe yearly and save 15%' : 'Subscribe monthly — cancel anytime'}
-            </p>
-          </div>
+            <div className="text-center mb-6">
+              <div className="text-4xl mb-3">💎</div>
+              <h1 className={'text-2xl font-black tracking-tight ' + (isLight ? 'text-nike-black' : 'text-white')}>Set Up Payment</h1>
+              <p className={'text-sm mt-2 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
+                {plan === 'yearly' ? 'Subscribe yearly and save 15%' : 'Subscribe monthly — cancel anytime'}
+              </p>
+            </div>
 
-          <div className="flex gap-3 mb-6">
+            {!emailVerified && (
+              <div className={'rounded-2xl border p-5 mb-6 bg-nike-amber/10 border-nike-amber/30 liquid-glass-card'}>
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">📧</span>
+                  <div>
+                    <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>Verify your email first</p>
+                    <p className={'text-xs mt-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
+                      Go to <Link to="/settings" className="text-nike-red hover:underline font-bold">Settings → Security</Link> to verify your email before activating premium.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3 mb-6">
             <button
               onClick={() => setMethod('mpesa')}
               className={'flex-1 py-4 rounded-2xl text-center font-bold text-sm tracking-wide border-2 transition-all duration-200 ' + (method === 'mpesa'
@@ -270,7 +328,7 @@ export default function PaymentSetup() {
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !emailVerified}
               className="w-full py-4 bg-nike-red hover:bg-white hover:text-nike-black text-white rounded-2xl font-bold text-sm tracking-widest uppercase transition-all duration-300 disabled:opacity-50"
             >
               {submitting ? 'Activating…' : '🔓 Subscribe ' + planLabel}

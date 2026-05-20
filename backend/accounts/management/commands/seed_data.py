@@ -485,11 +485,12 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'Created {total_products} products across {len(vendor_map)} vendors'))
 
         from accounts.models import VendorAccessCode
-        VendorAccessCode.objects.get_or_create(
-            code='VENDOR2024',
-            defaults={'description': 'Default vendor access code'}
-        )
-        self.stdout.write(self.style.SUCCESS('Seeded vendor access code'))
+        for role_key, role_label in [('vendor', 'Vendor'), ('gym_owner', 'Gym Owner'), ('coach', 'Coach')]:
+            VendorAccessCode.objects.get_or_create(
+                code=f'{role_key.upper()}2024',
+                defaults={'description': f'Default {role_label} access code', 'role': role_key}
+            )
+        self.stdout.write(self.style.SUCCESS('Seeded access codes for all business roles'))
 
         forum_posts = [
             ('John Kavanagh', 'One of the most underrated aspects of MMA training is the mental game. Visualization, breathing drills, and meditation should be part of every fighter\'s weekly routine. The body follows the mind.'),

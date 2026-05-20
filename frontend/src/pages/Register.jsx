@@ -10,11 +10,13 @@ import { playError, playSuccess } from '../utils/sounds'
 import { ROLE_LABELS } from '../utils/roles'
 import { toast } from '../components/ui/Toast'
 
+const BUSINESS_ROLES = ['vendor', 'gym_owner', 'coach']
+
 export default function Register() {
   const [form, setForm] = useState({
     email: '', username: '', password: '', confirmPassword: '', role: 'athlete',
     business_name: '', business_location: '', business_description: '',
-    specialization: '', certifications: '',
+    specialization: '', certifications: '', registration_code: '',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -48,7 +50,10 @@ export default function Register() {
         role: form.role,
         accepted_terms: true,
       }
-      if (form.role === 'vendor') {
+      if (BUSINESS_ROLES.includes(form.role)) {
+        payload.registration_code = form.registration_code
+      }
+      if (form.role === 'vendor' || form.role === 'gym_owner') {
         payload.business_name = form.business_name
         payload.business_location = form.business_location
         payload.business_description = form.business_description
@@ -111,8 +116,23 @@ export default function Register() {
           </div>
         </div>
 
+        {BUSINESS_ROLES.includes(form.role) && (
+          <div className="space-y-3 p-4 rounded-xl border border-nike-amber/20 bg-nike-amber/[0.02] liquid-glass-card">
+            <p className="text-xs tracking-widest uppercase font-bold text-nike-amber">Access Code Required</p>
+            <Input
+              label="Registration Access Code"
+              type="text"
+              value={form.registration_code}
+              onChange={(e) => setForm({ ...form, registration_code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) })}
+              placeholder="Enter the code from your admin"
+              required
+            />
+            <p className="text-[10px] text-white/30">Contact an admin to get a registration code for {ROLE_LABELS[form.role]} accounts.</p>
+          </div>
+        )}
+
         {form.role === 'vendor' && (
-          <div className="space-y-3 p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+          <div className="space-y-3 p-4 rounded-xl border border-white/10 bg-white/[0.02] liquid-glass-card">
             <p className="text-xs tracking-widest uppercase font-bold text-nike-amber/60">Vendor Details</p>
             <Input label="Business Name" type="text" value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} placeholder="Your business name" />
             <Input label="Business Location" type="text" value={form.business_location} onChange={(e) => setForm({ ...form, business_location: e.target.value })} placeholder="City, Country" />
@@ -128,8 +148,25 @@ export default function Register() {
           </div>
         )}
 
+        {form.role === 'gym_owner' && (
+          <div className="space-y-3 p-4 rounded-xl border border-white/10 bg-white/[0.02] liquid-glass-card">
+            <p className="text-xs tracking-widest uppercase font-bold text-nike-amber/60">Gym Details</p>
+            <Input label="Business Name" type="text" value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} placeholder="Your gym name" />
+            <Input label="Business Location" type="text" value={form.business_location} onChange={(e) => setForm({ ...form, business_location: e.target.value })} placeholder="City, Country" />
+            <div className="space-y-1">
+              <label className="block text-xs tracking-widest uppercase font-bold text-white/40">Business Description</label>
+              <textarea
+                value={form.business_description}
+                onChange={(e) => setForm({ ...form, business_description: e.target.value })}
+                placeholder="Tell us about your gym..."
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-white/40 focus:bg-white/10 transition-all duration-300 resize-none h-24"
+              />
+            </div>
+          </div>
+        )}
+
         {form.role === 'coach' && (
-          <div className="space-y-3 p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+          <div className="space-y-3 p-4 rounded-xl border border-white/10 bg-white/[0.02] liquid-glass-card">
             <p className="text-xs tracking-widest uppercase font-bold text-nike-amber/60">Coach Profile</p>
             <Input label="Specialization" type="text" value={form.specialization} onChange={(e) => setForm({ ...form, specialization: e.target.value })} placeholder="e.g. Boxing, BJJ, Muay Thai, MMA" />
             <div className="space-y-1">

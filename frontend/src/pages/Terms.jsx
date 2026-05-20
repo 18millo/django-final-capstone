@@ -92,7 +92,7 @@ export default function Terms() {
       <div className="max-w-4xl mx-auto px-6 py-12">
         <div ref={listRef} className="space-y-6">
           {sections.map((s, i) => (
-            <div key={i} className={'rounded-2xl border p-6 md:p-8 transition-all hover:scale-[1.01] ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
+            <div key={i} className={'rounded-2xl border p-6 md:p-8 transition-all hover:scale-[1.01] liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray shadow-sm' : 'bg-nike-dark border-white/5')}>
               <div className="flex items-start gap-4">
                 <span className={'text-xs font-black tracking-widest mt-0.5 shrink-0 ' + (isLight ? 'text-nike-light' : 'text-white/20')}>{String(i + 1).padStart(2, '0')}</span>
                 <div>
@@ -104,7 +104,7 @@ export default function Terms() {
           ))}
         </div>
 
-        <div className={'mt-12 p-6 rounded-2xl border text-center ' + (isLight ? 'bg-nike-red/5 border-nike-red/20' : 'bg-nike-red/10 border-nike-red/20')}>
+        <div className={'mt-12 p-6 rounded-2xl border text-center liquid-glass-card ' + (isLight ? 'bg-nike-red/5 border-nike-red/20' : 'bg-nike-red/10 border-nike-red/20')}>
           <p className={'text-sm font-bold ' + textClass}>For questions about these terms, contact legal@combathub.io</p>
         </div>
       </div>

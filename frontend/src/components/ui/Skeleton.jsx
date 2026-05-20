@@ -6,7 +6,7 @@ export default function Skeleton({ className = '', count = 1 }) {
           key={i}
           className={'animate-pulse rounded-2xl border backdrop-blur-md ' + className}
           style={{
-            backgroundColor: 'var(--color-nike-dark)',
+            backgroundColor: 'color-mix(in srgb, var(--color-nike-dark) 60%, transparent)',
             borderColor: 'var(--color-nike-gray)',
           }}
         >
