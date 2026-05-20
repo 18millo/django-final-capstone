@@ -1,9 +1,0 @@
-__pycache__
-*.pyc
-.env
-*.egg-info
-.git
-.venv
-venv
-media
-staticfiles
