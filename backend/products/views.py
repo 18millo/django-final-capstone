@@ -167,6 +167,8 @@ class CartItemUpdateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def patch(self, request, item_id):
+        if request.user.role in ('vendor', 'coach', 'gym_owner'):
+            return Response({'error': 'Only athletes can modify cart items'}, status=status.HTTP_403_FORBIDDEN)
         cart = Cart.objects.filter(user=request.user).first()
         if not cart:
             return Response({'error': 'Cart not found'}, status=404)
@@ -180,6 +182,8 @@ class CartItemUpdateView(APIView):
         return Response(CartSerializer(cart, context={'request': request}).data)
 
     def delete(self, request, item_id):
+        if request.user.role in ('vendor', 'coach', 'gym_owner'):
+            return Response({'error': 'Only athletes can modify cart items'}, status=status.HTTP_403_FORBIDDEN)
         cart = Cart.objects.filter(user=request.user).first()
         if not cart:
             return Response({'error': 'Cart not found'}, status=404)
@@ -188,13 +192,6 @@ class CartItemUpdateView(APIView):
             return Response({'error': 'Item not found'}, status=404)
         item.delete()
         return Response(CartSerializer(cart, context={'request': request}).data)
-
-    def delete(self, request, item_id):
-        cart = Cart.objects.filter(user=request.user).first()
-        if not cart:
-            return Response({'error': 'Cart not found'}, status=404)
-        cart.items.filter(id=item_id).delete()
-        return Response(CartSerializer(cart).data)
 
 
 class OrderListView(generics.ListAPIView):
