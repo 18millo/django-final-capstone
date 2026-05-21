@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTheme } from '../providers/ThemeProvider'
 import { motion } from 'framer-motion'
+import api from '../utils/api'
 
 export default function Newsletter() {
   const { isLight } = useTheme()
@@ -12,23 +13,14 @@ export default function Newsletter() {
     e.preventDefault()
     setStatus('loading')
     try {
-      const res = await fetch(import.meta.env.VITE_API_URL + '/subscribe/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        setStatus('success')
-        setMessage('You are subscribed!')
-        setEmail('')
-      } else {
-        setStatus('error')
-        setMessage(data.email?.[0] || data.error || 'Subscription failed')
-      }
-    } catch {
+      const { data } = await api.post('/subscribe/', { email })
+      setStatus('success')
+      setMessage('You are subscribed!')
+      setEmail('')
+    } catch (err) {
+      const errData = err.response?.data
       setStatus('error')
-      setMessage('Network error. Please try again.')
+      setMessage(errData?.email?.[0] || errData?.error || 'Subscription failed')
     }
   }
 

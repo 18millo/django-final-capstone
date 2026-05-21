@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
-from .models import User, Profile, UsernameChange, SiteContent, VendorAccessCode, Post, PostComment, PostLike, GalleryItem, GalleryLike, GalleryComment, Bookmark, Report, BlockedUser, PostCommentLike, ContentFlag, IPLog, PaymentInfo, PhoneVerificationCode, Group, GroupMember, GroupMessage, Notification
+from .models import User, Profile, UsernameChange, SiteContent, VendorAccessCode, Post, PostComment, PostLike, GalleryItem, GalleryLike, GalleryComment, Bookmark, Report, BlockedUser, PostCommentLike, ContentFlag, IPLog, PaymentInfo, PhoneVerificationCode, Group, GroupMember, GroupMessage, Notification, Follow, Message, EmailVerificationCode
 
 
 @admin.register(User)
@@ -215,6 +215,31 @@ class PhoneVerificationCodeAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'phone', 'code', 'is_used', 'created_at')
     list_filter = ('is_used', 'created_at')
     search_fields = ('user__email', 'phone')
+
+
+@admin.register(Follow)
+class FollowAdmin(admin.ModelAdmin):
+    list_display = ('id', 'follower', 'following', 'created_at')
+    search_fields = ('follower__email', 'following__email')
+    list_filter = ('created_at',)
+
+
+@admin.register(Message)
+class MessageAdmin(admin.ModelAdmin):
+    list_display = ('id', 'sender', 'recipient', 'short_content', 'read', 'view_once', 'created_at')
+    list_filter = ('read', 'view_once', 'created_at')
+    search_fields = ('sender__email', 'recipient__email')
+
+    def short_content(self, obj):
+        return (obj.content or '')[:60] + ('...' if len(obj.content or '') > 60 else '')
+    short_content.short_description = 'Content'
+
+
+@admin.register(EmailVerificationCode)
+class EmailVerificationCodeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'code', 'type', 'is_used', 'created_at', 'expires_at')
+    list_filter = ('is_used', 'type', 'created_at')
+    search_fields = ('user__email',)
 
 
 @admin.register(Group)
