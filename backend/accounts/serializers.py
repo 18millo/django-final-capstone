@@ -251,6 +251,11 @@ class AvatarField(serializers.ImageField):
             return name
         return super().to_representation(value)
 
+    def to_internal_value(self, data):
+        if data is None or data == '':
+            return None
+        return super().to_internal_value(data)
+
 class ProfileSerializer(serializers.ModelSerializer):
     avatar = AvatarField(allow_null=True, required=False)
 

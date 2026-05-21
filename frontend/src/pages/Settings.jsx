@@ -552,6 +552,7 @@ export default function Settings() {
       setMessage({ type: 'success', text: 'Profile updated!' })
     } catch (err) {
       const errData = err.response?.data
+      console.error('Profile update error:', JSON.stringify(errData))
       const msg = typeof errData === 'string' ? errData :
         errData?.username?.[0] ||
         (errData?.profile ? Object.values(errData.profile).flat().join(', ') : null) ||
