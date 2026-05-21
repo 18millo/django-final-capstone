@@ -45,10 +45,11 @@ import Newsletter from './pages/Newsletter'
 import AdminPage from './pages/AdminPage'
 import Spinner from './components/ui/Spinner'
 
-function ProtectedRoute({ children }) {
+function ProtectedRoute({ children, requireVerified }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="flex items-center justify-center min-h-screen"><Spinner /></div>
   if (!user) return <Navigate to="/login" />
+  if (requireVerified !== false && !user.email_verified) return <Navigate to="/verify-email" />
   return children
 }
 
@@ -66,7 +67,15 @@ function SellerRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="flex items-center justify-center min-h-screen"><Spinner /></div>
   if (!user || !['vendor', 'coach', 'gym_owner'].includes(user.role)) return <Navigate to="/" />
-  if (!user.email_verified) return <Navigate to="/verify-email" />
+      if (!user.email_verified) return <Navigate to="/verify-email" />
+  return children
+}
+
+function NonVendorRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="flex items-center justify-center min-h-screen"><Spinner /></div>
+  if (!user) return <Navigate to="/login" />
+  if (user.role === 'vendor') return <Navigate to="/" />
   return children
 }
 
@@ -93,11 +102,11 @@ export default function AppRoutes() {
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/premium" element={<Premium />} />
-        <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
-        <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+        <Route path="/community" element={<ProtectedRoute><NonVendorRoute><Community /></NonVendorRoute></ProtectedRoute>} />
+        <Route path="/messages" element={<ProtectedRoute><NonVendorRoute><Messages /></NonVendorRoute></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><ProfileView /></ProtectedRoute>} />
         <Route path="/profile/:id" element={<ProtectedRoute><PublicProfile /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute requireVerified={false}><Settings /></ProtectedRoute>} />
         <Route path="/shop" element={<Shop />} />
         <Route path="/shop/:id" element={<ProductDetail />} />
         <Route path="/cart" element={<AthleteRoute><Cart /></AthleteRoute>} />
@@ -111,19 +120,19 @@ export default function AppRoutes() {
         <Route path="/vendor/:id" element={<VendorAbout />} />
         <Route path="/coach" element={<CoachRoute><CoachDashboard /></CoachRoute>} />
         <Route path="/gym-dashboard" element={<SellerRoute><GymOwnerDashboard /></SellerRoute>} />
-        <Route path="/forum" element={<ProtectedRoute><Forum /></ProtectedRoute>} />
-        <Route path="/forum/new" element={<ProtectedRoute><CreatePost /></ProtectedRoute>} />
-        <Route path="/forum/:id" element={<ProtectedRoute><PostDetail /></ProtectedRoute>} />
+        <Route path="/forum" element={<ProtectedRoute><NonVendorRoute><Forum /></NonVendorRoute></ProtectedRoute>} />
+        <Route path="/forum/new" element={<ProtectedRoute><NonVendorRoute><CreatePost /></NonVendorRoute></ProtectedRoute>} />
+        <Route path="/forum/:id" element={<ProtectedRoute><NonVendorRoute><PostDetail /></NonVendorRoute></ProtectedRoute>} />
         <Route path="/guidelines" element={<CommunityGuidelines />} />
         <Route path="/terms" element={<Terms />} />
-        <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
-        <Route path="/gallery/:id" element={<ProtectedRoute><GalleryDetail /></ProtectedRoute>} />
-        <Route path="/groups" element={<ProtectedRoute><Groups /></ProtectedRoute>} />
-        <Route path="/groups/:id" element={<ProtectedRoute><GroupDetail /></ProtectedRoute>} />
+        <Route path="/gallery" element={<ProtectedRoute><NonVendorRoute><Gallery /></NonVendorRoute></ProtectedRoute>} />
+        <Route path="/gallery/:id" element={<ProtectedRoute><NonVendorRoute><GalleryDetail /></NonVendorRoute></ProtectedRoute>} />
+        <Route path="/groups" element={<ProtectedRoute><NonVendorRoute><Groups /></NonVendorRoute></ProtectedRoute>} />
+        <Route path="/groups/:id" element={<ProtectedRoute><NonVendorRoute><GroupDetail /></NonVendorRoute></ProtectedRoute>} />
         <Route path="/2fa/setup" element={<ProtectedRoute><TotpSetup /></ProtectedRoute>} />
         <Route path="/premium/setup" element={<ProtectedRoute><PaymentSetup /></ProtectedRoute>} />
         <Route path="/newsletter" element={<Newsletter />} />
-        <Route path="/verify-email" element={<ProtectedRoute><EmailVerify /></ProtectedRoute>} />
+        <Route path="/verify-email" element={<ProtectedRoute requireVerified={false}><EmailVerify /></ProtectedRoute>} />
         <Route path="/username-setup" element={<PublicRoute><AuthLayout><UsernameSetup /></AuthLayout></PublicRoute>} />
         <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
       </Route>

@@ -104,6 +104,10 @@ class Profile(models.Model):
     premium_trial_used = models.BooleanField(default=False)
     show_views_publicly = models.BooleanField(default=True)
 
+    # message settings
+    messaging_enabled = models.BooleanField(default=True)
+    # Vendors default to disabled; users cannot message them unless they enable it
+
     # phone verification
     phone_verified = models.BooleanField(default=False)
 

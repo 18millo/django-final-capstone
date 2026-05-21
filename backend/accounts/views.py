@@ -289,6 +289,27 @@ class AccessCodeVerifyView(APIView):
                 'email': user.email,
             })
 
+        new_code = generate_access_code()
+        user.profile.vendor_access_code = new_code
+        user.profile.save(update_fields=['vendor_access_code'])
+        try:
+            send_mail(
+                subject='Your New CombatHub Access Code',
+                message=(
+                    f'Hi {user.username or user.email},\n\n'
+                    f'Your new access code is:\n\n'
+                    f'   {new_code}\n\n'
+                    f'Use this code the next time you sign in.\n\n'
+                    f'- The CombatHub Team'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+            notify_admins_access_code('rotated', user, new_code)
+        except Exception:
+            pass
+
         tokens = get_tokens_for_user(user)
         return Response({
             'user': UserSerializer(user).data,
@@ -858,6 +879,8 @@ class SendMessageView(APIView):
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
         if recipient.messaging_blocked:
             return Response({'error': 'This user has been restricted from receiving messages.'}, status=status.HTTP_403_FORBIDDEN)
+        if recipient.role == 'vendor' and not recipient.profile.messaging_enabled:
+            return Response({'error': 'This vendor has not enabled messages. Contact them through their products or about page.'}, status=status.HTTP_403_FORBIDDEN)
         content = request.data.get('content', '').strip()
         view_once = request.data.get('view_once', False)
         image_file = request.FILES.get('image', None)

@@ -50,9 +50,6 @@ export default function Register() {
         role: form.role,
         accepted_terms: true,
       }
-      if (BUSINESS_ROLES.includes(form.role)) {
-        payload.registration_code = form.registration_code
-      }
       if (form.role === 'vendor' || form.role === 'gym_owner') {
         payload.business_name = form.business_name
         payload.business_location = form.business_location
@@ -118,16 +115,8 @@ export default function Register() {
 
         {BUSINESS_ROLES.includes(form.role) && (
           <div className="space-y-3 p-4 rounded-xl border border-nike-amber/20 bg-nike-amber/[0.02] liquid-glass-card">
-            <p className="text-xs tracking-widest uppercase font-bold text-nike-amber">Access Code Required</p>
-            <Input
-              label="Registration Access Code"
-              type="text"
-              value={form.registration_code}
-              onChange={(e) => setForm({ ...form, registration_code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) })}
-              placeholder="Enter the code from your admin"
-              required
-            />
-            <p className="text-[10px] text-white/30">Contact an admin to get a registration code for {ROLE_LABELS[form.role]} accounts.</p>
+            <p className="text-xs tracking-widest uppercase font-bold text-nike-amber">Access Code</p>
+            <p className="text-[10px] text-white/30">An access code will be generated for your account and sent to your email. You will need it to log in.</p>
           </div>
         )}
 

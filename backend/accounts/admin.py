@@ -40,7 +40,7 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ('avatar_preview', 'user', 'vendor_access_code', 'weight_class', 'stance', 'phone', 'is_premium')
+    list_display = ('avatar_preview', 'user', 'vendor_access_code', 'weight_class', 'stance', 'phone', 'is_premium', 'messaging_enabled')
     list_filter = ('is_premium', 'weight_class', 'stance')
     search_fields = ('user__email', 'business_name', 'vendor_access_code')
     list_editable = ('is_premium',)

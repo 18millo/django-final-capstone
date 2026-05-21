@@ -202,7 +202,33 @@ export default function GroupDetail() {
           <div className={'text-center py-20 rounded-2xl border ' + borderClass + ' ' + cardBg}>
             <div className="text-5xl mb-4">🔒</div>
             <p className={'text-lg font-bold ' + textClass}>Join this group to see the content</p>
-            <p className={'text-sm mt-1 ' + mutedClass}>{group.my_status === 'pending' ? 'Your join request is pending approval.' : 'Ask the creator to join!'}</p>
+            <p className={'text-sm mt-1 ' + mutedClass}>{group.my_status === 'pending' ? 'Your join request is pending approval.' : ''}</p>
+            {group.my_status !== 'pending' && (
+              <button
+                onClick={async () => {
+                  try {
+                    await api.post('/auth/groups/' + id + '/join/')
+                    playSuccess()
+                    toast('Join request sent!', 'success')
+                    const [gRes] = await Promise.all([
+                      api.get('/auth/groups/' + id + '/'),
+                      api.get('/auth/groups/' + id + '/messages/'),
+                      api.get('/auth/groups/' + id + '/members/'),
+                    ])
+                    setGroup(gRes.data)
+                    if (user.id === group.created_by) {
+                      const rRes = await api.get('/auth/groups/' + id + '/requests/')
+                      setRequests(rRes.data.results || rRes.data || [])
+                    }
+                  } catch (err) {
+                    toast(err.response?.data?.error || 'Failed to join', 'error')
+                  }
+                }}
+                className="mt-4 px-6 py-2 bg-nike-red text-white text-sm font-bold rounded-xl hover:bg-white hover:text-nike-black transition-all"
+              >
+                {group.is_private ? 'Request to Join' : 'Join Group'}
+              </button>
+            )}
           </div>
         ) : tab === 'chat' ? (
           <div className="flex flex-col h-[calc(100vh-20rem)]">

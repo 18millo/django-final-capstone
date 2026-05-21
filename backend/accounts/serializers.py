@@ -79,17 +79,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        role = data.get('role')
-        registration_code = data.get('registration_code', '')
-        if role in ACCESS_CODE_ROLES:
-            if registration_code:
-                code_obj = VendorAccessCode.objects.filter(
-                    code=registration_code, role=role, is_active=True, used_by__isnull=True
-                ).first()
-                if not code_obj:
-                    raise serializers.ValidationError({'registration_code': f'Invalid or already-used access code for {role.replace("_", " ")}.'})
-            else:
-                raise serializers.ValidationError({'registration_code': f'A registration access code is required for {role.replace("_", " ")} accounts. Contact an admin to get one.'})
         return data
 
     def create(self, validated_data):
@@ -281,7 +270,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             'business_name', 'business_location', 'business_description',
             'specialization', 'certifications',
             'vendor_access_code', 'latitude', 'longitude',
-            'is_premium', 'phone_verified',
+            'is_premium', 'phone_verified', 'messaging_enabled',
         )
         read_only_fields = ('vendor_access_code', 'is_premium', 'phone_verified',)
 

@@ -484,6 +484,7 @@ export default function Settings() {
     height_ft: '', height_in: '', reach_in: '', stance: '',
     business_name: '', business_location: '', business_description: '',
     latitude: '', longitude: '',
+    messaging_enabled: true,
   })
   const [avatar, setAvatar] = useState(null)
   const [avatarPreview, setAvatarPreview] = useState('')
@@ -512,6 +513,7 @@ export default function Settings() {
         business_description: p.business_description || '',
         latitude: p.latitude || '',
         longitude: p.longitude || '',
+        messaging_enabled: p.messaging_enabled !== undefined ? p.messaging_enabled : true,
       })
     }
   }, [user])
@@ -534,6 +536,10 @@ export default function Settings() {
       Object.entries(form).forEach(([key, val]) => {
         if (key !== 'username') {
           const emptyNumerics = ['height_ft', 'height_in', 'reach_in', 'latitude', 'longitude']
+          if (key === 'messaging_enabled') {
+            formData.append('profile[messaging_enabled]', val)
+            return
+          }
           if (emptyNumerics.includes(key) && val === '') return
           formData.append('profile[' + key + ']', val)
         }
@@ -730,6 +736,24 @@ export default function Settings() {
                     />
                   </div>
                 </div>
+
+                {user?.role === 'vendor' && (
+                  <div className="mt-8 border-t pt-8" style={{ borderColor: 'var(--color-nike-gray)' }}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-bold text-sm" style={{ color: 'var(--color-nike-white)' }}>Allow Messages</h3>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--color-nike-light)' }}>Let others send you direct messages</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, messaging_enabled: !form.messaging_enabled })}
+                        className={'relative w-12 h-6 rounded-full transition-all duration-300 ' + (form.messaging_enabled ? 'bg-nike-red' : 'bg-nike-gray')}
+                      >
+                        <div className={'absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 ' + (form.messaging_enabled ? 'translate-x-6' : 'translate-x-0.5')} />
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {['vendor', 'gym_owner'].includes(user.role) && (
                   <div className="mt-8 space-y-5">

@@ -229,7 +229,7 @@ export default function MainLayout() {
           <div className="hidden lg:flex items-center gap-1 overflow-x-auto scrollbar-none flex-1 justify-center mx-4">
             {['vendor', 'coach', 'gym_owner'].includes(user?.role) ? (
               <>
-                {[{ to: '/', label: 'Home' }, { to: user.role === 'coach' ? '/coach' : user.role === 'gym_owner' ? '/gym-dashboard' : '/vendor', label: 'Dashboard' }, { to: '/groups', label: 'Groups' }, { to: '/premium', label: 'Premium' }, ...(user?.role === 'admin' ? [{ to: '/admin', label: 'Admin' }] : [])].map((link) => (
+                {[{ to: '/', label: 'Home' }, { to: user.role === 'coach' ? '/coach' : user.role === 'gym_owner' ? '/gym-dashboard' : '/vendor', label: 'Dashboard' }, ...(user?.role !== 'vendor' ? [{ to: '/groups', label: 'Groups' }] : []), { to: '/premium', label: 'Premium' }, ...(user?.role === 'admin' ? [{ to: '/admin', label: 'Admin' }] : [])].map((link) => (
                   <Link key={link.to} to={link.to} onClick={() => playWhoosh()} className={'relative text-sm tracking-widest uppercase font-medium px-3 xl:px-4 py-1.5 rounded-full whitespace-nowrap transition-all duration-300 group ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-black' : 'hover:bg-white/10')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>
                     {link.label}
                     <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-nike-red rounded-full group-hover:w-1/2 transition-all duration-300" />
@@ -313,6 +313,7 @@ export default function MainLayout() {
 
             {user ? (
               <>
+                {user?.role !== 'vendor' && (
                 <button
                   onClick={() => { playClick(); navigate('/messages') }}
                   className={'relative p-2 rounded-xl transition-all duration-200 ' + (isLight ? 'hover:bg-nike-gray/30' : 'hover:bg-white/10')}
@@ -324,6 +325,7 @@ export default function MainLayout() {
                     <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-nike-red rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-lg shadow-nike-red/50">{msgUnreadCount}</span>
                   )}
                 </button>
+                )}
                 {user?.role === 'athlete' && (
                 <button
                   onClick={() => { playClick(); navigate('/cart') }}
@@ -487,6 +489,7 @@ export default function MainLayout() {
                         )}
                       </div>
 
+                      {user?.role !== 'vendor' && (
                       <Link
                         to="/messages"
                         onClick={() => setMenuOpen(false)}
@@ -496,6 +499,7 @@ export default function MainLayout() {
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                         Messages
                       </Link>
+                      )}
 
                       <Link
                         to="/shop"
@@ -507,6 +511,7 @@ export default function MainLayout() {
                         Shop
                       </Link>
 
+                      {user?.role === 'athlete' && (
                       <Link
                         to="/orders"
                         onClick={() => setMenuOpen(false)}
@@ -516,6 +521,7 @@ export default function MainLayout() {
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                         Orders
                       </Link>
+                      )}
 
                       <Link
                         to="/profile"
@@ -576,12 +582,12 @@ export default function MainLayout() {
           <div className="p-4 space-y-1">
             {(user ? [
               { to: '/', label: 'Home', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-              { to: '/community', label: 'Community', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
-              { to: '/groups', label: 'Groups', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zM6 10h.01M18 10h.01' },
-              { to: '/forum', label: 'Forum', icon: 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z' },
-              { to: '/gallery', label: 'Gallery', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
+              ...(user?.role !== 'vendor' ? [{ to: '/community', label: 'Community', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' }] : []),
+              ...(user?.role !== 'vendor' ? [{ to: '/groups', label: 'Groups', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zM6 10h.01M18 10h.01' }] : []),
+              ...(user?.role !== 'vendor' ? [{ to: '/forum', label: 'Forum', icon: 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z' }] : []),
+              ...(user?.role !== 'vendor' ? [{ to: '/gallery', label: 'Gallery', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' }] : []),
               { to: '/shop', label: 'Shop', icon: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z' },
-              { to: '/messages', label: 'Messages', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
+              ...(user?.role !== 'vendor' ? [{ to: '/messages', label: 'Messages', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' }] : []),
               ...(['vendor', 'coach', 'gym_owner'].includes(user.role) ? [{
                 to: user.role === 'coach' ? '/coach' : user.role === 'gym_owner' ? '/gym-dashboard' : '/vendor',
                 label: 'Dashboard',
@@ -636,9 +642,9 @@ export default function MainLayout() {
               <h4 className={'text-[10px] tracking-widest uppercase font-bold mb-3 ' + (isLight ? 'text-nike-light' : '')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Platform</h4>
               <div className="space-y-2">
                 <Link to="/shop" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Shop</Link>
-                <Link to="/forum" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Forum</Link>
-                <Link to="/gallery" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Gallery</Link>
-                <Link to="/community" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Community</Link>
+                {user?.role !== 'vendor' && <Link to="/forum" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Forum</Link>}
+                {user?.role !== 'vendor' && <Link to="/gallery" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Gallery</Link>}
+                {user?.role !== 'vendor' && <Link to="/community" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Community</Link>}
               </div>
             </div>
             <div>
