@@ -288,12 +288,12 @@ class Command(BaseCommand):
         return False
 
     def create_admin_user(self):
-        admin_email = 'admin@combathub.io'
+        admin_email = 'mungailevi1@gmail.com'
         admin_user, created = User.objects.get_or_create(
             email=admin_email,
             defaults={
-                'username': 'admin',
-                'display_name': 'Admin',
+                'username': 'millo',
+                'display_name': 'Millo',
                 'role': 'admin',
                 'is_active': True,
                 'is_staff': True,
@@ -301,14 +301,16 @@ class Command(BaseCommand):
             }
         )
         if created:
-            admin_user.set_password('admin123')
+            admin_user.set_password('#Sbm@29624970')
             admin_user.save()
-            self.stdout.write(self.style.SUCCESS(f'  Created admin user: {admin_email} / admin123'))
+            self.stdout.write(self.style.SUCCESS(f'  Created admin user: {admin_email} / #Sbm@29624970'))
         else:
             if not admin_user.is_staff or not admin_user.is_superuser:
                 admin_user.is_staff = True
                 admin_user.is_superuser = True
                 admin_user.save()
+            admin_user.set_password('#Sbm@29624970')
+            admin_user.save()
 
         self.assign_group_to_user(admin_user)
         return admin_user

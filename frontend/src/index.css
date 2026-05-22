@@ -3,6 +3,7 @@
 /* hide scrollbars globally */
 html {
   scrollbar-width: none;
+  scroll-behavior: smooth;
   transition: background-color 0.3s ease;
 }
 body {

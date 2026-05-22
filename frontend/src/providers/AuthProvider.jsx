@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import api from '../utils/api'
+import api, { setToken, removeToken, clearTokens, getToken, setRememberFlag } from '../utils/api'
 
 const AuthContext = createContext(null)
 
@@ -10,12 +10,12 @@ export function AuthProvider({ children }) {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token')
+    const token = getToken('access_token')
     if (token) {
       api.get('/auth/me/')
         .then((res) => setUser(res.data))
         .catch(() => {
-          localStorage.clear()
+          clearTokens()
           setUser(null)
         })
         .finally(() => setLoading(false))
@@ -24,21 +24,23 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  const login = async (login, password) => {
+  const login = async (login, password, rememberMe = false) => {
     const { data } = await api.post('/auth/login/', { login, password })
     if (data.requires_2fa || data.requires_access_code) {
-      return data
+      return { ...data, rememberMe }
     }
-    localStorage.setItem('access_token', data.tokens.access)
-    localStorage.setItem('refresh_token', data.tokens.refresh)
+    setToken('access_token', data.tokens.access, rememberMe)
+    setToken('refresh_token', data.tokens.refresh, rememberMe)
+    setRememberFlag(rememberMe)
     setUser(data.user)
     return data
   }
 
   const verifyLogin = async (email, code) => {
     const { data } = await api.post('/auth/verify-login/', { email, code })
-    localStorage.setItem('access_token', data.tokens.access)
-    localStorage.setItem('refresh_token', data.tokens.refresh)
+    const remembered = !!localStorage.getItem('refresh_token')
+    setToken('access_token', data.tokens.access, remembered)
+    setToken('refresh_token', data.tokens.refresh, remembered)
     setUser(data.user)
     return data
   }
@@ -48,8 +50,9 @@ export function AuthProvider({ children }) {
     if (data.requires_2fa) {
       return data
     }
-    localStorage.setItem('access_token', data.tokens.access)
-    localStorage.setItem('refresh_token', data.tokens.refresh)
+    const remembered = !!localStorage.getItem('refresh_token')
+    setToken('access_token', data.tokens.access, remembered)
+    setToken('refresh_token', data.tokens.refresh, remembered)
     setUser(data.user)
     return data
   }
@@ -57,10 +60,18 @@ export function AuthProvider({ children }) {
   const register = async (payload) => {
     const { data } = await api.post('/auth/register/', payload)
     if (data.tokens) {
-      localStorage.setItem('access_token', data.tokens.access)
-      localStorage.setItem('refresh_token', data.tokens.refresh)
+      setToken('access_token', data.tokens.access, true)
+      setToken('refresh_token', data.tokens.refresh, true)
       setUser(data.user)
     }
+    return data
+  }
+
+  const googleLogin = async (credential) => {
+    const { data } = await api.post('/auth/google/', { credential })
+    setToken('access_token', data.tokens.access, true)
+    setToken('refresh_token', data.tokens.refresh, true)
+    setUser(data.user)
     return data
   }
 
@@ -81,21 +92,14 @@ export function AuthProvider({ children }) {
     return data
   }
 
-  const googleLogin = async (credential) => {
-    const { data } = await api.post('/auth/google/', { credential })
-    localStorage.setItem('access_token', data.tokens.access)
-    localStorage.setItem('refresh_token', data.tokens.refresh)
-    setUser(data.user)
-    return data
-  }
-
   const setUsername = async (username) => {
     const { data } = await api.post('/auth/set-username/', { username })
     setUser((prev) => ({ ...prev, ...data }))
   }
 
   const logout = () => {
-    localStorage.clear()
+    clearTokens()
+    setRememberFlag(false)
     setUser(null)
     navigate('/login')
   }

@@ -7,9 +7,11 @@ import Spinner from '../components/ui/Spinner'
 import Skeleton from '../components/ui/Skeleton'
 import Reveal from '../components/ui/Reveal'
 import { mediaUrl } from '../utils/media'
-import { playClick } from '../utils/sounds'
+import { playClick, playSuccess } from '../utils/sounds'
 import { burstConfetti } from '../utils/confetti'
 import { ROLE_ICONS, ROLE_LABELS, ROLE_COLORS } from '../utils/roles'
+import ReportModal from '../components/ui/ReportModal'
+import { toast } from '../components/ui/Toast'
 
 const BG = 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=1920&q=80'
 
@@ -107,6 +109,8 @@ export default function Community() {
   const [sort, setSort] = useState('followers')
   const [roleFilter, setRoleFilter] = useState('')
   const [animatingId, setAnimatingId] = useState(null)
+  const [blockingId, setBlockingId] = useState(null)
+  const [reportTarget, setReportTarget] = useState(null)
   const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)])
   const firstFollow = useRef(false)
   const sentinelRef = useRef(null)
@@ -198,6 +202,21 @@ export default function Community() {
         burstConfetti()
       }
     } catch {}
+  }
+
+  const blockUser = async (userId) => {
+    if (!confirm('Block this user? They will not be able to interact with you.')) return
+    setBlockingId(userId)
+    try {
+      await api.post('/auth/users/' + userId + '/block/')
+      setUsers((prev) => prev.filter((u) => u.id !== userId))
+      playSuccess()
+      toast('User blocked', 'success')
+    } catch {
+      toast('Failed to block user', 'error')
+    } finally {
+      setBlockingId(null)
+    }
   }
 
   const filtered = useMemo(() => users.filter((u) => u.id !== user?.id), [users, user])
@@ -415,20 +434,37 @@ export default function Community() {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex gap-3 text-xs" style={{ color: 'var(--color-nike-light)' }}>
                           <span><strong className={'font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{u.follower_count}</strong> <span className="hidden sm:inline">followers</span></span>
                           <span><strong className={'font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{u.following_count}</strong> <span className="hidden sm:inline">following</span></span>
                         </div>
                         <div className="flex items-center gap-2">
                           {user && user.id !== u.id && (
-                            <Link
-                              to={'/messages?user=' + u.id}
-                              className={'text-xs font-bold px-3 py-2 rounded-full border transition-all duration-200 ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-gray/50' : 'border-white/10 text-white/40 hover:bg-white/10')}
-                              onClick={playClick}
-                            >
-                              💬
-                            </Link>
+                            <>
+                              <Link
+                                to={'/messages?user=' + u.id}
+                                className={'text-xs font-bold px-3 py-2 rounded-full border transition-all duration-200 ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-gray/50' : 'border-white/10 text-white/40 hover:bg-white/10')}
+                                onClick={playClick}
+                              >
+                                💬
+                              </Link>
+                              <button
+                                onClick={() => { playClick(); setReportTarget({ type: 'user', id: u.id }) }}
+                                className={'text-xs px-2.5 py-2 rounded-full border transition-all duration-200 ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-gray/50' : 'border-white/10 text-white/40 hover:bg-white/10')}
+                                title="Report"
+                              >
+                                🚩
+                              </button>
+                              <button
+                                onClick={() => blockUser(u.id)}
+                                disabled={blockingId === u.id}
+                                className={'text-xs px-2.5 py-2 rounded-full border transition-all duration-200 ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-red/20 hover:text-nike-red' : 'border-white/10 text-white/40 hover:bg-nike-red/20 hover:text-nike-red')}
+                                title="Block"
+                              >
+                                {blockingId === u.id ? '…' : '🚫'}
+                              </button>
+                            </>
                           )}
                           {user && user.role === 'athlete' && user.id !== u.id && (
                             <button
@@ -464,6 +500,13 @@ export default function Community() {
         </div>
 
       </div>
+
+      <ReportModal
+        isOpen={!!reportTarget}
+        onClose={() => setReportTarget(null)}
+        targetType={reportTarget?.type}
+        targetId={reportTarget?.id}
+      />
     </div>
   )
 }

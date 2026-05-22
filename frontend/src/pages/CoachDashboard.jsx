@@ -26,7 +26,7 @@ export default function CoachDashboard() {
       api.get('/auth/dashboard/coach/stats/'),
     ])
       .then(([fRes, sRes]) => {
-        setFollowers(fRes.data || [])
+        setFollowers(fRes.data?.results || fRes.data || [])
         setStats(sRes.data)
       })
       .catch(() => {})
@@ -159,6 +159,16 @@ export default function CoachDashboard() {
                           <span className="text-[10px]">·</span>
                           <span className={'text-[10px] capitalize ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{f.role || 'athlete'}</span>
                         </div>
+                        {f.profile && (f.profile.weight_class || f.profile.height_ft || f.profile.height_in || f.profile.reach_in || f.profile.stance) && (
+                          <div className={'flex items-center gap-2 mt-1 text-[10px] uppercase tracking-wider ' + mutedClass}>
+                            {f.profile.weight_class && <span>{f.profile.weight_class}</span>}
+                            {(f.profile.height_ft || f.profile.height_in) && (
+                              <span>{f.profile.height_ft || 0}'{f.profile.height_in || 0}"</span>
+                            )}
+                            {f.profile.reach_in && <span>{f.profile.reach_in}" reach</span>}
+                            {f.profile.stance && <span>{f.profile.stance}</span>}
+                          </div>
+                        )}
                       </div>
                       <div className={'text-xs font-bold px-4 py-2 rounded-xl border transition-all ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-red hover:text-white hover:border-nike-red' : 'border-white/10 text-white/40 hover:bg-nike-red hover:text-white hover:border-nike-red')}>
                         Message

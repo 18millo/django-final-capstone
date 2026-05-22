@@ -70,6 +70,21 @@ def notify_and_flag_profile_update(sender, instance, **kwargs):
             notification_type='profile_update',
             message=f'{instance.user.username or instance.user.email} updated their profile.',
         )
+    try:
+        send_mail(
+            subject='CombatHub — Profile Updated',
+            message=(
+                f'Hi {instance.user.username or instance.user.email},\n\n'
+                f'Your CombatHub profile has been updated successfully.\n\n'
+                f'If you did not make these changes, please contact support immediately.\n\n'
+                f'- The CombatHub Team'
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[instance.user.email],
+            fail_silently=True,
+        )
+    except Exception:
+        logger.warning(f'Profile update email failed for {instance.user.email}')
     cache.delete(f'profile_{instance.user.id}')
     cache.delete(f'user_{instance.user.id}_profile')
 

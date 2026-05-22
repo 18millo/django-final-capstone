@@ -12,12 +12,7 @@ export default function Reveal({ children, className = '', delay = 0, direction 
     if (useGsap) {
       const startY = direction === 'up' ? 50 : direction === 'down' ? -50 : 0
       const startX = direction === 'left' ? -40 : direction === 'right' ? 40 : 0
-      gsap.set(el, {
-        opacity: 0,
-        y: startY,
-        x: startX,
-        scale: direction === 'scale' ? 0.92 : 1,
-      })
+      gsap.set(el, { opacity: 0, y: startY, x: startX, scale: direction === 'scale' ? 0.92 : 1 })
       const observer = new IntersectionObserver(
         ([entry]) => {
           if (entry.isIntersecting) {
@@ -25,7 +20,7 @@ export default function Reveal({ children, className = '', delay = 0, direction 
               opacity: 1, y: 0, x: 0, scale: 1,
               duration,
               delay: delay / 1000,
-              ease: 'power4.out',
+              ease: 'power3.out',
             })
             observer.unobserve(el)
           }
@@ -41,11 +36,10 @@ export default function Reveal({ children, className = '', delay = 0, direction 
       ([entry]) => {
         if (entry.isIntersecting) {
           timer = setTimeout(() => setVisible(true), delay)
-        } else {
-          setVisible(false)
+          observer.unobserve(el)
         }
       },
-      { threshold: 0.05, rootMargin: '0px 0px -20px 0px' }
+      { threshold: 0.1, rootMargin: '0px 0px -20px 0px' }
     )
     observer.observe(el)
     return () => {
@@ -66,7 +60,7 @@ export default function Reveal({ children, className = '', delay = 0, direction 
   return (
     <div
       ref={ref}
-      className={(useGsap ? '' : 'transition-all duration-[800ms] ease-out ' + (visible ? 'opacity-100 translate-y-0 translate-x-0 scale-100' : 'opacity-0 ' + (dirClass[direction] || dirClass.up))) + ' ' + className}
+      className={(!useGsap ? 'transition-[opacity,transform] duration-[800ms] ease-out ' + (visible ? 'opacity-100 translate-y-0 translate-x-0 scale-100' : 'opacity-0 ' + (dirClass[direction] || dirClass.up)) : '') + ' ' + className}
     >
       {children}
     </div>

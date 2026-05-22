@@ -413,10 +413,13 @@ function HomeDashboard() {
    const rc = ROLE_COLORS[user.role] || ROLE_COLORS.athlete
 
   const calcProfilePercent = (p) => {
-    const fields = [
-      p.bio, p.avatar, p.phone, p.weight_class,
-      p.height_ft, p.height_in, p.reach_in, p.stance,
-    ]
+    const base = [p.bio, p.avatar, p.phone]
+    const roleFields = user?.role === 'vendor' || user?.role === 'gym_owner'
+      ? [p.business_name, p.business_location, p.business_description]
+      : user?.role === 'coach'
+        ? [p.specialization, p.certifications]
+        : [p.weight_class, p.height_ft, p.height_in, p.reach_in, p.stance]
+    const fields = [...base, ...roleFields]
     const filled = fields.filter(Boolean).length
     return Math.round((filled / fields.length) * 100)
   }
@@ -550,8 +553,8 @@ function HomeDashboard() {
                   </Link>
                 </div>
                 <div className="space-y-3">
-                  {conversations.map((c) => (
-                    <Link key={c.user_id} to="/messages" className={'flex items-center gap-3 p-3 rounded-xl transition-all duration-200 hover:scale-[1.01] ' + (isLight ? 'hover:bg-nike-gray/20' : 'hover:bg-white/5')}>
+                  {conversations.map((c, i) => (
+                    <Link key={c.user_id ?? i} to="/messages" className={'flex items-center gap-3 p-3 rounded-xl transition-all duration-200 hover:scale-[1.01] ' + (isLight ? 'hover:bg-nike-gray/20' : 'hover:bg-white/5')}>
                       <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 ring-2 ring-nike-gray/30">
                         {c.avatar ? (
                           <img src={mediaUrl(c.avatar)} className="w-full h-full object-cover" alt="" />
@@ -760,23 +763,30 @@ function HomeDashboard() {
               <div className={'p-8 rounded-2xl border backdrop-blur-sm liquid-glass-card ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
                 <h2 className="text-lg font-black tracking-tight mb-6">ACHIEVEMENTS</h2>
                 <div className="space-y-4">
-                  {achievements.map((a) => (
-                    <div key={a.label} className={'flex items-center gap-3 p-3 rounded-xl ' + (isLight ? 'bg-nike-gray/20' : 'bg-white/5')}>
-                      <span className="text-xl shrink-0">{a.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className={'text-xs font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{a.label}</p>
-                          <p className="text-xs font-black text-nike-red">{a.value}</p>
-                        </div>
-                        <p className={'text-[10px] tracking-wider mt-0.5 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{a.sub}</p>
-                        {a.progress !== undefined && (
-                          <div className={'mt-2 h-1.5 rounded-full overflow-hidden ' + (isLight ? 'bg-nike-gray/50' : 'bg-white/10')}>
-                            <div className="h-full rounded-full bg-gradient-to-r from-nike-red to-nike-amber" style={{ width: a.progress + '%' }} />
+                  {achievements.map((a) => {
+                    const isProfileCard = a.label === 'Profile Complete'
+                    return (
+                      <div
+                        key={a.label}
+                        onClick={isProfileCard ? () => navigate('/settings') : undefined}
+                        className={'flex items-center gap-3 p-3 rounded-xl ' + (isLight ? 'bg-nike-gray/20' : 'bg-white/5') + (isProfileCard ? ' cursor-pointer hover:bg-nike-red/10 transition-colors' : '')}
+                      >
+                        <span className="text-xl shrink-0">{a.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className={'text-xs font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{a.label}</p>
+                            <p className="text-xs font-black text-nike-red">{a.value}</p>
                           </div>
-                        )}
+                          <p className={'text-[10px] tracking-wider mt-0.5 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{a.sub}</p>
+                          {a.progress !== undefined && (
+                            <div className={'mt-2 h-1.5 rounded-full overflow-hidden ' + (isLight ? 'bg-nike-gray/50' : 'bg-white/10')}>
+                              <div className="h-full rounded-full bg-gradient-to-r from-nike-red to-nike-amber" style={{ width: a.progress + '%' }} />
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             </Reveal>
@@ -813,8 +823,11 @@ function HomeDashboard() {
                      <span className="text-lg">💎</span>
                      <h3 className={'text-sm font-bold tracking-wider ' + (isLight ? 'text-nike-black' : 'text-white')}>PREMIUM FEATURES</h3>
                    </div>
-                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                     {premiumInfo.premium_features.map((f) => (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {(premiumInfo.premium_features || []).filter((f) => {
+                        if (user?.role === 'athlete') return f.title !== 'Vendor Dashboard'
+                        return true
+                      }).map((f) => (
                        <div key={f.title} className={'flex items-start gap-2 p-2 rounded-lg ' + (isLight ? 'bg-white/60' : 'bg-white/5')}>
                          <span className="text-lg shrink-0">{f.icon}</span>
                          <div className="min-w-0">

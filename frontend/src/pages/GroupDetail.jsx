@@ -319,14 +319,14 @@ export default function GroupDetail() {
         ) : (
           <div className="space-y-3">
             {requests.map((r) => (
-              <div key={r.id} className={'flex items-center justify-between p-4 rounded-xl border ' + borderClass + ' ' + cardBg}>
+              <div key={r.id} className={'flex items-center justify-between p-4 rounded-xl border flex-wrap gap-2 ' + borderClass + ' ' + cardBg}>
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-nike-gray/20 flex items-center justify-center text-sm font-bold" style={{ color: 'var(--color-nike-light)' }}>
                     {r.avatar ? <img src={mediaUrl(r.avatar)} className="w-full h-full object-cover" alt="" /> : (r.username || '?')[0].toUpperCase()}
                   </div>
                   <span className={'text-sm font-bold truncate ' + textClass}>{r.username}</span>
                 </div>
-                <div className="flex gap-2 shrink-0">
+                <div className="flex gap-2">
                   <button onClick={() => handleApprove(r.user)} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-all">Approve</button>
                   <button onClick={() => handleReject(r.user)} className="text-xs font-bold px-3 py-1.5 rounded-lg border border-nike-red/30 text-nike-red hover:bg-nike-red hover:text-white transition-all">Reject</button>
                 </div>

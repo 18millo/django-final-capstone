@@ -264,7 +264,7 @@ export default function ProductDetail() {
             </Reveal>
 
             <Reveal delay={500}>
-              <div className="flex items-center gap-4 mt-6">
+              <div className="flex items-center gap-4 mt-6 flex-wrap">
                 {!isVendor && (
                   <>
                     <div className={'flex items-center rounded-xl border overflow-hidden ' + (isLight ? 'border-nike-gray' : 'border-white/10')}>

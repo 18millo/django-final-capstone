@@ -46,7 +46,7 @@ export default function EmailVerify() {
       await api.post('/auth/email/verify/', { code })
       await refreshUser()
       toast('Email verified!', 'success')
-      navigate('/settings', { replace: true })
+      navigate('/', { replace: true })
     } catch (err) {
       toast(err.response?.data?.error || 'Invalid code', 'error')
     } finally {

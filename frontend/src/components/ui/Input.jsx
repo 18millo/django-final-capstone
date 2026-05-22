@@ -1,26 +1,29 @@
 import { useState } from 'react'
+import { useTheme } from '../../providers/ThemeProvider'
 
 export default function Input({ label, error, className = '', type, ...props }) {
   const [show, setShow] = useState(false)
   const isPassword = type === 'password'
   const inputType = isPassword && show ? 'text' : type
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
 
   return (
     <div className="space-y-1.5">
-      {label && <label className="block text-xs tracking-widest uppercase font-bold text-white/40">{label}</label>}
+      {label && <label className={'block text-xs tracking-widest uppercase font-bold ' + (isLight ? 'text-nike-black/60' : 'text-white/40')}>{label}</label>}
       <div className="relative">
         <input
           type={inputType}
-          className={`w-full bg-white/5 border ${
-            error ? 'border-nike-red' : 'border-white/10'
-          } rounded-xl px-4 py-3 pr-11 text-white placeholder:text-white/20 focus:outline-none focus:border-white/40 focus:bg-white/10 transition-all duration-300 ${className}`}
+          className={`w-full border ${
+            error ? 'border-nike-red' : (isLight ? 'border-nike-gray' : 'border-white/10')
+          } rounded-xl px-4 py-3 pr-11 transition-all duration-300 focus:outline-none ${isLight ? 'bg-white text-nike-black placeholder:text-nike-light/50 focus:border-nike-black/30 focus:bg-nike-gray/20' : 'bg-white/5 text-white placeholder:text-white/20 focus:border-white/40 focus:bg-white/10'} ${className}`}
           {...props}
         />
         {isPassword && (
           <button
             type="button"
             onClick={() => setShow((s) => !s)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-colors"
+            className={'absolute right-3 top-1/2 -translate-y-1/2 transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/30 hover:text-white/70')}
           >
             {show ? (
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">

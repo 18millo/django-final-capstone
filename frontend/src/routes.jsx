@@ -42,6 +42,8 @@ import PaymentSetup from './pages/PaymentSetup'
 import Premium from './pages/Premium'
 import EmailVerify from './pages/EmailVerify'
 import Newsletter from './pages/Newsletter'
+import ContactUs from './pages/ContactUs'
+import Help from './pages/Help'
 import AdminPage from './pages/AdminPage'
 import Spinner from './components/ui/Spinner'
 
@@ -95,12 +97,22 @@ function CoachRoute({ children }) {
   return children
 }
 
+function VendorRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="flex items-center justify-center min-h-screen"><Spinner /></div>
+  if (!user || user.role !== 'vendor') return <Navigate to="/" />
+  if (!user.email_verified) return <Navigate to="/verify-email" />
+  return children
+}
+
 export default function AppRoutes() {
   return (
     <Routes>
       <Route element={<MainLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
+        <Route path="/contact" element={<ContactUs />} />
+        <Route path="/help" element={<Help />} />
         <Route path="/premium" element={<Premium />} />
         <Route path="/community" element={<ProtectedRoute><NonVendorRoute><Community /></NonVendorRoute></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute><NonVendorRoute><Messages /></NonVendorRoute></ProtectedRoute>} />
@@ -115,8 +127,8 @@ export default function AppRoutes() {
         <Route path="/orders/:id" element={<AthleteRoute><OrderDetail /></AthleteRoute>} />
         <Route path="/seller/orders" element={<ProtectedRoute><SellerOrders /></ProtectedRoute>} />
         <Route path="/vendor" element={<SellerRoute><VendorDashboard /></SellerRoute>} />
-        <Route path="/vendor/products/new" element={<SellerRoute><VendorProductForm /></SellerRoute>} />
-        <Route path="/vendor/products/:id/edit" element={<SellerRoute><VendorProductForm /></SellerRoute>} />
+        <Route path="/vendor/products/new" element={<VendorRoute><VendorProductForm /></VendorRoute>} />
+        <Route path="/vendor/products/:id/edit" element={<VendorRoute><VendorProductForm /></VendorRoute>} />
         <Route path="/vendor/:id" element={<VendorAbout />} />
         <Route path="/coach" element={<CoachRoute><CoachDashboard /></CoachRoute>} />
         <Route path="/gym-dashboard" element={<SellerRoute><GymOwnerDashboard /></SellerRoute>} />
@@ -125,8 +137,8 @@ export default function AppRoutes() {
         <Route path="/forum/:id" element={<ProtectedRoute><NonVendorRoute><PostDetail /></NonVendorRoute></ProtectedRoute>} />
         <Route path="/guidelines" element={<CommunityGuidelines />} />
         <Route path="/terms" element={<Terms />} />
-        <Route path="/gallery" element={<ProtectedRoute><NonVendorRoute><Gallery /></NonVendorRoute></ProtectedRoute>} />
-        <Route path="/gallery/:id" element={<ProtectedRoute><NonVendorRoute><GalleryDetail /></NonVendorRoute></ProtectedRoute>} />
+        <Route path="/gallery" element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
+        <Route path="/gallery/:id" element={<ProtectedRoute><GalleryDetail /></ProtectedRoute>} />
         <Route path="/groups" element={<ProtectedRoute><NonVendorRoute><Groups /></NonVendorRoute></ProtectedRoute>} />
         <Route path="/groups/:id" element={<ProtectedRoute><NonVendorRoute><GroupDetail /></NonVendorRoute></ProtectedRoute>} />
         <Route path="/2fa/setup" element={<ProtectedRoute><TotpSetup /></ProtectedRoute>} />

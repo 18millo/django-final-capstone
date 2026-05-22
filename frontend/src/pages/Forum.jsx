@@ -8,6 +8,7 @@ import Reveal from '../components/ui/Reveal'
 import { playClick, playSuccess } from '../utils/sounds'
 import { mediaUrl } from '../utils/media'
 import { toast } from '../components/ui/Toast'
+import ReportModal from '../components/ui/ReportModal'
 
 const BG = 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=1920&q=80'
 
@@ -17,6 +18,7 @@ export default function Forum() {
   const isLight = theme === 'light'
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [reportTarget, setReportTarget] = useState(null)
 
   const textClass = isLight ? 'text-nike-black' : 'text-white'
   const mutedClass = isLight ? 'text-nike-light' : 'text-white/40'
@@ -131,7 +133,7 @@ export default function Forum() {
           <div className="space-y-4">
             {posts.map((p, i) => (
               <Reveal key={p.id} delay={i * 50}>
-                <div className={'rounded-2xl border p-5 transition-all duration-300 hover:scale-[1.005] ' + cardClass}>
+                <div className={'rounded-2xl border p-5 transition-all duration-300 hover:scale-[1.005] overflow-hidden ' + cardClass}>
                   <div className="flex items-center gap-3 mb-3">
                     <Link to={'/profile/' + p.author} className="w-9 h-9 rounded-full overflow-hidden shrink-0 bg-nike-gray/20">
                       {p.author_avatar ? (
@@ -157,7 +159,7 @@ export default function Forum() {
                       )
                     )}
                   </Link>
-                  <div className={'flex items-center gap-4 mt-4 pt-3 border-t ' + borderClass}>
+                  <div className={'flex items-center gap-4 mt-4 pt-3 border-t flex-wrap ' + borderClass}>
                     <button
                       onClick={() => toggleLike(p.id)}
                       className={'flex items-center gap-1.5 text-xs font-bold transition-colors ' + (p.is_liked ? 'text-nike-red' : mutedClass + ' hover:text-nike-red')}
@@ -182,6 +184,13 @@ export default function Forum() {
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                       {p.comment_count || ''}
                     </Link>
+                    <button
+                      onClick={() => setReportTarget({ type: 'post', id: p.id })}
+                      className={'ml-auto flex items-center gap-1.5 text-xs font-bold transition-colors ' + mutedClass + ' hover:text-nike-red'}
+                      title="Report"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                    </button>
                   </div>
                 </div>
               </Reveal>
@@ -189,6 +198,13 @@ export default function Forum() {
           </div>
         )}
       </div>
+
+      <ReportModal
+        isOpen={!!reportTarget}
+        onClose={() => setReportTarget(null)}
+        targetType={reportTarget?.type}
+        targetId={reportTarget?.id}
+      />
     </div>
   )
 }

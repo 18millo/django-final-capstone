@@ -30,6 +30,12 @@ export default function PaymentSetup() {
       .finally(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    if (user?.profile?.phone) {
+      setMpesaPhone(user.profile.phone)
+    }
+  }, [user?.profile?.phone])
+
   const detectCardBrand = (num) => {
     const clean = num.replace(/\s/g, '')
     if (clean.startsWith('4')) return 'visa'
@@ -282,15 +288,15 @@ export default function PaymentSetup() {
                 </label>
                 <input
                   type="tel"
-                  placeholder="+254 7XX XXX XXX"
+                  placeholder={user?.profile?.phone ? '' : 'Set your phone number in Settings first'}
                   value={mpesaPhone}
-                  onChange={(e) => setMpesaPhone(e.target.value)}
-                  className={'w-full px-4 py-3 rounded-xl text-sm outline-none border transition-all duration-200 ' + (isLight
-                    ? 'bg-white border-nike-gray text-nike-black placeholder:text-nike-light focus:border-nike-red'
-                    : 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-white/30'
+                  disabled
+                  className={'w-full px-4 py-3 rounded-xl text-sm outline-none border cursor-not-allowed transition-all duration-200 ' + (isLight
+                    ? 'bg-nike-gray/30 border-nike-gray text-nike-black/60'
+                    : 'bg-white/5 border-white/10 text-white/60'
                   )}
                 />
-                <p className={'text-[10px] mt-1 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>Enter the M-Pesa number linked to your account</p>
+                <p className={'text-[10px] mt-1 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>M-Pesa number is linked to your profile phone number</p>
               </div>
             ) : (
               <div className="space-y-4">

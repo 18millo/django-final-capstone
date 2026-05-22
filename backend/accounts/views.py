@@ -545,12 +545,23 @@ class UserDetailView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
     def update(self, request, *args, **kwargs):
-        data = request.data.copy() if hasattr(request.data, 'copy') else {**request.data}
+        uploaded_files = request.FILES
+        if uploaded_files:
+            data = {}
+            for key in request.POST:
+                data[key] = request.POST[key]
+            for key in request.FILES:
+                data[key] = request.FILES[key]
+        else:
+            data = request.data.copy() if hasattr(request.data, 'copy') else {**request.data}
         profile = {}
         for key in list(data.keys()):
             if key.startswith('profile[') and key.endswith(']'):
                 field = key[8:-1]
-                profile[field] = data.pop(key)
+                value = data.pop(key)
+                if field == 'avatar' and key not in uploaded_files:
+                    continue
+                profile[field] = value
         if profile:
             data['profile'] = profile
         partial = kwargs.pop('partial', True)
@@ -850,6 +861,27 @@ class ConversationListView(APIView):
                 'unread': unread,
                 'online': online,
             })
+        group_memberships = GroupMember.objects.filter(user=user, status='joined').select_related('group')
+        for gm in group_memberships:
+            group = gm.group
+            last_msg = GroupMessage.objects.filter(group=group).order_by('-created_at').first()
+            unread = GroupMessage.objects.filter(group=group, created_at__gt=gm.joined_at).exclude(sender=user).count()
+            avatar = None
+            if group.avatar:
+                try:
+                    avatar = request.build_absolute_uri(group.avatar.url)
+                except:
+                    pass
+            conversations.append({
+                'type': 'group',
+                'group_id': group.id,
+                'username': group.name,
+                'avatar': avatar,
+                'last_message': last_msg.content[:100] if last_msg and last_msg.content else ('📷 Photo' if last_msg and last_msg.image else ''),
+                'last_message_time': last_msg.created_at if last_msg else group.created_at,
+                'unread': unread,
+                'member_count': group.members.filter(status='joined').count(),
+            })
         conversations.sort(key=lambda c: c['last_message_time'] or '', reverse=True)
         return Response(conversations)
 
@@ -1145,11 +1177,33 @@ class CreateReportView(APIView):
         if target_type in target_model:
             obj = get_object_or_404(target_model[target_type], id=target_id)
             kwargs[target_type] = obj
+        elif target_type == 'user':
+            target_user = get_object_or_404(User, id=target_id)
+            kwargs['description'] = f'[Reported User ID: {target_id}, Email: {target_user.email}] {description}'
         else:
             from products.models import ProductComment
             obj = get_object_or_404(ProductComment, id=target_id)
             kwargs['product_comment'] = obj
         report = Report.objects.create(**kwargs)
+        try:
+            target_url = request.build_absolute_uri('/')
+            send_mail(
+                subject=f'[CombatHub] New Report — {reason}',
+                message=f'A new report has been submitted.\n\n'
+                        f'Reporter: {request.user.email} (ID: {request.user.id})\n'
+                        f'Reason: {reason}\n'
+                        f'Target Type: {target_type}\n'
+                        f'Target ID: {target_id}\n'
+                        f'Description: {kwargs.get("description") or "N/A"}\n'
+                        f'Report ID: {report.id}\n'
+                        f'Status: Pending\n\n'
+                        f'Review at: {target_url}admin/accounts/report/',
+                from_email=None,
+                recipient_list=['mungailevi1@gmail.com'],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
         return Response({'id': report.id, 'status': 'pending'}, status=201)
 
 
@@ -1431,7 +1485,7 @@ class PaymentSetupView(APIView):
         if profile.premium_trial_used:
             return Response({'error': 'You have already used your free trial. Premium re-subscription is not available at this time.'}, status=400)
         from .serializers import PaymentInfoSerializer
-        serializer = PaymentInfoSerializer(data=request.data)
+        serializer = PaymentInfoSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         PaymentInfo.objects.update_or_create(
             user=request.user,
@@ -1572,7 +1626,8 @@ class GroupListView(generics.ListCreateAPIView):
             raise PermissionDenied('Only gym owners and coaches can create groups')
         if not user.profile.is_premium_active():
             raise PermissionDenied('Premium subscription required to create groups')
-        serializer.save(created_by=user)
+        group = serializer.save(created_by=user)
+        GroupMember.objects.create(group=group, user=user, role='admin', status='joined')
 
     def get_serializer_context(self):
         return {'request': self.request}
@@ -1641,6 +1696,19 @@ class GroupMembersView(generics.ListAPIView):
         return GroupMember.objects.filter(
             group_id=self.kwargs['group_id'], status='joined'
         ).select_related('user__profile')
+
+
+class GroupRemoveMemberView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, group_id, user_id):
+        group = get_object_or_404(Group, id=group_id)
+        if group.created_by != request.user:
+            raise PermissionDenied('Only the group creator can remove members')
+        target = get_object_or_404(User, id=user_id)
+        gm = get_object_or_404(GroupMember, group=group, user=target, status='joined')
+        gm.delete()
+        return Response({'detail': f'Removed {target.username} from the group'})
 
 
 class GroupRequestsView(generics.ListAPIView):

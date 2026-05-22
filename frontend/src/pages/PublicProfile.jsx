@@ -97,9 +97,7 @@ export default function PublicProfile() {
                 </div>
                 <div className={'flex gap-4 mt-2 text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
                   <span><strong className={'font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{profile.follower_count || 0}</strong> followers</span>
-                  {profile.role === 'athlete' && (
-                    <span><strong className={'font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{profile.following_count || 0}</strong> following</span>
-                  )}
+                  <span><strong className={'font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{profile.following_count || 0}</strong> following</span>
                 </div>
               </div>
               <div className="flex flex-col gap-2">
@@ -170,7 +168,7 @@ export default function PublicProfile() {
                   </div>
                   <div>
                     <p className={'text-xs tracking-widest uppercase font-bold mb-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Description</p>
-                    <p className={'text-sm font-bold text-xs ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_description || '—'}</p>
+                    <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.business_description || '—'}</p>
                   </div>
                 </>
               )}

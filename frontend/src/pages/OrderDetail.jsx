@@ -9,6 +9,7 @@ const BG = 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=fo
 
 const STATUS_STYLES = {
   pending: 'bg-nike-amber/10 text-nike-amber border-nike-amber/20',
+  confirmed: 'bg-green-500/10 text-green-400 border-green-500/20',
   paid: 'bg-green-500/10 text-green-400 border-green-500/20',
   shipped: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   delivered: 'bg-nike-red/10 text-nike-red border-nike-red/20',

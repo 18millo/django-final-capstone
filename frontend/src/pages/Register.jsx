@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTheme } from '../providers/ThemeProvider'
-import { GoogleLogin } from '@react-oauth/google'
+import GoogleLoginWrapper from '../components/ui/GoogleLoginWrapper'
 import { useAuth } from '../providers/AuthProvider'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
@@ -198,7 +198,7 @@ export default function Register() {
           </div>
         </div>
         <div className="flex justify-center">
-          <GoogleLogin
+          <GoogleLoginWrapper
             onSuccess={async (credentialResponse) => {
               try {
                 const data = await googleLogin(credentialResponse.credential)

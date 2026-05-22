@@ -52,9 +52,21 @@ export default function Messages() {
   const [input, setInput] = useState('')
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
+  const [activeChatType, setActiveChatType] = useState('user')
   const [showNewChat, setShowNewChat] = useState(false)
   const [contacts, setContacts] = useState([])
   const [contactsLoading, setContactsLoading] = useState(false)
+  const [showCreateGroup, setShowCreateGroup] = useState(false)
+  const [groupForm, setGroupForm] = useState({ name: '', description: '', is_private: false })
+  const [groupCreating, setGroupCreating] = useState(false)
+  const [showGroupSettings, setShowGroupSettings] = useState(false)
+  const [groupDetail, setGroupDetail] = useState(null)
+  const [groupMembers, setGroupMembers] = useState([])
+  const [updatingGroup, setUpdatingGroup] = useState(false)
+  const [showAddMember, setShowAddMember] = useState(false)
+  const [memberSearch, setMemberSearch] = useState('')
+  const [memberResults, setMemberResults] = useState([])
+  const [searchingMembers, setSearchingMembers] = useState(false)
   const wsRef = useRef(null)
   const reconnectTimeoutRef = useRef(null)
   const [wsConnected, setWsConnected] = useState(false)
@@ -66,6 +78,10 @@ export default function Messages() {
   const [viewOnce, setViewOnce] = useState(false)
   const fileInputRef = useRef(null)
   const [lightboxUrl, setLightboxUrl] = useState(null)
+  const [conversationFilter, setConversationFilter] = useState('all')
+  const [showNotificationsTab, setShowNotificationsTab] = useState(false)
+  const [notificationsList, setNotificationsList] = useState([])
+  const [notifLoading, setNotifLoading] = useState(false)
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('chat-opened'))
@@ -80,11 +96,13 @@ export default function Messages() {
       api.get('/auth/conversations/')
         .then((res) => {
           setConversations((prev) => {
-            const serverMap = new Map(res.data.map((c) => [c.user_id, c]))
+            const key = (c) => c.type === 'group' ? 'g' + c.group_id : 'u' + c.user_id
+            const serverMap = new Map(res.data.map((c) => [key(c), c]))
             const merged = prev.map((local) => {
-              const server = serverMap.get(local.user_id)
+              const k = key(local)
+              const server = serverMap.get(k)
               if (!server) return local
-              serverMap.delete(local.user_id)
+              serverMap.delete(k)
               return { ...server, unread: local.unread }
             })
             return [...merged, ...serverMap.values()]
@@ -95,11 +113,13 @@ export default function Messages() {
     api.get('/auth/conversations/')
       .then((res) => {
         setConversations((prev) => {
-          const serverMap = new Map(res.data.map((c) => [c.user_id, c]))
+          const key = (c) => c.type === 'group' ? 'g' + c.group_id : 'u' + c.user_id
+          const serverMap = new Map(res.data.map((c) => [key(c), c]))
           const merged = prev.map((local) => {
-            const server = serverMap.get(local.user_id)
+            const k = key(local)
+            const server = serverMap.get(k)
             if (!server) return local
-            serverMap.delete(local.user_id)
+            serverMap.delete(k)
             return { ...server, unread: local.unread }
           })
           return [...merged, ...serverMap.values()]
@@ -110,25 +130,25 @@ export default function Messages() {
   }, [])
 
   useEffect(() => {
-    if (activeId) {
-      setChatLoading(true)
-      api.get('/auth/conversations/' + activeId + '/')
-        .then((res) => setMessages((prev) => {
-          const fresh = res.data
-          const existingIds = new Set(prev.map((m) => m.id))
-          const merged = [...fresh.filter((m) => !existingIds.has(m.id)), ...prev]
-          return merged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        }))
-        .catch(() => {})
-        .finally(() => setChatLoading(false))
-    }
-  }, [activeId])
+    if (!activeId) { setMessages([]); return }
+    setChatLoading(true)
+    const url = activeChatType === 'group'
+      ? '/auth/groups/' + activeId + '/messages/'
+      : '/auth/conversations/' + activeId + '/'
+    api.get(url)
+      .then((res) => {
+        const data = res.data?.results || res.data || []
+        setMessages(data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
+      })
+      .catch(() => setMessages([]))
+      .finally(() => setChatLoading(false))
+  }, [activeId, activeChatType])
 
   useEffect(() => {
-    if (activeId && wsRef.current?.readyState === WebSocket.OPEN) {
+    if (activeId && activeChatType === 'user' && wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'mark_read' }))
     }
-  }, [activeId])
+  }, [activeId, activeChatType])
 
   useEffect(() => {
     const handler = (e) => {
@@ -139,26 +159,24 @@ export default function Messages() {
         if (existing) {
           return prev.map((c) =>
             c.user_id === sender
-              ? { ...c, last_message: content || '📷 Photo', last_message_time: created_at || new Date().toISOString(), unread: c.user_id === activeId ? 0 : (c.unread || 0) + 1 }
+              ? { ...c, last_message: content || '📷 Photo', last_message_time: created_at || new Date().toISOString(), unread: c.user_id === activeId && activeChatType === 'user' ? 0 : (c.unread || 0) + 1 }
               : c
           )
         }
         return [{ user_id: sender, username: sender_name || 'User', avatar: null, last_message: content || '📷 Photo', last_message_time: created_at || new Date().toISOString(), unread: 1 }, ...prev].sort((a, b) => new Date(b.last_message_time || 0) - new Date(a.last_message_time || 0))
       })
-      if (sender === activeId) {
+      if (sender === activeId && activeChatType === 'user') {
         api.get('/auth/conversations/' + activeId + '/')
-          .then((res) => setMessages((prev) => {
-            const fresh = res.data
-            const existingIds = new Set(prev.map((m) => m.id))
-            const merged = [...fresh.filter((m) => !existingIds.has(m.id)), ...prev]
-            return merged.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-          }))
+          .then((res) => {
+            const data = res.data?.results || res.data || []
+            setMessages(data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
+          })
           .catch(() => {})
       }
     }
     window.addEventListener('new-message', handler)
     return () => window.removeEventListener('new-message', handler)
-  }, [activeId])
+  }, [activeId, activeChatType])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -171,7 +189,7 @@ export default function Messages() {
   }, [imagePreview])
 
   const connectWs = useCallback(() => {
-    if (!activeId || !user) return
+    if (!activeId || activeChatType !== 'user' || !user) return
     const token = localStorage.getItem('access_token')
     if (!token) return
     const url = WS_BASE + '/ws/chat/' + activeId + '/?token=' + encodeURIComponent(token)
@@ -282,20 +300,38 @@ export default function Messages() {
     setShowEmojiPicker(false)
     playClick()
 
+    const isGroup = activeChatType === 'group'
     const tempId = 'temp_' + Date.now()
-    const lastMsgText = !content && imageFile ? (viewOnce ? '📷 View once photo' : '📷 Photo') : content
+    const lastMsgText = !content && imageFile ? (imageFile ? '📷 Photo' : '') : content
     const optimistic = {
       id: tempId,
       sender: user.id,
       content: content || '',
       created_at: new Date().toISOString(),
-      delivered: false,
-      read: false,
       image_url: imagePreview || null,
-      view_once: viewOnce,
-      viewed: false,
     }
     setMessages((prev) => [optimistic, ...prev])
+
+    if (isGroup) {
+      const formData = new FormData()
+      formData.append('content', content || '')
+      if (imageFile) formData.append('image', imageFile)
+      api.post('/auth/groups/' + activeId + '/messages/send/', imageFile ? formData : { content: content || '' }, imageFile ? { headers: { 'Content-Type': 'multipart/form-data' } } : {})
+        .then(({ data }) => {
+          setMessages((prev) => prev.map((m) => m.id === tempId ? data : m))
+          setConversations((prev) => prev.map((c) => c.group_id === activeId ? { ...c, last_message: lastMsgText, last_message_time: data.created_at } : c).sort((a, b) => new Date(b.last_message_time || 0) - new Date(a.last_message_time || 0)))
+          playSuccess()
+        })
+        .catch(() => {
+          setMessages((prev) => prev.filter((m) => m.id !== tempId))
+          toast('Failed to send message', 'error')
+        })
+      setInput('')
+      setImageFile(null)
+      setImagePreview(null)
+      return
+    }
+
     setConversations((prev) => prev.map((c) => c.user_id === activeId ? {
       ...c,
       last_message: lastMsgText,
@@ -422,7 +458,119 @@ export default function Messages() {
     }
   }
 
-  const activeConv = conversations.find((c) => c.user_id === activeId)
+  const handleCreateGroup = async () => {
+    if (!groupForm.name.trim()) { toast('Group name is required', 'error'); return }
+    setGroupCreating(true)
+    try {
+      await api.post('/auth/groups/', groupForm)
+      toast('Group created!', 'success')
+      setShowCreateGroup(false)
+      setGroupForm({ name: '', description: '', is_private: false })
+      const { data } = await api.get('/auth/conversations/')
+      setConversations(data || [])
+    } catch (err) {
+      const msg = err.response?.data?.name?.[0] || err.response?.data?.error?.[0] || err.response?.data?.detail || 'Failed to create group'
+      toast(msg, 'error')
+    } finally {
+      setGroupCreating(false)
+    }
+  }
+
+  const fetchNotifications = async () => {
+    setNotifLoading(true)
+    try {
+      const res = await api.get('/auth/notifications/')
+      setNotificationsList(res.data.results || res.data || [])
+    } catch {
+      setNotificationsList([])
+    } finally {
+      setNotifLoading(false)
+    }
+  }
+
+  const markNotifRead = async (id) => {
+    try {
+      await api.post('/auth/notifications/' + id + '/read/')
+      setNotificationsList((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n))
+    } catch {}
+  }
+
+  const markAllNotifRead = async () => {
+    try {
+      await api.post('/auth/notifications/read-all/')
+      setNotificationsList((prev) => prev.map((n) => ({ ...n, read: true })))
+    } catch {}
+  }
+
+  const fetchGroupDetail = async () => {
+    if (!activeId || activeChatType !== 'group') return
+    try {
+      const [detailRes, membersRes] = await Promise.all([
+        api.get('/auth/groups/' + activeId + '/'),
+        api.get('/auth/groups/' + activeId + '/members/'),
+      ])
+      setGroupDetail(detailRes.data)
+      setGroupMembers(membersRes.data.results || membersRes.data || [])
+    } catch {}
+  }
+
+  const toggleGroupPrivacy = async () => {
+    if (!groupDetail) return
+    setUpdatingGroup(true)
+    try {
+      const res = await api.patch('/auth/groups/' + activeId + '/', { is_private: !groupDetail.is_private })
+      setGroupDetail(res.data)
+      toast('Group set to ' + (res.data.is_private ? 'private' : 'public'), 'success')
+    } catch (err) {
+      toast(err.response?.data?.detail || 'Failed to update group', 'error')
+    } finally {
+      setUpdatingGroup(false)
+    }
+  }
+
+  const removeMember = async (userId) => {
+    try {
+      await api.delete('/auth/groups/' + activeId + '/members/' + userId + '/')
+      setGroupMembers((prev) => prev.filter((m) => m.user !== userId))
+      toast('Member removed', 'success')
+    } catch (err) {
+      toast(err.response?.data?.detail || 'Failed to remove member', 'error')
+    }
+  }
+
+  const searchUsers = async (query) => {
+    if (!query.trim()) { setMemberResults([]); return }
+    setSearchingMembers(true)
+    try {
+      const res = await api.get('/auth/users/?search=' + encodeURIComponent(query))
+      const users = res.data.results || res.data || []
+      const memberIds = new Set(groupMembers.map((m) => m.user))
+      setMemberResults(users.filter((u) => u.id !== user.id && !memberIds.has(u.id)))
+    } catch {
+      setMemberResults([])
+    } finally {
+      setSearchingMembers(false)
+    }
+  }
+
+  const inviteMember = async (username) => {
+    try {
+      await api.post('/auth/groups/' + activeId + '/invite/', { username })
+      toast('Member added', 'success')
+      setShowAddMember(false)
+      setMemberSearch('')
+      setMemberResults([])
+      fetchGroupDetail()
+      const { data } = await api.get('/auth/conversations/')
+      setConversations(data || [])
+    } catch (err) {
+      toast(err.response?.data?.detail || 'Failed to add member', 'error')
+    }
+  }
+
+  const activeConv = activeChatType === 'user'
+    ? conversations.find((c) => c.user_id === activeId)
+    : conversations.find((c) => c.group_id === activeId)
 
   const groupedMessages = useMemo(() => {
     if (messages.length === 0) return []
@@ -447,61 +595,147 @@ export default function Messages() {
 
         {/* Sidebar */}
         <div className={'w-72 shrink-0 flex flex-col liquid-glass-card'}>
-          <div className={'p-4 border-b flex items-center justify-between ' + (isLight ? 'border-nike-gray' : 'border-white/5')}>
-            <div className={'flex items-center gap-2.5 px-3 py-2 rounded-xl ' + (isLight ? 'bg-nike-gray/30' : 'bg-white/5')}>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={'w-4 h-4 shrink-0 ' + (isLight ? 'text-nike-light' : 'text-white/30')}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-              <span className={'text-xs tracking-widest uppercase font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>Messages</span>
+          <div className={'p-3 border-b flex flex-col gap-2 ' + (isLight ? 'border-nike-gray' : 'border-white/5')}>
+            <div className="flex items-center justify-between">
+              <div className={'flex items-center gap-2.5 px-3 py-2 rounded-xl ' + (isLight ? 'bg-nike-gray/30' : 'bg-white/5')}>
+                {showNotificationsTab ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={'w-4 h-4 shrink-0 ' + (isLight ? 'text-nike-light' : 'text-white/30')}><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={'w-4 h-4 shrink-0 ' + (isLight ? 'text-nike-light' : 'text-white/30')}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                )}
+                <span className={'text-xs tracking-widest uppercase font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{showNotificationsTab ? 'Notifications' : 'Messages'}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                {!showNotificationsTab && ['gym_owner', 'coach'].includes(user?.role) && (
+                  <button
+                    onClick={() => { playClick(); setShowCreateGroup(true) }}
+                    className={'w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/40 hover:text-white')}
+                    title="Create Group"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                  </button>
+                )}
+                {!showNotificationsTab && (
+                  <button
+                    onClick={openNewChat}
+                    className={'w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/40 hover:text-white')}
+                    title="New conversation"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M12 5v14M5 12h14"/></svg>
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              {['gym_owner', 'coach'].includes(user?.role) && user?.profile?.is_premium && (
-                <button
-                  onClick={() => { playClick(); navigate('/groups') }}
-                  className={'w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/40 hover:text-white')}
-                  title="Create Group"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                </button>
-              )}
+            <div className={'flex rounded-xl overflow-hidden ' + (isLight ? 'bg-nike-gray/30' : 'bg-white/5')}>
               <button
-                onClick={openNewChat}
-                className={'w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200 ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/40 hover:text-white')}
-                title="New conversation"
+                onClick={() => { playClick(); setShowNotificationsTab(false) }}
+                className={'flex-1 px-3 py-1.5 text-[10px] tracking-widest uppercase font-bold transition-all duration-200 ' + (!showNotificationsTab
+                  ? (isLight ? 'bg-nike-red text-white' : 'bg-nike-red text-white')
+                  : (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')
+                )}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M12 5v14M5 12h14"/></svg>
+                Messages
+              </button>
+              <button
+                onClick={() => { playClick(); setShowNotificationsTab(true); fetchNotifications() }}
+                className={'flex-1 px-3 py-1.5 text-[10px] tracking-widest uppercase font-bold transition-all duration-200 ' + (showNotificationsTab
+                  ? (isLight ? 'bg-nike-red text-white' : 'bg-nike-red text-white')
+                  : (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')
+                )}
+              >
+                Notifications
               </button>
             </div>
           </div>
+          {!showNotificationsTab && (
+          <div className={'flex gap-0 px-3 pt-2 border-b ' + (isLight ? 'border-nike-gray' : 'border-white/5')}>
+            {['all', 'personal', 'groups'].map((f) => (
+              <button
+                key={f}
+                onClick={() => setConversationFilter(f)}
+                className={'px-3 py-2 text-[10px] tracking-widest uppercase font-bold transition-all duration-200 border-b-2 ' + (conversationFilter === f
+                  ? (isLight ? 'text-nike-black border-nike-red' : 'text-white border-nike-red')
+                  : (isLight ? 'text-nike-light border-transparent hover:border-nike-gray' : 'text-white/40 border-transparent hover:border-white/10')
+                )}
+              >
+                {f === 'all' ? 'All' : f === 'personal' ? 'Personal' : 'Groups'}
+              </button>
+            ))}
+          </div>
+          )}
           <div className="flex-1 overflow-y-auto">
-            {loading ? (
+            {showNotificationsTab ? (
+              notifLoading ? (
+                <div className="flex justify-center py-10"><Spinner /></div>
+              ) : notificationsList.length === 0 ? (
+                <div className={'text-center py-12 px-4 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>
+                  <div className="text-3xl mb-2">🔔</div>
+                  <p className="text-xs">No notifications yet</p>
+                </div>
+              ) : (
+                <>
+                  {notificationsList.map((n) => (
+                    <button
+                      key={n.id}
+                      onClick={() => markNotifRead(n.id)}
+                      className={'w-full text-left px-5 py-3 flex items-start gap-3 text-xs transition-colors border-b ' + (isLight ? 'border-nike-gray ' : 'border-white/5 ') + (n.read
+                        ? (isLight ? 'text-nike-black/60' : 'text-white/60')
+                        : (isLight ? 'text-nike-black bg-nike-red/5' : 'text-white bg-white/5')
+                      )}
+                    >
+                      <span className="text-base shrink-0 mt-0.5">
+                        {n.notification_type === 'follow' ? '👊' : n.notification_type === 'message' ? '💬' : '🔔'}
+                      </span>
+                      <div className="min-w-0">
+                        <p className={n.read ? '' : 'font-bold'}>{n.message}</p>
+                        <p className={'mt-0.5 ' + (isLight ? 'text-nike-black/40' : 'text-white/40')}>{new Date(n.created_at).toLocaleDateString()}</p>
+                      </div>
+                    </button>
+                  ))}
+                  {notificationsList.some((n) => !n.read) && (
+                    <button
+                      onClick={markAllNotifRead}
+                      className={'w-full px-5 py-2.5 text-xs tracking-widest uppercase font-bold text-center transition-colors border-t ' + (isLight ? 'text-nike-red border-nike-gray hover:bg-nike-red/5' : 'text-nike-red border-white/5 hover:bg-nike-red/10')}
+                    >
+                      Mark all as read
+                    </button>
+                  )}
+                </>
+              )
+            ) : loading ? (
               <div className="flex justify-center py-10"><Spinner /></div>
-            ) : conversations.length === 0 ? (
+            ) : conversations.filter((c) => conversationFilter === 'all' || (conversationFilter === 'personal' ? !c.type : c.type === 'group')).length === 0 ? (
               <div className={'text-center py-12 px-4 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>
                 <div className="text-3xl mb-2">💬</div>
-                <p className="text-xs">No conversations yet</p>
-                <button onClick={openNewChat} className="mt-3 text-xs tracking-widest uppercase font-bold bg-nike-red text-white px-4 py-2 rounded-full hover:bg-white hover:text-nike-black transition-all duration-300">
-                  + New Chat
-                </button>
+                <p className="text-xs">{conversationFilter === 'groups' ? 'No groups yet' : 'No conversations yet'}</p>
+                {conversationFilter !== 'groups' && (
+                  <button onClick={openNewChat} className="mt-3 text-xs tracking-widest uppercase font-bold bg-nike-red text-white px-4 py-2 rounded-full hover:bg-white hover:text-nike-black transition-all duration-300">
+                    + New Chat
+                  </button>
+                )}
               </div>
             ) : (
-              conversations.map((c) => {
-                const active = c.user_id === activeId
+              conversations.filter((c) => conversationFilter === 'all' || (conversationFilter === 'personal' ? !c.type : c.type === 'group')).map((c, i) => {
+                const isGroup = c.type === 'group'
+                const convId = isGroup ? c.group_id : c.user_id
+                const active = isGroup ? c.group_id === activeId && activeChatType === 'group' : c.user_id === activeId && activeChatType === 'user'
                 return (
                   <button
-                    key={c.user_id}
-                    onClick={() => { playClick(); setActiveId(c.user_id) }}
+                    key={isGroup ? 'g' + (c.group_id ?? i) : 'u' + (c.user_id ?? i)}
+                    onClick={() => { playClick(); setActiveChatType(isGroup ? 'group' : 'user'); setActiveId(convId) }}
                     className={'w-full text-left p-4 flex items-center gap-3 transition-all duration-200 border-b ' + (isLight
                       ? (active ? 'bg-nike-red/5 border-nike-gray' : 'hover:bg-nike-gray/20 border-nike-gray')
                       : (active ? 'bg-white/5 border-white/5' : 'hover:bg-white/5 border-white/5')
                     )}
                   >
                     <div className="relative shrink-0">
-                      <div className="w-10 h-10 rounded-full overflow-hidden ring-2" style={{ '--tw-ring-color': 'var(--color-nike-gray)' }}>
+                      <div className={'w-10 h-10 overflow-hidden ring-2 flex items-center justify-center text-sm font-bold ' + (isGroup ? 'rounded-xl' : 'rounded-full')} style={{ '--tw-ring-color': 'var(--color-nike-gray)', backgroundColor: isGroup ? 'rgba(220,38,38,0.15)' : 'var(--color-nike-gray)', color: isGroup ? 'var(--color-nike-red)' : 'var(--color-nike-light)' }}>
                         {c.avatar ? (
                           <img src={mediaUrl(c.avatar)} className="w-full h-full object-cover" alt="" />
+                        ) : isGroup ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-sm font-bold" style={{ backgroundColor: 'var(--color-nike-gray)', color: 'var(--color-nike-light)' }}>
-                            {(c.username || '?')[0].toUpperCase()}
-                          </div>
+                          (c.username || '?')[0].toUpperCase()
                         )}
                       </div>
                       {c.unread > 0 && (
@@ -509,19 +743,21 @@ export default function Messages() {
                           {c.unread > 9 ? '9+' : c.unread}
                         </div>
                       )}
-                      {c.online && (
+                      {!isGroup && c.online && (
                         <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 shadow-lg" style={{ borderColor: isLight ? 'white' : 'var(--color-nike-dark)' }} />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <p className={'text-xs font-bold truncate ' + (c.unread > 0 ? (isLight ? 'text-nike-black' : 'text-white') : (isLight ? 'text-nike-black/70' : 'text-white/60'))}>{c.username}</p>
+                        <p className={'text-xs font-bold truncate ' + (c.unread > 0 ? (isLight ? 'text-nike-black' : 'text-white') : (isLight ? 'text-nike-black/70' : 'text-white/60'))}>
+                          {c.username}{isGroup ? <span className={'ml-1 text-[9px] font-normal ' + (isLight ? 'text-nike-light' : 'text-white/30')}>· {c.member_count || 0}</span> : ''}
+                        </p>
                         {c.last_message_time && (
                           <p className={'text-[10px] shrink-0 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{timeAgo(c.last_message_time)}</p>
                         )}
                       </div>
                       <p className={'text-[10px] truncate mt-0.5 ' + (c.unread > 0 ? (isLight ? 'text-nike-black' : 'text-white/80') : (isLight ? 'text-nike-light' : 'text-white/30')) + (c.unread > 0 ? ' font-bold' : '')}>
-                        {c.last_message || 'No messages yet'}
+                        {c.last_message || (isGroup ? 'No messages yet' : 'No messages yet')}
                       </p>
                     </div>
                   </button>
@@ -538,27 +774,42 @@ export default function Messages() {
               {/* Chat header */}
               <div className={'p-4 border-b flex items-center gap-3 liquid-glass-card ' + (isLight ? 'border-nike-gray' : '')} style={!isLight ? { borderBottomColor: 'rgba(255,255,255,0.05)' } : {}}>
                 <div className="relative shrink-0">
-                  <div className="w-9 h-9 rounded-full overflow-hidden ring-2" style={{ '--tw-ring-color': 'var(--color-nike-gray)' }}>
+                  <div className={'w-9 h-9 overflow-hidden ring-2 flex items-center justify-center text-xs font-bold ' + (activeChatType === 'group' ? 'rounded-xl' : 'rounded-full')} style={{ '--tw-ring-color': 'var(--color-nike-gray)', backgroundColor: activeChatType === 'group' ? 'rgba(220,38,38,0.15)' : 'var(--color-nike-gray)', color: 'var(--color-nike-light)' }}>
                     {activeConv?.avatar ? (
                       <img src={mediaUrl(activeConv.avatar)} className="w-full h-full object-cover" alt="" />
+                    ) : activeChatType === 'group' ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" style={{ color: 'var(--color-nike-red)' }}><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: 'var(--color-nike-gray)', color: 'var(--color-nike-light)' }}>
-                        {(activeConv?.username || '?')[0].toUpperCase()}
-                      </div>
+                      (activeConv?.username || '?')[0].toUpperCase()
                     )}
                   </div>
-                  {activeConv?.online && (
+                  {activeChatType !== 'group' && activeConv?.online && (
                     <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 shadow-lg" style={{ borderColor: isLight ? 'white' : 'var(--color-nike-dark)' }} />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className={'text-sm font-bold truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{activeConv?.username || 'User'}</p>
-                    <div className={'w-1.5 h-1.5 rounded-full ' + (activeConv?.online ? 'bg-green-500' : 'bg-red-500')} />
+                    <p className={'text-sm font-bold truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{activeConv?.username || (activeChatType === 'group' ? 'Group' : 'User')}</p>
+                    {activeChatType === 'group' ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <span className={'text-[10px] ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{activeConv?.member_count || 0} members</span>
+                        <button
+                          onClick={() => { playClick(); setShowGroupSettings(true); fetchGroupDetail() }}
+                          className={'ml-auto w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/40 hover:text-white')}
+                          title="Group Settings"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className={'w-1.5 h-1.5 rounded-full ' + (activeConv?.online ? 'bg-green-500' : 'bg-red-500')} />
+                    )}
                   </div>
-                  <p className={'text-[10px] ' + (typing ? (isLight ? 'text-green-600' : 'text-green-400') : (activeConv?.online ? (isLight ? 'text-green-600' : 'text-green-400') : (isLight ? 'text-red-500' : 'text-red-400')))}>
-                    {typing ? '● Typing…' : (activeConv?.online ? '● Online' : '○ Offline')}
-                  </p>
+                  {activeChatType !== 'group' && (
+                    <p className={'text-[10px] ' + (typing ? (isLight ? 'text-green-600' : 'text-green-400') : (activeConv?.online ? (isLight ? 'text-green-600' : 'text-green-400') : (isLight ? 'text-red-500' : 'text-red-400')))}>
+                      {typing ? '● Typing…' : (activeConv?.online ? '● Online' : '○ Offline')}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -568,9 +819,9 @@ export default function Messages() {
                   <div className="flex justify-center py-10"><Spinner /></div>
                 ) : messages.length === 0 ? (
                   <div className={'flex flex-col items-center justify-center h-full text-center ' + (isLight ? 'text-nike-light' : 'text-white/30')}>
-                    <div className="text-5xl mb-4">👋</div>
+                    <div className="text-5xl mb-4">{activeChatType === 'group' ? '👥' : '👋'}</div>
                     <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>No messages yet</p>
-                    <p className={'text-xs mt-1 max-w-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Send a message to start the conversation with {activeConv?.username || 'this fighter'}.</p>
+                    <p className={'text-xs mt-1 max-w-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>{activeChatType === 'group' ? 'Be the first to send a message in this group.' : 'Send a message to start the conversation with ' + (activeConv?.username || 'this fighter') + '.'}</p>
                   </div>
                 ) : (
                   groupedMessages.map((item, i) => {
@@ -585,8 +836,13 @@ export default function Messages() {
                     const hasImage = !!item.image_url
                     const isViewOnce = !!item.view_once
                     const isViewed = !!item.viewed
+                    const senderName = activeChatType === 'group' && item.sender_name ? item.sender_name : null
                     return (
-                      <div key={item.id} className={'flex items-end gap-2 ' + (isMe ? 'justify-end' : 'justify-start') + ' ' + (i > 0 && groupedMessages[i-1]?.type === 'msg' && groupedMessages[i-1]?.sender === item.sender ? 'mt-0.5' : 'mt-2')}>
+                      <div key={item.id} className={activeChatType === 'group' ? 'flex flex-col ' : ''}>
+                        {activeChatType === 'group' && !isMe && (
+                          <p className={'text-[9px] px-1 mb-0.5 ' + (isLight ? 'text-nike-light' : 'text-white/30') + ' ' + (i > 0 && groupedMessages[i-1]?.type === 'msg' && groupedMessages[i-1]?.sender === item.sender ? 'hidden' : '')}>{senderName || 'Unknown'}</p>
+                        )}
+                        <div className={'flex items-end gap-2 ' + (isMe ? 'justify-end' : 'justify-start') + ' ' + (i > 0 && groupedMessages[i-1]?.type === 'msg' && groupedMessages[i-1]?.sender === item.sender ? 'mt-0.5' : 'mt-2')}>
                         <div className={'max-w-[75%] rounded-2xl text-sm leading-relaxed overflow-hidden ' + (
                           isMe
                             ? 'bg-nike-red text-white rounded-br-sm'
@@ -654,6 +910,7 @@ export default function Messages() {
                           </div>
                         </div>
                       </div>
+                    </div>
                     )
                   })
                 )}
@@ -699,13 +956,15 @@ export default function Messages() {
                     onChange={handleFileSelect}
                     className="hidden"
                   />
-                  <button
-                    onClick={() => setViewOnce((p) => !p)}
-                    className={'shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-colors ' + (viewOnce ? 'bg-nike-red/20 text-nike-red' : (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/30'))}
-                    title="View once"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                  </button>
+                  {activeChatType !== 'group' && (
+                    <button
+                      onClick={() => setViewOnce((p) => !p)}
+                      className={'shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-colors ' + (viewOnce ? 'bg-nike-red/20 text-nike-red' : (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/30'))}
+                      title="View once"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                  )}
                   <textarea
                     ref={textareaRef}
                     value={input}
@@ -799,6 +1058,167 @@ export default function Messages() {
                   </button>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Group Modal */}
+      {showCreateGroup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCreateGroup(false)} />
+          <div className={'relative w-full max-w-md mx-4 rounded-2xl shadow-2xl overflow-hidden liquid-glass-card'}>
+            <div className={'px-6 py-5 border-b flex items-center justify-between ' + (isLight ? 'border-nike-gray' : 'border-white/5')}>
+              <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>Create Group</p>
+              <button onClick={() => setShowCreateGroup(false)} className={'w-8 h-8 rounded-xl flex items-center justify-center transition-colors ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/40')}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className={'block text-xs tracking-widest uppercase font-bold mb-1.5 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Group Name</label>
+                <input
+                  type="text"
+                  value={groupForm.name}
+                  onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
+                  placeholder="Enter group name"
+                  className={'w-full px-4 py-3 rounded-xl text-sm outline-none border transition-all ' + (isLight ? 'bg-white border-nike-gray text-nike-black placeholder:text-nike-light focus:border-nike-red' : 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-white/30')}
+                />
+              </div>
+              <div>
+                <label className={'block text-xs tracking-widest uppercase font-bold mb-1.5 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Description</label>
+                <textarea
+                  value={groupForm.description}
+                  onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })}
+                  placeholder="What's this group about?"
+                  rows={3}
+                  className={'w-full px-4 py-3 rounded-xl text-sm outline-none border transition-all resize-none ' + (isLight ? 'bg-white border-nike-gray text-nike-black placeholder:text-nike-light focus:border-nike-red' : 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-white/30')}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>Private Group</p>
+                  <p className={'text-xs mt-0.5 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Only approved members can join</p>
+                </div>
+                <button
+                  onClick={() => setGroupForm({ ...groupForm, is_private: !groupForm.is_private })}
+                  className={'relative inline-flex h-6 w-11 items-center rounded-full transition-colors ' + (groupForm.is_private ? 'bg-nike-red' : 'bg-nike-gray')}
+                >
+                  <span className={'inline-block h-4 w-4 transform rounded-full bg-white transition-transform ' + (groupForm.is_private ? 'translate-x-6' : 'translate-x-1')} />
+                </button>
+              </div>
+              <button
+                onClick={handleCreateGroup}
+                disabled={groupCreating}
+                className="w-full py-3 bg-nike-red text-white rounded-xl text-xs tracking-widest uppercase font-bold hover:bg-white hover:text-nike-black transition-all duration-300 disabled:opacity-50"
+              >
+                {groupCreating ? 'Creating…' : 'Create Group'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Group Settings Modal */}
+      {showGroupSettings && groupDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setShowGroupSettings(false); setShowAddMember(false); setMemberSearch(''); setMemberResults([]) }} />
+          <div className={'relative w-full max-w-lg mx-4 rounded-2xl shadow-2xl overflow-hidden liquid-glass-card'}>
+            <div className={'px-6 py-5 border-b flex items-center justify-between ' + (isLight ? 'border-nike-gray' : 'border-white/5')}>
+              <div>
+                <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{groupDetail.name}</p>
+                <p className={'text-xs mt-0.5 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Group Settings</p>
+              </div>
+              <button onClick={() => { setShowGroupSettings(false); setShowAddMember(false); setMemberSearch(''); setMemberResults([]) }} className={'w-8 h-8 rounded-xl flex items-center justify-center transition-colors ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/40')}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-6 max-h-96 overflow-y-auto">
+              {/* Privacy toggle */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>Private Group</p>
+                  <p className={'text-xs mt-0.5 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Only approved members can join</p>
+                </div>
+                <button
+                  onClick={toggleGroupPrivacy}
+                  disabled={updatingGroup}
+                  className={'relative inline-flex h-6 w-11 items-center rounded-full transition-colors ' + (groupDetail.is_private ? 'bg-nike-red' : 'bg-nike-gray')}
+                >
+                  <span className={'inline-block h-4 w-4 transform rounded-full bg-white transition-transform ' + (groupDetail.is_private ? 'translate-x-6' : 'translate-x-1')} />
+                </button>
+              </div>
+
+              {/* Members list */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <p className={'text-xs tracking-widest uppercase font-bold ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Members ({groupMembers.length})</p>
+                  <button
+                    onClick={() => setShowAddMember(!showAddMember)}
+                    className={'text-xs font-bold px-3 py-1.5 rounded-lg transition-all ' + (isLight ? 'bg-nike-gray/30 text-nike-black hover:bg-nike-gray/50' : 'bg-white/10 text-white hover:bg-white/20')}
+                  >
+                    {showAddMember ? 'Cancel' : '+ Add Member'}
+                  </button>
+                </div>
+
+                {/* Add member search */}
+                {showAddMember && (
+                  <div className={'mb-3 p-3 rounded-xl border ' + (isLight ? 'border-nike-gray bg-nike-gray/10' : 'border-white/10 bg-white/5')}>
+                    <input
+                      type="text"
+                      value={memberSearch}
+                      onChange={(e) => { setMemberSearch(e.target.value); searchUsers(e.target.value) }}
+                      placeholder="Search users by name…"
+                      className={'w-full px-3 py-2 rounded-lg text-sm outline-none border transition-all ' + (isLight ? 'bg-white border-nike-gray text-nike-black placeholder:text-nike-light' : 'bg-white/5 border-white/10 text-white placeholder:text-white/30')}
+                    />
+                    {searchingMembers && <p className={'text-xs mt-2 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>Searching…</p>}
+                    {memberResults.length > 0 && (
+                      <div className={'mt-2 max-h-40 overflow-y-auto space-y-1 '}>
+                        {memberResults.map((m) => (
+                          <button
+                            key={m.id}
+                            onClick={() => inviteMember(m.username)}
+                            className={'w-full text-left px-3 py-2 rounded-lg flex items-center gap-3 text-sm transition-colors ' + (isLight ? 'hover:bg-nike-gray/30' : 'hover:bg-white/10')}
+                          >
+                            <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 bg-nike-gray/30 flex items-center justify-center text-[10px] font-bold" style={{ color: 'var(--color-nike-light)' }}>
+                              {(m.username || '?')[0].toUpperCase()}
+                            </div>
+                            <span className={'font-bold truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{m.username}</span>
+                            <span className={'text-[10px] ml-auto ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{m.role?.replace('_', ' ')}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {memberSearch && !searchingMembers && memberResults.length === 0 && (
+                      <p className={'text-xs mt-2 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>No users found</p>
+                    )}
+                  </div>
+                )}
+
+                <div className="space-y-1 max-h-60 overflow-y-auto">
+                  {groupMembers.map((m) => (
+                    <div key={m.id || m.user} className={'flex items-center justify-between p-3 rounded-xl transition-colors ' + (isLight ? 'hover:bg-nike-gray/20' : 'hover:bg-white/5')}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-nike-gray/30 flex items-center justify-center text-xs font-bold" style={{ color: 'var(--color-nike-light)' }}>
+                          {m.avatar ? <img src={mediaUrl(m.avatar)} className="w-full h-full object-cover" alt="" /> : (m.username || '?')[0].toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className={'text-sm font-bold truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{m.username || 'User'}</p>
+                          <p className={'text-[10px] ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{m.role === 'admin' ? 'Admin' : 'Member'}</p>
+                        </div>
+                      </div>
+                      {groupDetail.created_by === user.id && m.user !== user.id && (
+                        <button
+                          onClick={() => removeMember(m.user)}
+                          className={'text-xs px-2.5 py-1.5 rounded-lg font-bold transition-all border ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-red hover:text-white hover:border-nike-red' : 'border-white/10 text-white/40 hover:bg-nike-red hover:text-white hover:border-nike-red')}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>

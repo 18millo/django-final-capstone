@@ -255,6 +255,11 @@ class CartSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
+    customer_email = serializers.EmailField(source='user.email', read_only=True)
+    customer_username = serializers.CharField(source='user.username', read_only=True)
+    customer_display_name = serializers.CharField(source='user.display_name', read_only=True)
+    customer_phone = serializers.CharField(source='user.profile.phone', read_only=True)
+
     class Meta:
         model = Order
         fields = '__all__'

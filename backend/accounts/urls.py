@@ -80,6 +80,7 @@ urlpatterns = [
     path('groups/<int:group_id>/requests/<int:user_id>/approve/', views.GroupApproveRequestView.as_view(), name='group-approve-request'),
     path('groups/<int:group_id>/requests/<int:user_id>/reject/', views.GroupRejectRequestView.as_view(), name='group-reject-request'),
     path('groups/<int:group_id>/invite/', views.GroupInviteView.as_view(), name='group-invite'),
+    path('groups/<int:group_id>/members/<int:user_id>/', views.GroupRemoveMemberView.as_view(), name='group-remove-member'),
     path('groups/<int:group_id>/messages/', views.GroupMessageListView.as_view(), name='group-messages'),
     path('groups/<int:group_id>/messages/send/', views.GroupMessageCreateView.as_view(), name='group-message-send'),
 ]

@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTheme } from '../providers/ThemeProvider'
 import { useCart } from '../providers/CartProvider'
+import { useAuth } from '../providers/AuthProvider'
 import api from '../utils/api'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
@@ -15,11 +16,18 @@ const BG = 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=fo
 export default function Checkout() {
   const { theme } = useTheme()
   const { cart, loading, itemCount } = useCart()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const isLight = theme === 'light'
 
   const [paymentMethod, setPaymentMethod] = useState('')
   const [mpesaPhone, setMpesaPhone] = useState('')
+
+  useEffect(() => {
+    if (user?.profile?.phone) {
+      setMpesaPhone(user.profile.phone)
+    }
+  }, [user?.profile?.phone])
   const [visaCard, setVisaCard] = useState('')
   const [visaExpiry, setVisaExpiry] = useState('')
   const [visaCvv, setVisaCvv] = useState('')
@@ -41,8 +49,11 @@ export default function Checkout() {
 
   const handlePlaceOrder = async () => {
     setError('')
+    const required = ['line1', 'city', 'state', 'zip', 'country']
+    const missing = required.filter((f) => !address[f]?.trim())
+    if (missing.length) { setError('Please fill in all required shipping address fields: ' + missing.join(', ') + '.'); return }
     if (!paymentMethod) { setError('Select a payment method.'); return }
-    if (paymentMethod === 'mpesa' && mpesaPhone.length < 10) { setError('Enter a valid MPesa phone number.'); return }
+    if (paymentMethod === 'mpesa' && (!user?.profile?.phone || user.profile.phone.length < 10)) { setError('Set your phone number in Settings before using M-Pesa.'); return }
     if (paymentMethod === 'visa' && visaCard.replace(/\s/g, '').length < 16) { setError('Enter a valid card number.'); return }
 
     playClick()
@@ -152,10 +163,10 @@ export default function Checkout() {
                       label="MPesa Phone Number"
                       type="tel"
                       value={mpesaPhone}
-                      onChange={(e) => setMpesaPhone(e.target.value.replace(/\D/g, '').slice(0, 13))}
-                      placeholder="254712345678"
+                      disabled
+                      placeholder={user?.profile?.phone ? '' : 'Set phone in Settings first'}
                     />
-                    <p className={'text-xs mt-1.5 ' + mutedClass}>Enter the MPesa-registered phone number (e.g. 254712345678).</p>
+                    <p className={'text-xs mt-1.5 ' + mutedClass}>Uses your profile phone number</p>
                   </div>
                 )}
 

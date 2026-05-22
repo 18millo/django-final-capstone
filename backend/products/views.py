@@ -2,6 +2,7 @@ from django.db import models
 from django.db.models import Prefetch
 from django.utils import timezone
 from django.conf import settings
+from django.core.mail import send_mail
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from rest_framework import status, permissions, generics, filters
@@ -229,6 +230,58 @@ class SellerOrderListView(generics.ListAPIView):
         return Order.objects.filter(id__in=matching).order_by('-created_at')
 
 
+class OrderConfirmView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsSeller, IsPremium]
+
+    def post(self, request, pk):
+        try:
+            order = Order.objects.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=404)
+
+        vendor_product_ids = list(Product.objects.filter(vendor=request.user).values_list('id', flat=True))
+        has_vendor_product = any(item.get('product_id') in vendor_product_ids for item in order.items)
+        if not has_vendor_product:
+            return Response({'error': 'This order does not contain your products'}, status=403)
+
+        if order.status != 'pending':
+            return Response({'error': 'Order has already been confirmed or processed'}, status=400)
+
+        order.status = 'confirmed'
+        order.save()
+
+        items_summary = '\n'.join(
+            f"  • {item.get('product_name', 'Item')} x{item.get('quantity', 1)} — ${float(item.get('total', 0)):.2f}"
+            for item in order.items
+        )
+        addr = order.shipping_address or {}
+        ship_str = f"{addr.get('line1', '')}\n{addr.get('line2', '')}\n{addr.get('city', '')}, {addr.get('state', '')} {addr.get('zip', '')}\n{addr.get('country', '')}".strip()
+
+        try:
+            send_mail(
+                subject=f'Order #{order.id} Confirmed — CombatHub',
+                message=(
+                    f'Hi {order.user.display_name or order.user.username or order.user.email},\n\n'
+                    f'Your order #{order.id} has been confirmed by the seller!\n\n'
+                    f'Items:\n{items_summary}\n\n'
+                    f'Total: ${float(order.total):.2f}\n'
+                    f'Payment: {order.payment_method.upper()}\n\n'
+                    f'Shipping to:\n{ship_str}\n\n'
+                    f'You can track your order status anytime at:\n'
+                    f'{settings.FRONTEND_URL}/orders/{order.id}\n\n'
+                    f'Thank you for shopping on CombatHub!\n'
+                    f'- The CombatHub Team'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[order.user.email],
+                fail_silently=False,
+            )
+        except Exception:
+            pass
+
+        return Response(OrderSerializer(order).data)
+
+
 class CheckoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -249,8 +302,15 @@ class CheckoutView(APIView):
         visa_last_four = request.data.get('visa_last_four', '')
         shipping_address = request.data.get('shipping_address', {})
 
+        required_address_fields = ['line1', 'city', 'state', 'zip', 'country']
+        missing = [f for f in required_address_fields if not shipping_address.get(f, '').strip()]
+        if missing:
+            return Response({'error': f'Missing shipping address fields: {", ".join(missing)}.'}, status=400)
+
         if payment_method == 'mpesa' and not mpesa_phone:
             return Response({'error': 'MPesa phone number is required.'}, status=400)
+        if payment_method == 'mpesa' and request.user.profile.phone != mpesa_phone:
+            return Response({'error': 'M-Pesa number must match your profile phone number.'}, status=400)
         if payment_method == 'visa' and not visa_last_four:
             return Response({'error': 'Visa card details are required.'}, status=400)
 
@@ -294,6 +354,24 @@ class CheckoutView(APIView):
                     notification_type='new_order',
                     message=f'New order received for {product.name} from {request.user.display_name or request.user.email}',
                 )
+                try:
+                    send_mail(
+                        subject=f'New Order Received — CombatHub',
+                        message=(
+                            f'Hi {product.vendor.display_name or product.vendor.username},\n\n'
+                            f'You have received a new order for {product.name}!\n\n'
+                            f'Customer: {request.user.display_name or request.user.email}\n'
+                            f'Order total: ${float(total):.2f}\n\n'
+                            f'View your orders at:\n'
+                            f'{settings.FRONTEND_URL}/seller/orders\n\n'
+                            f'- The CombatHub Team'
+                        ),
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[product.vendor.email],
+                        fail_silently=True,
+                    )
+                except Exception:
+                    pass
 
         cart.items.all().delete()
         return Response(OrderSerializer(order).data, status=201)
@@ -323,7 +401,7 @@ class FavoriteToggleView(APIView):
 
 
 class VendorProductListView(generics.ListCreateAPIView):
-    permission_classes = [permissions.IsAuthenticated, IsSeller]
+    permission_classes = [permissions.IsAuthenticated, IsVendor]
     serializer_class = VendorProductSerializer
 
     def get_queryset(self):
@@ -340,7 +418,7 @@ class VendorProductListView(generics.ListCreateAPIView):
 
 
 class VendorProductDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [permissions.IsAuthenticated, IsSeller]
+    permission_classes = [permissions.IsAuthenticated, IsVendor]
     serializer_class = VendorProductSerializer
 
     def get_queryset(self):
@@ -363,7 +441,7 @@ class VendorProductDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class VendorProductToggleDiscountView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsSeller]
+    permission_classes = [permissions.IsAuthenticated, IsVendor]
 
     def post(self, request, product_id):
         from common.permissions import IsPremium
@@ -378,7 +456,7 @@ class VendorProductToggleDiscountView(APIView):
 
 
 class ProductImageUploadView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsSeller]
+    permission_classes = [permissions.IsAuthenticated, IsVendor]
 
     def post(self, request):
         from common.permissions import IsPremium

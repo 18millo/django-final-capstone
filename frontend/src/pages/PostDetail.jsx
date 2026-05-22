@@ -116,7 +116,7 @@ export default function PostDetail() {
         <Link to="/forum" className={'text-xs tracking-widest uppercase font-bold transition-colors mb-6 inline-block ' + mutedClass + ' hover:text-nike-red'}>← Back to Forum</Link>
 
         <Reveal>
-          <div className={'rounded-2xl border p-6 mb-6 ' + cardClass}>
+          <div className={'rounded-2xl border p-6 mb-6 overflow-hidden ' + cardClass}>
             <div className="flex items-center gap-3 mb-4">
               <Link to={'/profile/' + post.author} className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-nike-gray/20">
                 {post.author_avatar ? (
@@ -140,7 +140,7 @@ export default function PostDetail() {
                 <img src={post.file_url} alt="" className="mt-4 rounded-xl max-h-96 w-full object-cover" />
               )
             )}
-            <div className={'flex items-center gap-4 mt-4 pt-4 border-t ' + borderClass}>
+            <div className={'flex items-center gap-4 mt-4 pt-4 border-t flex-wrap ' + borderClass}>
               <button
                 onClick={toggleLike}
                 className={'flex items-center gap-1.5 text-sm font-bold transition-colors ' + (post.is_liked ? 'text-nike-red' : mutedClass + ' hover:text-nike-red')}

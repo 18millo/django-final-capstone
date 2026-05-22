@@ -266,7 +266,8 @@ class ProfileSerializer(serializers.ModelSerializer):
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
                 raise serializers.ValidationError("This phone number is already in use.")
-        return value
+            return value
+        return None
 
     class Meta:
         model = Profile
@@ -278,6 +279,18 @@ class ProfileSerializer(serializers.ModelSerializer):
             'is_premium', 'phone_verified', 'messaging_enabled',
         )
         read_only_fields = ('vendor_access_code', 'is_premium', 'phone_verified',)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        user = request.user if request else None
+        if user and user.role in ('vendor', 'gym_owner') and user != instance.user:
+            data.pop('weight_class', None)
+            data.pop('height_ft', None)
+            data.pop('height_in', None)
+            data.pop('reach_in', None)
+            data.pop('stance', None)
+        return data
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -295,6 +308,12 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_following_count(self, obj):
         return obj.following.count()
+
+    def to_internal_value(self, data):
+        profile_field = self.fields.get('profile')
+        if profile_field and isinstance(profile_field, ProfileSerializer) and self.instance:
+            profile_field.instance = self.instance.profile
+        return super().to_internal_value(data)
 
     def validate_username(self, value):
         if self.instance and value == self.instance.username:
@@ -661,8 +680,13 @@ class PaymentInfoSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         method = data.get('method')
-        if method == 'mpesa' and not data.get('mpesa_phone'):
-            raise serializers.ValidationError({'mpesa_phone': 'M-Pesa phone number is required.'})
+        if method == 'mpesa':
+            mpesa_phone = data.get('mpesa_phone')
+            if not mpesa_phone:
+                raise serializers.ValidationError({'mpesa_phone': 'M-Pesa phone number is required.'})
+            request = self.context.get('request')
+            if request and request.user.profile.phone != mpesa_phone:
+                raise serializers.ValidationError({'mpesa_phone': 'M-Pesa number must match your profile phone number.'})
         if method == 'card':
             if not data.get('card_last_four'):
                 raise serializers.ValidationError({'card_last_four': 'Last four digits of card are required.'})

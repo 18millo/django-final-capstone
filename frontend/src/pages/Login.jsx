@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../providers/AuthProvider'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Reveal from '../components/ui/Reveal'
+import GoogleLoginWrapper from '../components/ui/GoogleLoginWrapper'
 import { playError } from '../utils/sounds'
 
 export default function Login() {
   const [form, setForm] = useState({ login: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [rememberMe, setRememberMe] = useState(true)
   const { login, googleLogin } = useAuth()
   const navigate = useNavigate()
 
@@ -19,7 +20,7 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      const data = await login(form.login, form.password)
+      const data = await login(form.login, form.password, rememberMe)
       if (data.requires_2fa) {
         navigate('/verify-login', { state: { email: data.email } })
       } else if (data.requires_access_code) {
@@ -63,7 +64,16 @@ export default function Login() {
           placeholder="Enter your password"
           required
         />
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-2 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="w-4 h-4 rounded border-white/20 bg-transparent text-nike-red focus:ring-nike-red focus:ring-1 cursor-pointer"
+            />
+            <span className="text-xs tracking-wider text-white/40 group-hover:text-white/60 transition-colors uppercase font-medium">Remember me</span>
+          </label>
           <Link to="/forgot-password" className="text-xs tracking-wider text-white/40 hover:text-nike-red transition-colors uppercase font-medium">
             Forgot password?
           </Link>
@@ -80,7 +90,7 @@ export default function Login() {
           </div>
         </div>
         <div className="flex justify-center">
-          <GoogleLogin
+          <GoogleLoginWrapper
             onSuccess={async (credentialResponse) => {
               try {
                 const data = await googleLogin(credentialResponse.credential)

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../providers/AuthProvider'
 import { useTheme } from '../providers/ThemeProvider'
 import api from '../utils/api'
@@ -39,9 +39,34 @@ const SIDEBAR_ITEMS = [
   { id: 'profile', label: 'Profile', icon: 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 14c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z' },
   { id: 'fighter', label: 'Fighter Stats', icon: 'M6.5 6.5L17.5 17.5M6.5 17.5L17.5 6.5M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z' },
   { id: 'products', label: 'My Products', icon: 'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 14c-4.42 0-8 1.79-8 4v2h16v-2c0-2.21-3.58-4-8-4z', vendorOnly: true },
+  { id: 'premium', label: 'Premium', icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' },
+  { id: 'contact', label: 'Contact Us', icon: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z' },
+  { id: 'help', label: 'Help', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z' },
   { id: 'security', label: 'Security', icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
   { id: 'appearance', label: 'Appearance', icon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z' },
   { id: 'about', label: 'About', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z' },
+]
+
+const PREMIUM_FEATURES = [
+  { icon: '🏪', title: 'Sell Products', desc: 'Create and manage your own shop within CombatHub marketplace.', label: 'Vendors' },
+  { icon: '📊', title: 'Business Dashboard', desc: 'View sales analytics, track orders, and manage inventory from one place.', label: 'Vendors' },
+  { icon: '📸', title: 'Gallery Uploads', desc: 'Upload and showcase high-quality images for your products and services.', label: 'Vendors' },
+  { icon: '📦', title: 'Inventory Management', desc: 'Track stock levels, set low-stock alerts, and manage product variants.', label: 'Vendors' },
+  { icon: '📈', title: 'Growth Analytics', desc: 'Track follower growth, engagement, and product performance over time.', label: 'Business' },
+  { icon: '🎯', title: 'Smart Promotions', desc: 'Create discount campaigns and promotional offers for your shop.', label: 'Vendors' },
+  { icon: '🤝', title: 'Priority Following', desc: 'Get your follow requests seen first by other businesses and athletes.', label: 'Business' },
+  { icon: '🔒', title: 'Advanced Privacy', desc: 'Control profile visibility, hide activity, and manage who can contact you.', label: 'All Users' },
+]
+
+const ATHLETE_FEATURES = [
+  { icon: '📋', title: 'Advanced Profile Stats', desc: 'See detailed follower analytics, profile visits, and engagement trends over time.', label: 'Athletes' },
+  { icon: '⭐', title: 'Priority Following', desc: 'Get your follow requests seen first by coaches, vendors, and gym owners.', label: 'Athletes' },
+  { icon: '🔔', title: 'Smart Notifications', desc: 'Get notified when your favorite vendors restock or coaches post new content.', label: 'Athletes' },
+  { icon: '🏅', title: 'Achievement Badges', desc: 'Unlock exclusive premium achievement badges on your profile.', label: 'Athletes' },
+  { icon: '🎯', title: 'Personalized Feed', desc: 'Get a curated feed of content from your favorite fighters, coaches, and brands.', label: 'Athletes' },
+  { icon: '🎫', title: 'Event Priority', desc: 'Get early access to event tickets, meet-and-greets, and exclusive promotions.', label: 'Athletes' },
+  { icon: '🛡️', title: 'Enhanced Privacy', desc: 'Control who can see your activity, followers list, and online status.', label: 'Athletes' },
+  { icon: '📱', title: 'Ad-Free Experience', desc: 'Browse CombatHub without promotional content and banners.', label: 'Athletes' },
 ]
 
 function VendorProducts() {
@@ -476,9 +501,10 @@ function DisableTotp() {
 }
 
 export default function Settings() {
-  const { user, updateUser } = useAuth()
+  const { user, updateUser, logout } = useAuth()
   const { theme, toggleTheme, appVersion } = useTheme()
   const [tab, setTab] = useState('profile')
+  const [openFaq, setOpenFaq] = useState(null)
   const [form, setForm] = useState({
     username: '', bio: '', phone: '', weight_class: '',
     height_ft: '', height_in: '', reach_in: '', stance: '',
@@ -602,14 +628,25 @@ export default function Settings() {
                  {item.label}
                </button>
              ))}
-         </nav>
+          </nav>
+          <div className="p-3">
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="flex items-center gap-3 w-full px-4 py-3 text-xs tracking-widest uppercase font-bold rounded-xl transition-all duration-300 text-left hover:bg-nike-red/20"
+              style={{ color: 'var(--color-nike-light)' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Logout
+            </button>
+          </div>
         <div className="p-4 border-t text-xs" style={{ borderColor: 'var(--color-nike-gray)', color: 'var(--color-nike-light)' }}>
           v{appVersion}
         </div>
       </div>
 
       {/* Content */}
-      <div className="relative z-10 flex-1 overflow-y-auto p-8 md:p-12">
+      <div className="relative z-10 flex-1 overflow-y-auto p-8 md:p-12 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
         <div className="max-w-2xl mx-auto">
           {message.text && (
             <div className={'px-5 py-4 rounded-xl mb-8 text-sm border ' + (message.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-nike-red/10 border-nike-red/20 text-nike-red')}>
@@ -916,6 +953,228 @@ export default function Settings() {
                   ) : (
                     <EnableTotp />
                   )}
+                </div>
+              </Reveal>
+            </div>
+          )}
+
+          {tab === 'premium' && (
+            <div className="space-y-6 max-w-4xl">
+              <Reveal>
+                <div className="p-8 rounded-2xl backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-dark) 90%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--color-nike-gray)' }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6" style={{ color: 'var(--color-nike-red)' }}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-xl" style={{ color: 'var(--color-nike-white)' }}>Premium Features</h3>
+                      <p className="text-sm mt-1" style={{ color: 'var(--color-nike-light)' }}>Unlock the full potential of CombatHub</p>
+                    </div>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {(user?.role === 'athlete' ? ATHLETE_FEATURES : PREMIUM_FEATURES).map((f, i) => (
+                      <div key={i} className="flex items-start gap-4 p-4 rounded-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                        <div className="text-2xl shrink-0">{f.icon}</div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold" style={{ color: 'var(--color-nike-white)' }}>{f.title}</p>
+                          <p className="text-xs mt-0.5" style={{ color: 'var(--color-nike-light)' }}>{f.desc}</p>
+                          <span className="inline-block mt-1.5 text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--color-nike-gray)', color: 'var(--color-nike-light)' }}>{f.label}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Reveal>
+
+              <Reveal delay={50}>
+                <div className="p-8 rounded-2xl backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-dark) 90%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="text-2xl">💎</div>
+                    <div>
+                      <h3 className="font-bold text-lg" style={{ color: 'var(--color-nike-white)' }}>Pricing Plans</h3>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--color-nike-light)' }}>Start with a free trial, then choose a plan.</p>
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div className="relative p-6 rounded-xl flex flex-col" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                      <p className="text-xs uppercase tracking-widest font-bold mb-3" style={{ color: 'var(--color-nike-light)' }}>Free Trial</p>
+                      <div className="flex items-baseline gap-1 mb-1">
+                        <span className="text-3xl font-black" style={{ color: 'var(--color-nike-white)' }}>$0</span>
+                        <span className="text-xs" style={{ color: 'var(--color-nike-light)' }}>/30 days</span>
+                      </div>
+                      <p className="text-xs mt-2" style={{ color: 'var(--color-nike-light)' }}>Full access to all premium features. No charges during trial.</p>
+                      <p className="text-[10px] mt-2" style={{ color: 'var(--color-nike-amber)' }}>⏳ Includes 7-day grace period after expiry</p>
+                    </div>
+                    <div className="relative p-6 rounded-xl flex flex-col" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '2px solid var(--color-nike-red)' }}>
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] uppercase tracking-widest font-bold bg-nike-red text-white">Popular</div>
+                      <p className="text-xs uppercase tracking-widest font-bold mb-3" style={{ color: 'var(--color-nike-light)' }}>Monthly</p>
+                      <div className="flex items-baseline gap-1 mb-1">
+                        <span className="text-3xl font-black" style={{ color: 'var(--color-nike-white)' }}>$35</span>
+                        <span className="text-xs" style={{ color: 'var(--color-nike-light)' }}>/month</span>
+                      </div>
+                      <p className="text-xs mt-2" style={{ color: 'var(--color-nike-light)' }}>Billed monthly. Cancel anytime.</p>
+                      <p className="text-[10px] mt-2" style={{ color: 'var(--color-nike-amber)' }}>⏳ 7-day grace period if payment fails</p>
+                      <Link to="/premium/setup?plan=monthly" className="mt-4 w-full py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest text-white bg-nike-red hover:bg-nike-red/80 transition-colors text-center block">Subscribe</Link>
+                    </div>
+                    <div className="relative p-6 rounded-xl flex flex-col" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                      <p className="text-xs uppercase tracking-widest font-bold mb-3" style={{ color: 'var(--color-nike-light)' }}>Yearly</p>
+                      <div className="flex items-baseline gap-1 mb-1">
+                        <span className="text-3xl font-black" style={{ color: 'var(--color-nike-white)' }}>$357</span>
+                        <span className="text-xs" style={{ color: 'var(--color-nike-light)' }}>/year</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="line-through" style={{ color: 'var(--color-nike-light)' }}>$420</span>
+                        <span className="text-green-400 font-bold">Save $63</span>
+                      </div>
+                      <p className="text-xs mt-1" style={{ color: 'var(--color-nike-light)' }}>15% off vs monthly billing.</p>
+                      <p className="text-[10px] mt-2" style={{ color: 'var(--color-nike-amber)' }}>⏳ 7-day grace period if payment fails</p>
+                      <Link to="/premium/setup?plan=yearly" className="mt-4 w-full py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest text-white bg-nike-red hover:bg-nike-red/80 transition-colors text-center block">Subscribe</Link>
+                    </div>
+                  </div>
+                </div>
+              </Reveal>
+
+              <Reveal delay={100}>
+                <div className="p-8 rounded-2xl backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-dark) 90%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="text-2xl">⚙️</div>
+                    <div>
+                      <h3 className="font-bold text-lg" style={{ color: 'var(--color-nike-white)' }}>Manage Premium</h3>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--color-nike-light)' }}>View or cancel your premium subscription.</p>
+                    </div>
+                  </div>
+                  <Link to="/premium" className="w-full py-3 rounded-xl font-bold text-sm text-white bg-nike-red hover:bg-nike-red/80 transition-colors text-center block">Manage Premium</Link>
+                </div>
+              </Reveal>
+            </div>
+          )}
+
+          {tab === 'contact' && (
+            <div className="space-y-6">
+              <Reveal>
+                <div className="p-8 rounded-2xl backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-dark) 90%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--color-nike-gray)' }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" style={{ color: 'var(--color-nike-light)' }}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg" style={{ color: 'var(--color-nike-white)' }}>Contact Us</h3>
+                      <p className="text-sm mt-1" style={{ color: 'var(--color-nike-light)' }}>Get in touch with the CombatHub team</p>
+                    </div>
+                  </div>
+                  <div className="grid sm:grid-cols-3 gap-5">
+                    <a href="https://mail.google.com/mail/?view=cm&fs=1&to=mungailevi1@gmail.com" target="_blank" rel="noopener noreferrer" className="group relative p-6 rounded-2xl flex flex-col items-center text-center transition-all duration-500 hover:scale-[1.03] hover:-translate-y-1 cursor-pointer overflow-hidden" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" style={{ background: 'linear-gradient(135deg, rgba(220,38,38,0.15), transparent)' }} />
+                      <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center mb-4 text-3xl transition-transform duration-500 group-hover:scale-110 group-hover:rotate-[-8deg]" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-red) 20%, transparent)' }}>
+                        <span>📧</span>
+                      </div>
+                      <p className="relative text-[10px] uppercase tracking-[0.15em] font-bold mb-2" style={{ color: 'var(--color-nike-light)' }}>Email</p>
+                      <p className="relative text-sm font-bold transition-colors duration-300 group-hover:text-nike-red" style={{ color: 'var(--color-nike-white)' }}>mungailevi1@gmail.com</p>
+                    </a>
+                    <a href="tel:+254729624970" className="group relative p-6 rounded-2xl flex flex-col items-center text-center transition-all duration-500 hover:scale-[1.03] hover:-translate-y-1 cursor-pointer overflow-hidden" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.15), transparent)' }} />
+                      <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center mb-4 text-3xl transition-transform duration-500 group-hover:scale-110 group-hover:rotate-[-8deg]" style={{ backgroundColor: 'color-mix(in srgb, rgb(34,197,94) 20%, transparent)' }}>
+                        <span>📱</span>
+                      </div>
+                      <p className="relative text-[10px] uppercase tracking-[0.15em] font-bold mb-2" style={{ color: 'var(--color-nike-light)' }}>Phone</p>
+                      <p className="relative text-sm font-bold transition-colors duration-300 group-hover:text-emerald-400" style={{ color: 'var(--color-nike-white)' }}>+254 729 624 970</p>
+                    </a>
+                    <div className="group relative p-6 rounded-2xl flex flex-col items-center text-center transition-all duration-500 hover:scale-[1.03] hover:-translate-y-1 overflow-hidden" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.15), transparent)' }} />
+                      <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center mb-4 text-3xl transition-transform duration-500 group-hover:scale-110 group-hover:rotate-[-8deg]" style={{ backgroundColor: 'color-mix(in srgb, rgb(59,130,246) 20%, transparent)' }}>
+                        <span>📍</span>
+                      </div>
+                      <p className="relative text-[10px] uppercase tracking-[0.15em] font-bold mb-2" style={{ color: 'var(--color-nike-light)' }}>Location</p>
+                      <p className="relative text-sm font-bold" style={{ color: 'var(--color-nike-white)' }}>Nairobi, Chiromo<br />Parklands Plaza, 5th Floor</p>
+                    </div>
+                  </div>
+                </div>
+              </Reveal>
+            </div>
+          )}
+
+          {tab === 'help' && (
+            <div className="space-y-6">
+              <Reveal>
+                <div className="p-8 rounded-2xl backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-dark) 90%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--color-nike-gray)' }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5" style={{ color: 'var(--color-nike-light)' }}><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg" style={{ color: 'var(--color-nike-white)' }}>Help Center</h3>
+                      <p className="text-sm mt-1" style={{ color: 'var(--color-nike-light)' }}>Find answers to common questions</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                      <h4 className="text-sm font-bold" style={{ color: 'var(--color-nike-white)' }}>How do I reset my password?</h4>
+                      <p className="text-xs mt-1" style={{ color: 'var(--color-nike-light)' }}>Go to the login page and click "Forgot Password". Follow the email instructions to reset your password.</p>
+                    </div>
+                    <div className="p-4 rounded-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                      <h4 className="text-sm font-bold" style={{ color: 'var(--color-nike-white)' }}>How do I become a vendor?</h4>
+                      <p className="text-xs mt-1" style={{ color: 'var(--color-nike-light)' }}>Navigate to your Settings and select the Premium tab to see available upgrades. Vendors can list products and manage their shop.</p>
+                    </div>
+                    <div className="p-4 rounded-xl" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                      <h4 className="text-sm font-bold" style={{ color: 'var(--color-nike-white)' }}>Contact Support</h4>
+                      <p className="text-xs mt-1" style={{ color: 'var(--color-nike-light)' }}>For additional help, email us at <a href="https://mail.google.com/mail/?view=cm&fs=1&to=mungailevi1@gmail.com" target="_blank" rel="noopener noreferrer" className="text-nike-red hover:underline">mungailevi1@gmail.com</a></p>
+                    </div>
+                  </div>
+                </div>
+              </Reveal>
+
+              <Reveal delay={100}>
+                <div className="p-8 rounded-2xl backdrop-blur-md overflow-hidden" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-dark) 90%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="text-2xl">❓</div>
+                    <div>
+                      <h3 className="font-bold text-lg" style={{ color: 'var(--color-nike-white)' }}>Frequently Asked Questions</h3>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--color-nike-light)' }}>Everything you need to know about CombatHub.</p>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { q: 'What is CombatHub Premium?', a: 'Premium is a subscription that unlocks business tools for vendors, coaches, and gym owners — plus extra perks like advanced analytics, priority access, and an ad-free experience for athletes and all users.' },
+                      { q: 'How does the free trial work?', a: 'Sign up, choose your role, and add a payment method on the payment setup page. You get 30 days of all premium features completely free. No charges during the trial.' },
+                      { q: 'What happens after the trial ends?', a: 'When the 30-day trial expires, you are automatically granted a 7-day grace period. During this time you keep full access to premium features. After the grace period ends, premium features are locked and you revert to the free tier.' },
+                      { q: 'Will I be charged after the trial?', a: 'Not automatically. Payment processing (monthly/annual subscriptions via M-Pesa or card) will be introduced in a future update. For now, your premium simply expires.' },
+                      { q: 'How do I cancel my premium?', a: 'Go to Manage Premium and click "Cancel Premium". Your premium features will be revoked immediately. Since it is a free trial, there are no charges or refunds involved. You can also just let the trial and grace period expire naturally.' },
+                      { q: 'Can I reactivate after cancelling?', a: 'Yes. Go to the payment setup page again, re-enter your payment method, and you will receive another 30-day trial. There is no limit on how many times you can restart.' },
+                      { q: 'What payment methods are accepted?', a: 'We currently accept M-Pesa (Kenya) and credit/debit cards (Visa, Mastercard, Amex, Discover). More methods will be added in the future.' },
+                      { q: 'Is my payment information secure?', a: 'Yes. M-Pesa phone numbers and card details are stored securely in our database. We use industry-standard encryption and never expose full card numbers — only the last four digits and card brand are stored.' },
+                      { q: 'Why do vendors/coaches/gym owners need premium?', a: 'These roles have access to business tools — selling products, business dashboards, gallery uploads, inventory management, and growth analytics. Premium is required to unlock these features. Regular users (athletes, fans) can use CombatHub for free.' },
+                      { q: 'What does premium give athletes?', a: 'Athlete premium includes advanced profile stats, priority following, smart notifications, achievement badges, a personalized feed, event priority access, enhanced privacy controls, and an ad-free browsing experience.' },
+                      { q: 'What is the grace period?', a: 'The grace period is a 7-day extension granted automatically after your 30-day trial expires. It gives you extra time to decide if you want to keep premium before features are locked. You will receive a notification when it starts.' },
+                      { q: 'What happens to my products/data if premium expires?', a: 'Your products and data are preserved but hidden from the marketplace. Once you reactivate premium, everything is restored. Nothing is deleted.' },
+                      { q: 'Can I switch payment methods?', a: 'Yes. On the payment setup page, just enter your new payment info. It will replace your existing method on file.' },
+                      { q: 'I still have questions. How do I get help?', a: 'Send us a message through the app or contact support at mungailevi1@gmail.com. Premium users get priority responses.' },
+                    ].map((faq, i) => (
+                      <div key={i} className="rounded-xl border overflow-hidden transition-all duration-200" style={{ borderColor: 'var(--color-nike-gray)', backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)' }}>
+                        <button
+                          onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                          className="flex items-center justify-between w-full px-5 py-4 text-left transition-all duration-200 hover:bg-white/5"
+                        >
+                          <h3 className="font-bold text-sm tracking-wide pr-4" style={{ color: 'var(--color-nike-white)' }}>{faq.q}</h3>
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className={'w-4 h-4 shrink-0 transition-transform duration-200 ' + (openFaq === i ? 'rotate-180' : '')}
+                            style={{ color: 'var(--color-nike-light)' }}
+                          >
+                            <polyline points="6 9 12 15 18 9" />
+                          </svg>
+                        </button>
+                        <div className={'overflow-hidden transition-all duration-300 ' + (openFaq === i ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0')}>
+                          <p className="px-5 pb-4 text-sm leading-relaxed" style={{ color: 'var(--color-nike-light)' }}>{faq.a}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </Reveal>
             </div>

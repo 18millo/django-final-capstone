@@ -1,4 +1,5 @@
 let ctx = null
+let soundEnabled = true
 
 function getCtx() {
   try {
@@ -6,6 +7,14 @@ function getCtx() {
     if (ctx.state === 'suspended') ctx.resume().catch(() => {})
   } catch {}
   return ctx
+}
+
+export function isSoundMuted() {
+  return !soundEnabled
+}
+
+export function setSoundEnabled(on) {
+  soundEnabled = on
 }
 
 function sine(c, freq, dur, vol) {
@@ -44,6 +53,7 @@ function noise(c, dur, vol, lpFreq) {
 }
 
 export function playClick() {
+  if (!soundEnabled) return
   try {
     const c = getCtx()
     sine(c, 1200, 0.04, 0.08)
@@ -52,6 +62,7 @@ export function playClick() {
 }
 
 export function playHover() {
+  if (!soundEnabled) return
   try {
     const c = getCtx()
     sine(c, 1500, 0.03, 0.03)
@@ -59,12 +70,14 @@ export function playHover() {
 }
 
 export function playWhoosh() {
+  if (!soundEnabled) return
   try {
     noise(getCtx(), 0.12, 0.04, 2000)
   } catch {}
 }
 
 export function playBell() {
+  if (!soundEnabled) return
   try {
     const c = getCtx()
     sine(c, 880, 0.8, 0.12)
@@ -74,6 +87,7 @@ export function playBell() {
 }
 
 export function playSuccess() {
+  if (!soundEnabled) return
   try {
     const c = getCtx()
     sine(c, 1047, 0.1, 0.1)
@@ -83,6 +97,7 @@ export function playSuccess() {
 }
 
 export function playError() {
+  if (!soundEnabled) return
   try {
     const c = getCtx()
     sine(c, 300, 0.15, 0.08)
@@ -102,6 +117,7 @@ export function isAmbientEnabled() {
 export function toggleAmbient() {
   const on = !isAmbientEnabled()
   localStorage.setItem(STORAGE_KEY, on ? 'true' : 'false')
+  soundEnabled = on
   if (on) playAmbient()
   else stopAmbient()
   return on
