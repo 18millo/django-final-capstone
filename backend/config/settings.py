@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'events',
     'subscriptions',
     'common',
+    'shop',
 ]
 
 MIDDLEWARE = [
@@ -135,6 +136,7 @@ CORS_ALLOWED_ORIGINS = config('FRONTEND_URL', default='http://localhost:5173').s
 CORS_ALLOW_CREDENTIALS = True
 
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173').split(',')[0]
+SHOP_URL = config('SHOP_URL', default='http://localhost:5174')
 
 REDIS_HOST = config('REDIS_HOST', default='127.0.0.1')
 REDIS_PORT = config('REDIS_PORT', default=6379, cast=int)

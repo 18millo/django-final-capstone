@@ -10,7 +10,7 @@ import { playError, playSuccess } from '../utils/sounds'
 import { ROLE_LABELS } from '../utils/roles'
 import { toast } from '../components/ui/Toast'
 
-const BUSINESS_ROLES = ['vendor', 'gym_owner', 'coach']
+const BUSINESS_ROLES = ['gym_owner', 'coach']
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -50,7 +50,7 @@ export default function Register() {
         role: form.role,
         accepted_terms: true,
       }
-      if (form.role === 'vendor' || form.role === 'gym_owner') {
+      if (form.role === 'gym_owner') {
         payload.business_name = form.business_name
         payload.business_location = form.business_location
         payload.business_description = form.business_description
@@ -101,7 +101,7 @@ export default function Register() {
               onChange={(e) => setForm({ ...form, role: e.target.value })}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-white/40 focus:bg-white/10 transition-all duration-300 appearance-none"
             >
-              {['athlete', 'coach', 'gym_owner', 'vendor'].map((r) => (
+              {['athlete', 'coach', 'gym_owner'].map((r) => (
                 <option key={r} value={r} className="bg-nike-dark">
                   {'🏅 '}{ROLE_LABELS[r]}
                 </option>
@@ -117,23 +117,6 @@ export default function Register() {
           <div className="space-y-3 p-4 rounded-xl border border-nike-amber/20 bg-nike-amber/[0.02] liquid-glass-card">
             <p className="text-xs tracking-widest uppercase font-bold text-nike-amber">Access Code</p>
             <p className="text-[10px] text-white/30">An access code will be generated for your account and sent to your email. You will need it to log in.</p>
-          </div>
-        )}
-
-        {form.role === 'vendor' && (
-          <div className="space-y-3 p-4 rounded-xl border border-white/10 bg-white/[0.02] liquid-glass-card">
-            <p className="text-xs tracking-widest uppercase font-bold text-nike-amber/60">Vendor Details</p>
-            <Input label="Business Name" type="text" value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} placeholder="Your business name" />
-            <Input label="Business Location" type="text" value={form.business_location} onChange={(e) => setForm({ ...form, business_location: e.target.value })} placeholder="City, Country" />
-            <div className="space-y-1">
-              <label className="block text-xs tracking-widest uppercase font-bold text-white/40">Business Description</label>
-              <textarea
-                value={form.business_description}
-                onChange={(e) => setForm({ ...form, business_description: e.target.value })}
-                placeholder="Tell us about your business..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-white/40 focus:bg-white/10 transition-all duration-300 resize-none h-24"
-              />
-            </div>
           </div>
         )}
 

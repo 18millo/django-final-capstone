@@ -42,7 +42,7 @@ def get_tokens_for_user(user):
     }
 
 
-ACCESS_CODE_ROLES = {'vendor', 'coach', 'gym_owner'}
+ACCESS_CODE_ROLES = {'coach', 'gym_owner'}
 
 
 def notify_admins_access_code(action, user, code):
@@ -694,8 +694,8 @@ class FollowUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, user_id):
-        if request.user.role in ('vendor', 'gym_owner', 'coach'):
-            return Response({'error': 'Vendors, gym owners, and coaches cannot follow users'}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role in ('vendor', 'gym_owner'):
+            return Response({'error': 'Vendors and gym owners cannot follow users'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             target = User.objects.get(id=user_id, is_active=True)
@@ -735,8 +735,8 @@ class UnfollowUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, user_id):
-        if request.user.role in ('vendor', 'gym_owner', 'coach'):
-            return Response({'error': 'Vendors, gym owners, and coaches cannot unfollow users'}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role in ('vendor', 'gym_owner'):
+            return Response({'error': 'Vendors and gym owners cannot unfollow users'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             target = User.objects.get(id=user_id, is_active=True)
@@ -1033,10 +1033,7 @@ class GalleryListView(generics.ListCreateAPIView):
         return GalleryItem.objects.select_related('user__profile').prefetch_related('likes', 'comments')
 
     def perform_create(self, serializer):
-        user = self.request.user
-        if not user.profile.is_premium_active():
-            raise permissions.exceptions.PermissionDenied(detail='Premium subscription required to upload to gallery')
-        serializer.save(user=user)
+        serializer.save(user=self.request.user)
 
     def get_serializer_context(self):
         return {'request': self.request}
@@ -1384,12 +1381,15 @@ def is_profile_complete(user):
     base_fields = [profile.bio, profile.avatar, profile.phone]
     if user.role == 'athlete':
         required = base_fields + [profile.weight_class, profile.height_ft, profile.height_in, profile.reach_in, profile.stance]
-    elif user.role == 'vendor':
-        required = base_fields + [profile.business_name, profile.business_location, profile.business_description]
+    elif user.role in ('vendor', 'gym_owner'):
+        try:
+            vp = user.vendor_profile
+            biz_fields = [vp.business_name, vp.business_location, vp.business_description]
+        except Exception:
+            biz_fields = [profile.business_name, profile.business_location, profile.business_description]
+        required = base_fields + biz_fields
     elif user.role == 'coach':
         required = base_fields + [profile.specialization, profile.certifications]
-    elif user.role == 'gym_owner':
-        required = base_fields + [profile.business_name, profile.business_location, profile.business_description]
     else:
         required = base_fields
     return all(field for field in required)

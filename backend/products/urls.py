@@ -15,13 +15,7 @@ urlpatterns = [
     path('checkout/', views.CheckoutView.as_view(), name='checkout'),
     path('orders/', views.OrderListView.as_view(), name='order-list'),
     path('orders/<int:pk>/', views.OrderDetailView.as_view(), name='order-detail'),
-    path('seller/orders/', views.SellerOrderListView.as_view(), name='seller-order-list'),
-    path('seller/orders/<int:pk>/confirm/', views.OrderConfirmView.as_view(), name='seller-order-confirm'),
     path('favorites/', views.FavoriteListView.as_view(), name='favorite-list'),
-    path('vendor/products/', views.VendorProductListView.as_view(), name='vendor-product-list'),
-    path('vendor/products/<int:pk>/', views.VendorProductDetailView.as_view(), name='vendor-product-detail'),
-    path('vendor/products/<int:product_id>/toggle-discount/', views.VendorProductToggleDiscountView.as_view(), name='vendor-product-toggle-discount'),
-    path('vendor/upload/', views.ProductImageUploadView.as_view(), name='product-image-upload'),
     path('products/followed-vendors/', views.FollowedVendorProductsView.as_view(), name='followed-vendor-products'),
     path('products/<int:product_id>/comments/', views.ProductCommentListView.as_view(), name='product-comments'),
 ]

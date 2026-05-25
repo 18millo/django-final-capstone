@@ -528,6 +528,10 @@ export default function Messages() {
     }
   }
 
+  useEffect(() => {
+    if (showAddMember && memberResults.length === 0) searchUsers('__init__')
+  }, [showAddMember])
+
   const removeMember = async (userId) => {
     try {
       await api.delete('/auth/groups/' + activeId + '/members/' + userId + '/')
@@ -539,13 +543,14 @@ export default function Messages() {
   }
 
   const searchUsers = async (query) => {
-    if (!query.trim()) { setMemberResults([]); return }
     setSearchingMembers(true)
     try {
-      const res = await api.get('/auth/users/?search=' + encodeURIComponent(query))
-      const users = res.data.results || res.data || []
+      const queryParam = query.trim() && query !== '__init__' ? `?search=${encodeURIComponent(query.trim())}` : ''
+      const res = await api.get('/auth/users/' + queryParam)
+      const all = res.data.results || res.data || []
       const memberIds = new Set(groupMembers.map((m) => m.user))
-      setMemberResults(users.filter((u) => u.id !== user.id && !memberIds.has(u.id)))
+      const filtered = all.filter((u) => u.id !== user.id && !memberIds.has(u.id))
+      setMemberResults(filtered)
     } catch {
       setMemberResults([])
     } finally {
@@ -1168,10 +1173,10 @@ export default function Messages() {
                       type="text"
                       value={memberSearch}
                       onChange={(e) => { setMemberSearch(e.target.value); searchUsers(e.target.value) }}
-                      placeholder="Search users by name…"
+                      placeholder="Search members…"
                       className={'w-full px-3 py-2 rounded-lg text-sm outline-none border transition-all ' + (isLight ? 'bg-white border-nike-gray text-nike-black placeholder:text-nike-light' : 'bg-white/5 border-white/10 text-white placeholder:text-white/30')}
                     />
-                    {searchingMembers && <p className={'text-xs mt-2 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>Searching…</p>}
+                    {searchingMembers && <p className={'text-xs mt-2 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>Searching users…</p>}
                     {memberResults.length > 0 && (
                       <div className={'mt-2 max-h-40 overflow-y-auto space-y-1 '}>
                         {memberResults.map((m) => (
@@ -1189,7 +1194,7 @@ export default function Messages() {
                         ))}
                       </div>
                     )}
-                    {memberSearch && !searchingMembers && memberResults.length === 0 && (
+                    {!searchingMembers && memberResults.length === 0 && (
                       <p className={'text-xs mt-2 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>No users found</p>
                     )}
                   </div>

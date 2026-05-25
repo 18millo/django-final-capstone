@@ -3,21 +3,19 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth } from '../providers/AuthProvider'
 import { useTheme } from '../providers/ThemeProvider'
-import { useCart } from '../providers/CartProvider'
 import useScrollProgress from '../hooks/useScrollProgress'
 import { mediaUrl } from '../utils/media'
-import { playWhoosh, playClick, playSuccess, setSoundEnabled as setGlobalSoundEnabled } from '../utils/sounds'
-import { isAmbientEnabled, toggleAmbient as toggleAmbientSound, playAmbient, stopAmbient } from '../utils/sounds'
+import { playWhoosh, playClick, playSuccess } from '../utils/sounds'
 import ToastContainer, { toast } from '../components/ui/Toast'
 import PremiumBadge from '../components/ui/PremiumBadge'
-import api from '../utils/api'
+import api, { getToken } from '../utils/api'
 
 const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:8000'
+const SHOP_URL = import.meta.env.VITE_SHOP_URL || 'http://localhost:5174'
 
 export default function MainLayout() {
   const { user, logout } = useAuth()
   const { theme, toggleTheme, appVersion } = useTheme()
-  const { itemCount } = useCart()
   const isLight = theme === 'light'
   const navigate = useNavigate()
   const location = useLocation()
@@ -27,19 +25,6 @@ export default function MainLayout() {
   const [notifications, setNotifications] = useState([])
   const notifWsRef = useRef(null)
   const [msgUnreadCount, setMsgUnreadCount] = useState(0)
-  const [soundOn, setSoundOn] = useState(isAmbientEnabled())
-
-  useEffect(() => {
-    const enabled = isAmbientEnabled()
-    setGlobalSoundEnabled(enabled)
-    if (enabled) playAmbient()
-    return () => stopAmbient()
-  }, [])
-
-  const toggleSound = () => {
-    const on = toggleAmbientSound()
-    setSoundOn(on)
-  }
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -182,31 +167,42 @@ export default function MainLayout() {
 
           {/* Desktop nav links */}
           <div className="hidden lg:flex items-center gap-1 overflow-x-auto scrollbar-none flex-1 justify-center mx-4">
-            {['vendor', 'coach', 'gym_owner'].includes(user?.role) ? (
-              <>
-                {[
-                  { to: '/', label: 'Home' },
-                  ...(user?.role !== 'vendor' ? [{ to: '/community', label: 'Community' }] : []),
-                  ...(user?.role !== 'vendor' ? [{ to: '/forum', label: 'Forum' }] : []),
-                  { to: user.role === 'coach' ? '/coach' : user.role === 'gym_owner' ? '/gym-dashboard' : '/vendor', label: 'Dashboard' },
-                  ...(user?.role === 'vendor' ? [{ to: '/shop', label: 'Shop' }] : []),
-                  { to: '/gallery', label: 'Gallery' },
-                  { to: '/about', label: 'About' },
+              {['vendor', 'coach', 'gym_owner'].includes(user?.role) ? (
+                <>
+                  {[
+                    { to: '/', label: 'Home' },
+                    { to: '/events', label: 'Events' },
+                    ...(user?.role !== 'vendor' ? [{ to: '/community', label: 'Community' }] : []),
+                    ...(user?.role !== 'vendor' ? [{ to: '/forum', label: 'Forum' }] : []),
+                    { to: user.role === 'coach' ? '/coach' : user.role === 'gym_owner' ? '/gym-dashboard' : '/vendor', label: 'Dashboard' },
+                    { to: '/gallery', label: 'Gallery' },
+                    { to: '/about', label: 'About' },
                   ].map((link) => (
                   <Link key={link.to} to={link.to} onClick={() => playWhoosh()} className={'relative text-sm tracking-widest uppercase font-medium px-3 xl:px-4 py-1.5 rounded-full whitespace-nowrap transition-all duration-300 group ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-black' : 'hover:bg-white/10')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>
                     {link.label}
                     <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-nike-red rounded-full group-hover:w-1/2 transition-all duration-300" />
                   </Link>
                 ))}
+                <a
+                  href={`${SHOP_URL}?token=${getToken('access_token') || ''}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => playWhoosh()}
+                  className={'relative text-sm tracking-widest uppercase font-medium px-3 xl:px-4 py-1.5 rounded-full whitespace-nowrap transition-all duration-300 group ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-black' : 'hover:bg-white/10')}
+                  style={!isLight ? { color: 'var(--color-nike-light)' } : {}}
+                >
+                  Shop
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-nike-red rounded-full group-hover:w-1/2 transition-all duration-300" />
+                </a>
               </>
             ) : (
               <>
                 {[
                   { to: '/', label: 'Home' },
+                  { to: '/events', label: 'Events' },
                   ...(user ? [{ to: '/community', label: 'Community' }] : []),
                   ...(user ? [{ to: '/forum', label: 'Forum' }] : []),
                   { to: '/gallery', label: 'Gallery' },
-                  ...(user?.role === 'athlete' || user?.role === 'vendor' ? [{ to: '/shop', label: 'Shop' }] : []),
                   { to: '/about', label: 'About' },
                 ].map((link) => (
                   <Link key={link.to} to={link.to} onClick={() => playWhoosh()} className={'relative text-sm tracking-widest uppercase font-medium px-3 xl:px-4 py-1.5 rounded-full whitespace-nowrap transition-all duration-300 group ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-black' : 'hover:bg-white/10')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>
@@ -214,6 +210,17 @@ export default function MainLayout() {
                     <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-nike-red rounded-full group-hover:w-1/2 transition-all duration-300" />
                   </Link>
                 ))}
+                <a
+                  href={`${SHOP_URL}?token=${getToken('access_token') || ''}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => playWhoosh()}
+                  className={'relative text-sm tracking-widest uppercase font-medium px-3 xl:px-4 py-1.5 rounded-full whitespace-nowrap transition-all duration-300 group ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-black' : 'hover:bg-white/10')}
+                  style={!isLight ? { color: 'var(--color-nike-light)' } : {}}
+                >
+                  Shop
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-nike-red rounded-full group-hover:w-1/2 transition-all duration-300" />
+                </a>
               </>
             )}
           </div>
@@ -241,20 +248,6 @@ export default function MainLayout() {
                   </>
                 )}
               </svg>
-            </button>
-
-            {/* Sound toggle */}
-            <button
-              onClick={() => { toggleSound(); playClick() }}
-              className={'relative p-2 rounded-xl transition-all duration-200 hidden sm:flex ' + (isLight ? 'hover:bg-nike-gray/30' : 'hover:bg-white/10')}
-              style={{ color: soundOn ? 'var(--color-nike-red)' : 'var(--color-nike-light)' }}
-              title={soundOn ? 'Sound on' : 'Sound off'}
-            >
-              {soundOn ? (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-              )}
             </button>
 
             {/* Theme toggle */}
@@ -286,19 +279,7 @@ export default function MainLayout() {
                   )}
                 </button>
                 )}
-                {user?.role === 'athlete' && (
-                <button
-                  onClick={() => { playClick(); navigate('/cart') }}
-                  className={'relative p-2 rounded-xl transition-all duration-200 ' + (isLight ? 'hover:bg-nike-gray/30' : 'hover:bg-white/10')}
-                  style={{ color: 'var(--color-nike-light)' }}
-                  title="Cart"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-                  {itemCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-nike-red rounded-full flex items-center justify-center text-[9px] font-bold text-white shadow-lg shadow-nike-red/50">{itemCount > 9 ? '9+' : itemCount}</span>
-                  )}
-                </button>
-                )}
+
                 <button
                   onClick={() => { playClick(); navigate('/settings') }}
                   className={'relative p-2 rounded-xl transition-all duration-200 ' + (isLight ? 'hover:bg-nike-gray/30' : 'hover:bg-white/10')}
@@ -353,22 +334,23 @@ export default function MainLayout() {
           <div className="p-4 space-y-1">
             {(user ? [
               { to: '/', label: 'Home', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+              { to: '/events', label: 'Events', icon: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z' },
               ...(user?.role !== 'vendor' ? [{ to: '/community', label: 'Community', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' }] : []),
 
               ...(user?.role !== 'vendor' ? [{ to: '/forum', label: 'Forum', icon: 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z' }] : []),
               { to: '/gallery', label: 'Gallery', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
-              { to: '/shop', label: 'Shop', icon: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z' },
 
               ...(['vendor', 'coach', 'gym_owner'].includes(user.role) ? [{
                 to: user.role === 'coach' ? '/coach' : user.role === 'gym_owner' ? '/gym-dashboard' : '/vendor',
                 label: 'Dashboard',
                 icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'
               }] : []),
+              ...(['coach', 'gym_owner'].includes(user.role) ? [{ to: '/my-events', label: 'My Events', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' }] : []),
               { to: '/about', label: 'About', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
               { to: '/settings', label: 'Settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
             ] : [
               { to: '/', label: 'Home', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-              { to: '/shop', label: 'Shop', icon: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z' },
+              { to: '/events', label: 'Events', icon: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z' },
               { to: '/about', label: 'About', icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
             ]).map((link) => (
               <Link
@@ -382,6 +364,17 @@ export default function MainLayout() {
                 {link.label}
               </Link>
             ))}
+            <a
+              href={`${SHOP_URL}?token=${getToken('access_token') || ''}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => { playWhoosh(); setMobileOpen(false) }}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm tracking-widest uppercase font-bold transition-all duration-200 hover:bg-white/5"
+              style={{ color: 'var(--color-nike-light)' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 shrink-0"><path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+              Shop
+            </a>
           </div>
         </div>
       </div>
@@ -399,7 +392,6 @@ export default function MainLayout() {
           </motion.div>
         </AnimatePresence>
       </main>
-      {!location.pathname.startsWith('/messages') && (
       <footer className={'border-t ' + (isLight ? 'bg-white border-nike-gray' : '')} style={!isLight ? { backgroundColor: 'var(--color-nike-dark)', borderColor: 'var(--color-nike-gray)' } : {}}>
         <div className="max-w-7xl mx-auto px-6 py-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
@@ -410,7 +402,7 @@ export default function MainLayout() {
             <div>
               <h4 className={'text-[10px] tracking-widest uppercase font-bold mb-3 ' + (isLight ? 'text-nike-light' : '')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Platform</h4>
               <div className="space-y-2">
-                <Link to="/shop" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Shop</Link>
+                <a href={`${SHOP_URL}?token=${getToken('access_token') || ''}`} target="_blank" rel="noopener noreferrer" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Shop</a>
                 {user?.role !== 'vendor' && <Link to="/forum" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Forum</Link>}
                 <Link to="/gallery" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Gallery</Link>
                 {user?.role !== 'vendor' && <Link to="/community" className={'block text-xs transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'hover:text-white')} style={!isLight ? { color: 'var(--color-nike-light)' } : {}}>Community</Link>}
@@ -448,7 +440,6 @@ export default function MainLayout() {
           </div>
         </div>
       </footer>
-      )}
       <ToastContainer />
     </div>
   )

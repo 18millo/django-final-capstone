@@ -12,21 +12,31 @@ export default function AdminPage() {
   const { user } = useAuth()
   const { theme } = useTheme()
   const isLight = theme === 'light'
+  const [tab, setTab] = useState('users')
   const [users, setUsers] = useState([])
+  const [brands, setBrands] = useState([])
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState(null)
   const [blockingId, setBlockingId] = useState(null)
+  const [approvingBrandId, setApprovingBrandId] = useState(null)
 
   const textClass = isLight ? 'text-nike-black' : 'text-white'
   const mutedClass = isLight ? 'text-nike-light' : 'text-white/40'
   const borderClass = isLight ? 'border-nike-gray' : 'border-white/10'
 
   useEffect(() => {
-    api.get('/auth/admin/users/')
-      .then((res) => setUsers(res.data))
-      .catch(() => toast('Failed to load users', 'error'))
-      .finally(() => setLoading(false))
-  }, [])
+    if (tab === 'users') {
+      api.get('/auth/admin/users/')
+        .then((res) => setUsers(res.data))
+        .catch(() => toast('Failed to load users', 'error'))
+        .finally(() => setLoading(false))
+    } else {
+      api.get('/shop/admin/brands/')
+        .then((res) => setBrands(res.data))
+        .catch(() => toast('Failed to load brands', 'error'))
+        .finally(() => setLoading(false))
+    }
+  }, [tab])
 
   const handleRoleChange = async (userId, newRole) => {
     playClick()
@@ -68,12 +78,87 @@ export default function AdminPage() {
     <div className={'min-h-[calc(100vh-4rem)] ' + (isLight ? 'bg-nike-gray/20' : 'bg-nike-black')}>
       <div className={'border-b ' + borderClass}>
         <div className="max-w-7xl mx-auto px-6 py-6">
-          <h1 className={'text-2xl font-black tracking-tight ' + textClass}>Admin Panel</h1>
-          <p className={'text-sm mt-0.5 ' + mutedClass}>Manage users, roles, and messaging permissions</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className={'text-2xl font-black tracking-tight ' + textClass}>Admin Panel</h1>
+              <p className={'text-sm mt-0.5 ' + mutedClass}>Manage users, brands, and platform settings</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => { playClick(); setTab('users') }} className={'px-4 py-2 rounded-xl text-xs tracking-widest uppercase font-bold transition-all ' + (tab === 'users' ? 'bg-nike-red text-white' : (isLight ? 'bg-nike-gray/30 text-nike-light hover:bg-nike-gray/50' : 'bg-white/10 text-white/40 hover:bg-white/20'))}>Users</button>
+              <button onClick={() => { playClick(); setTab('brands') }} className={'px-4 py-2 rounded-xl text-xs tracking-widest uppercase font-bold transition-all ' + (tab === 'brands' ? 'bg-nike-red text-white' : (isLight ? 'bg-nike-gray/30 text-nike-light hover:bg-nike-gray/50' : 'bg-white/10 text-white/40 hover:bg-white/20'))}>Brands</button>
+            </div>
+          </div>
         </div>
       </div>
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className={'rounded-2xl border overflow-hidden liquid-glass-card ' + borderClass}>
+
+        {tab === 'brands' ? (
+          <div className={'rounded-2xl border overflow-hidden liquid-glass-card ' + borderClass}>
+            {loading ? (
+              <div className="flex justify-center py-12"><Spinner /></div>
+            ) : brands.length === 0 ? (
+              <div className="text-center py-12">
+                <p className={'text-sm ' + mutedClass}>No brands registered yet.</p>
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className={isLight ? 'bg-nike-gray/30' : 'bg-white/5'}>
+                    <th className={'px-4 py-3 text-left text-xs tracking-widest uppercase font-bold ' + mutedClass}>ID</th>
+                    <th className={'px-4 py-3 text-left text-xs tracking-widest uppercase font-bold ' + mutedClass}>Name</th>
+                    <th className={'px-4 py-3 text-left text-xs tracking-widest uppercase font-bold ' + mutedClass}>Created By</th>
+                    <th className={'px-4 py-3 text-left text-xs tracking-widest uppercase font-bold ' + mutedClass}>Status</th>
+                    <th className={'px-4 py-3 text-left text-xs tracking-widest uppercase font-bold ' + mutedClass}>Created</th>
+                    <th className={'px-4 py-3 text-left text-xs tracking-widest uppercase font-bold ' + mutedClass}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {brands.map((b) => (
+                    <tr key={b.id} className={'border-t ' + (isLight ? 'border-nike-gray/50 hover:bg-nike-gray/20' : 'border-white/5 hover:bg-white/5')}>
+                      <td className={'px-4 py-3 ' + mutedClass}>{b.id}</td>
+                      <td className={'px-4 py-3 ' + textClass}>
+                        <span className="font-bold">{b.name}</span>
+                        {b.description && <p className={'text-xs ' + mutedClass}>{b.description}</p>}
+                      </td>
+                      <td className={'px-4 py-3 ' + mutedClass}>{b.created_by || '—'}</td>
+                      <td className="px-4 py-3">
+                        <span className={'text-xs font-bold px-2 py-1 rounded-full ' + (b.is_approved ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-nike-amber/10 text-nike-amber border border-nike-amber/20')}>
+                          {b.is_approved ? 'Approved' : 'Pending'}
+                        </span>
+                      </td>
+                      <td className={'px-4 py-3 ' + mutedClass}>{b.created_at ? new Date(b.created_at).toLocaleDateString() : '—'}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={async () => {
+                            playClick()
+                            setApprovingBrandId(b.id)
+                            try {
+                              const res = await api.post(`/shop/admin/brands/${b.id}/toggle-approval/`)
+                              setBrands((prev) => prev.map((x) => x.id === b.id ? res.data : x))
+                              playSuccess()
+                              toast(res.data.is_approved ? 'Brand approved' : 'Brand unapproved', 'success')
+                            } catch {
+                              toast('Failed to toggle approval', 'error')
+                            } finally {
+                              setApprovingBrandId(null)
+                            }
+                          }}
+                          disabled={approvingBrandId === b.id}
+                          className={'text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors ' + (b.is_approved
+                            ? (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-gray/50' : 'border-white/10 text-white/40 hover:bg-white/10')
+                            : 'bg-nike-red text-white border-nike-red hover:bg-white hover:text-nike-black'
+                          )}
+                        >
+                          {approvingBrandId === b.id ? '...' : b.is_approved ? 'Revoke' : 'Approve'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className={isLight ? 'bg-nike-gray/30' : 'bg-white/5'}>
@@ -126,7 +211,7 @@ export default function AdminPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        )}
       </div>
     </div>
   )

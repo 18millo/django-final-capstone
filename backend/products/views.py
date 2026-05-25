@@ -8,12 +8,11 @@ from django.views.decorators.cache import cache_page
 from rest_framework import status, permissions, generics, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from common.permissions import IsVendor, IsSeller, IsPremium
+
 from accounts.models import User
 from .models import Category, Product, ProductVariant, Drop, DropNotification, Cart, CartItem, Order, Favorite, ProductComment
 from .serializers import (
     CategorySerializer, ProductListSerializer, ProductDetailSerializer,
-    VendorProductSerializer,
     DropSerializer, CartSerializer, CartItemSerializer, OrderSerializer, FavoriteSerializer,
     ProductCommentSerializer,
 )
@@ -31,7 +30,7 @@ class ProductListView(generics.ListAPIView):
         return {'request': self.request}
 
     def get_queryset(self):
-        qs = Product.objects.select_related('category').all()
+        qs = Product.objects.select_related('category').filter(is_visible=True)
         category = self.request.query_params.get('category')
         brand = self.request.query_params.get('brand')
         sport = self.request.query_params.get('sport')
@@ -211,77 +210,6 @@ class OrderDetailView(generics.RetrieveAPIView):
         return Order.objects.filter(user=self.request.user)
 
 
-class SellerOrderListView(generics.ListAPIView):
-    permission_classes = [permissions.IsAuthenticated, IsSeller, IsPremium]
-    serializer_class = OrderSerializer
-
-    def get_queryset(self):
-        user = self.request.user
-        if user.role not in ('vendor', 'coach', 'gym_owner'):
-            return Order.objects.none()
-        vendor_product_ids = list(Product.objects.filter(vendor=user).values_list('id', flat=True))
-        all_orders = Order.objects.all().order_by('-created_at')
-        matching = []
-        for order in all_orders:
-            for item in order.items:
-                if item.get('product_id') in vendor_product_ids:
-                    matching.append(order.id)
-                    break
-        return Order.objects.filter(id__in=matching).order_by('-created_at')
-
-
-class OrderConfirmView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsSeller, IsPremium]
-
-    def post(self, request, pk):
-        try:
-            order = Order.objects.get(pk=pk)
-        except Order.DoesNotExist:
-            return Response({'error': 'Order not found'}, status=404)
-
-        vendor_product_ids = list(Product.objects.filter(vendor=request.user).values_list('id', flat=True))
-        has_vendor_product = any(item.get('product_id') in vendor_product_ids for item in order.items)
-        if not has_vendor_product:
-            return Response({'error': 'This order does not contain your products'}, status=403)
-
-        if order.status != 'pending':
-            return Response({'error': 'Order has already been confirmed or processed'}, status=400)
-
-        order.status = 'confirmed'
-        order.save()
-
-        items_summary = '\n'.join(
-            f"  • {item.get('product_name', 'Item')} x{item.get('quantity', 1)} — ${float(item.get('total', 0)):.2f}"
-            for item in order.items
-        )
-        addr = order.shipping_address or {}
-        ship_str = f"{addr.get('line1', '')}\n{addr.get('line2', '')}\n{addr.get('city', '')}, {addr.get('state', '')} {addr.get('zip', '')}\n{addr.get('country', '')}".strip()
-
-        try:
-            send_mail(
-                subject=f'Order #{order.id} Confirmed — CombatHub',
-                message=(
-                    f'Hi {order.user.display_name or order.user.username or order.user.email},\n\n'
-                    f'Your order #{order.id} has been confirmed by the seller!\n\n'
-                    f'Items:\n{items_summary}\n\n'
-                    f'Total: ${float(order.total):.2f}\n'
-                    f'Payment: {order.payment_method.upper()}\n\n'
-                    f'Shipping to:\n{ship_str}\n\n'
-                    f'You can track your order status anytime at:\n'
-                    f'{settings.FRONTEND_URL}/orders/{order.id}\n\n'
-                    f'Thank you for shopping on CombatHub!\n'
-                    f'- The CombatHub Team'
-                ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[order.user.email],
-                fail_silently=False,
-            )
-        except Exception:
-            pass
-
-        return Response(OrderSerializer(order).data)
-
-
 class CheckoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -363,7 +291,7 @@ class CheckoutView(APIView):
                             f'Customer: {request.user.display_name or request.user.email}\n'
                             f'Order total: ${float(total):.2f}\n\n'
                             f'View your orders at:\n'
-                            f'{settings.FRONTEND_URL}/seller/orders\n\n'
+                            f'{settings.SHOP_URL}/orders\n\n'
                             f'- The CombatHub Team'
                         ),
                         from_email=settings.DEFAULT_FROM_EMAIL,
@@ -398,85 +326,6 @@ class FavoriteToggleView(APIView):
             return Response({'favorited': False})
         Favorite.objects.create(user=request.user, product=product)
         return Response({'favorited': True}, status=201)
-
-
-class VendorProductListView(generics.ListCreateAPIView):
-    permission_classes = [permissions.IsAuthenticated, IsVendor]
-    serializer_class = VendorProductSerializer
-
-    def get_queryset(self):
-        return Product.objects.filter(vendor=self.request.user)
-
-    def perform_create(self, serializer):
-        from common.permissions import IsPremium
-        if not IsPremium().has_permission(self.request, self):
-            raise permissions.exceptions.PermissionDenied(detail='Premium subscription required to sell products. Start your free trial today!')
-        serializer.save(vendor=self.request.user)
-
-    def get_serializer_context(self):
-        return {'request': self.request}
-
-
-class VendorProductDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [permissions.IsAuthenticated, IsVendor]
-    serializer_class = VendorProductSerializer
-
-    def get_queryset(self):
-        return Product.objects.filter(vendor=self.request.user)
-
-    def perform_update(self, serializer):
-        from common.permissions import IsPremium
-        if not IsPremium().has_permission(self.request, self):
-            raise permissions.exceptions.PermissionDenied(detail='Premium subscription required to edit products.')
-        serializer.save()
-
-    def perform_destroy(self, instance):
-        from common.permissions import IsPremium
-        if not IsPremium().has_permission(self.request, self):
-            raise permissions.exceptions.PermissionDenied(detail='Premium subscription required to delete products.')
-        instance.delete()
-
-    def get_serializer_context(self):
-        return {'request': self.request}
-
-
-class VendorProductToggleDiscountView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsVendor]
-
-    def post(self, request, product_id):
-        from common.permissions import IsPremium
-        if not IsPremium().has_permission(self.request, self):
-            return Response({'error': 'Premium subscription required to manage discounts.'}, status=403)
-        product = Product.objects.filter(id=product_id, vendor=request.user).first()
-        if not product:
-            return Response({'error': 'Product not found'}, status=404)
-        product.discount_active = not product.discount_active
-        product.save()
-        return Response({'discount_active': product.discount_active})
-
-
-class ProductImageUploadView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsVendor]
-
-    def post(self, request):
-        from common.permissions import IsPremium
-        if not IsPremium().has_permission(self.request, self):
-            return Response({'error': 'Premium subscription required to upload images.'}, status=403)
-        file = request.FILES.get('image')
-        category_slug = request.data.get('category', 'other')
-        if not file:
-            return Response({'error': 'No image provided'}, status=400)
-        import uuid, os
-        ext = os.path.splitext(file.name)[1] or '.jpg'
-        category_folder = category_slug.replace(' ', '-').lower()
-        filename = f'products/{category_folder}/{uuid.uuid4().hex}{ext}'
-        path = os.path.join(settings.MEDIA_ROOT, filename)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'wb+') as f:
-            for chunk in file.chunks():
-                f.write(chunk)
-        url = request.build_absolute_uri(f'{settings.MEDIA_URL}{filename}')
-        return Response({'url': url}, status=201)
 
 
 class FollowedVendorProductsView(APIView):

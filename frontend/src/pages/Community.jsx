@@ -466,7 +466,7 @@ export default function Community() {
                               </button>
                             </>
                           )}
-                          {user && user.role === 'athlete' && user.id !== u.id && (
+                          {user && ['athlete', 'coach'].includes(user.role) && user.id !== u.id && (
                             <button
                               onClick={() => toggleFollow(u.id, u.is_following)}
                               className={'shrink-0 text-xs tracking-widest uppercase font-bold px-4 py-2 rounded-full transition-all duration-300 ' + (u.is_following

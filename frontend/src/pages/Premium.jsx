@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../providers/ThemeProvider'
 import { useAuth } from '../providers/AuthProvider'
+import { getToken } from '../utils/api'
+const SHOP_URL = import.meta.env.VITE_SHOP_URL || 'http://localhost:5174'
 
 const BG = 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1920&q=80'
 
@@ -179,22 +181,14 @@ export default function Premium() {
               className="inline-flex items-center gap-2 bg-nike-red hover:bg-white hover:text-nike-black text-white px-8 py-4 rounded-full text-sm tracking-widest uppercase font-bold transition-all duration-300"
             >
               Sign Up to Get Started
-            </Link>
-          )}
-        </div>
-
-        {/* Who needs Premium */}
-        <div className={'rounded-3xl border p-8 md:p-12 mb-12 backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
-          <h2 className={'text-xl font-black tracking-tight mb-6 text-center ' + (isLight ? 'text-nike-black' : 'text-white')}>
-            Who Needs Premium?
-          </h2>
-          <div className={'grid gap-6 mx-auto ' + roleGridCols}>
+              </Link>
+            )}
             {(!isAthlete || !user) && (
-              <Link to="/shop" className={cardClass(true)}>
+              <a href={`${SHOP_URL}?token=${getToken('access_token') || ''}`} target="_blank" rel="noopener noreferrer" className={cardClass(true)}>
                 <div className="text-3xl mb-3">🏪</div>
                 <h3 className={'font-bold text-sm tracking-widest uppercase mb-2 ' + (isLight ? 'text-nike-black' : 'text-white')}>Vendors</h3>
                 <p className={'text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Sell products, manage inventory, view sales stats</p>
-              </Link>
+              </a>
             )}
             {(!isAthlete || !user) && (
               <Link to="/community" className={cardClass(true)}>
@@ -228,7 +222,6 @@ export default function Premium() {
                 ? 'Business roles require Premium to unlock selling, dashboards, gallery uploads, and analytics.'
                 : 'Athletes and regular users can use CombatHub for free. Premium gives everyone extra perks.'}
           </p>
-        </div>
 
         {/* Athlete Premium Features */}
         {(!isBusiness || !user) && (

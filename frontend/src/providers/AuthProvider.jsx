@@ -100,6 +100,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     clearTokens()
     setRememberFlag(false)
+    document.cookie = 'shop_active=; path=/; domain=localhost; max-age=0; SameSite=Lax'
     setUser(null)
     navigate('/login')
   }

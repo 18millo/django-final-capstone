@@ -44,9 +44,8 @@ export default function EmailVerify() {
     setVerifying(true)
     try {
       await api.post('/auth/email/verify/', { code })
-      await refreshUser()
       toast('Email verified!', 'success')
-      navigate('/', { replace: true })
+      window.location.href = '/'
     } catch (err) {
       toast(err.response?.data?.error || 'Invalid code', 'error')
     } finally {

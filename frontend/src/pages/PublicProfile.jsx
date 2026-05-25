@@ -101,7 +101,7 @@ export default function PublicProfile() {
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                {!isOwn && user?.role === 'athlete' && (
+                {!isOwn && ['athlete', 'coach'].includes(user?.role) && (
                   <button
                     onClick={toggleFollow}
                     className={'shrink-0 text-xs tracking-widest uppercase font-bold px-6 py-3 rounded-full transition-all duration-300 ' + (profile.is_following

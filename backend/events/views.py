@@ -11,7 +11,10 @@ class EventListView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         qs = Event.objects.select_related('organizer').prefetch_related('participants').all()
-        if not self.request.user.is_staff and self.request.method == 'GET':
+        mine = self.request.query_params.get('mine')
+        if mine and mine.lower() == 'true' and self.request.user.is_authenticated:
+            qs = qs.filter(organizer=self.request.user)
+        elif not self.request.user.is_staff and self.request.method == 'GET':
             qs = qs.filter(is_published=True)
         event_type = self.request.query_params.get('type')
         if event_type:

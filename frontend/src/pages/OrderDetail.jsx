@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useTheme } from '../providers/ThemeProvider'
-import api from '../utils/api'
+import api, { getToken } from '../utils/api'
 import Spinner from '../components/ui/Spinner'
 import Reveal from '../components/ui/Reveal'
+const SHOP_URL = import.meta.env.VITE_SHOP_URL || 'http://localhost:5174'
 
 const BG = 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=1920&q=80'
 
@@ -86,9 +87,9 @@ export default function OrderDetail() {
         </div>
 
         <div className="mt-6 text-center">
-          <Link to="/shop" className={'inline-flex items-center gap-2 text-xs tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')}>
+          <a href={`${SHOP_URL}?token=${getToken('access_token') || ''}`} target="_blank" rel="noopener noreferrer" className={'inline-flex items-center gap-2 text-xs tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')}>
             Continue Shopping <span>→</span>
-          </Link>
+          </a>
         </div>
       </div>
     </div>

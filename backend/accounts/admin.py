@@ -1,12 +1,21 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
+from django.utils import timezone
 from .models import User, Profile, UsernameChange, SiteContent, VendorAccessCode, Post, PostComment, PostLike, GalleryItem, GalleryLike, GalleryComment, Bookmark, Report, BlockedUser, PostCommentLike, ContentFlag, IPLog, PaymentInfo, PhoneVerificationCode, Group, GroupMember, GroupMessage, Notification, Follow, Message, EmailVerificationCode
+
+
+class VendorProfileInline(admin.StackedInline):
+    from shop.models import VendorProfile
+    model = VendorProfile
+    can_delete = False
+    verbose_name = 'Vendor Profile (Shop)'
+    verbose_name_plural = 'Vendor Profile (Shop)'
 
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ('email', 'username', 'display_name', 'avatar_preview', 'role', 'is_premium', 'messaging_blocked', 'is_active', 'is_staff', 'created_at')
+    list_display = ('email', 'username', 'display_name', 'avatar_preview', 'role', 'is_premium', 'premium_status', 'messaging_blocked', 'is_active', 'is_staff', 'created_at')
     list_filter = ('role', 'is_active', 'is_staff', 'profile__is_premium', 'messaging_blocked')
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
@@ -22,8 +31,10 @@ class UserAdmin(BaseUserAdmin):
             'fields': ('email', 'password1', 'password2', 'role'),
         }),
     )
+    inlines = [VendorProfileInline]
     search_fields = ('email', 'username', 'display_name')
     ordering = ('email',)
+    actions = ['make_premium', 'remove_premium']
 
     def is_premium(self, obj):
         return obj.profile.is_premium
@@ -31,26 +42,76 @@ class UserAdmin(BaseUserAdmin):
     is_premium.short_description = 'Premium'
     is_premium.admin_order_field = 'profile__is_premium'
 
+    def premium_status(self, obj):
+        p = obj.profile
+        if not p.is_premium:
+            return 'Not premium'
+        now = timezone.now()
+        if p.premium_grace_end and p.premium_grace_end > now:
+            remaining = (p.premium_grace_end - now).days
+            return f'Grace ({remaining}d)'
+        if p.premium_expires_at and p.premium_expires_at > now:
+            remaining = (p.premium_expires_at - now).days
+            return f'Active ({remaining}d)'
+        return 'Expired'
+    premium_status.short_description = 'Premium Status'
+
     def avatar_preview(self, obj):
         if obj.profile and obj.profile.avatar:
             return format_html('<img src="{}" width="40" height="40" style="object-fit:cover;border-radius:50%" />', obj.profile.avatar.url)
         return ''
     avatar_preview.short_description = 'Avatar'
 
+    def make_premium(self, request, queryset):
+        updated = 0
+        for user in queryset:
+            profile = user.profile
+            profile.is_premium = True
+            if not profile.premium_expires_at or profile.premium_expires_at < timezone.now():
+                profile.premium_expires_at = timezone.now() + timezone.timedelta(days=365)
+            profile.save(update_fields=['is_premium', 'premium_expires_at'])
+            updated += 1
+        self.message_user(request, f'{updated} user(s) set to premium.')
+    make_premium.short_description = 'Set selected users as Premium'
+
+    def remove_premium(self, request, queryset):
+        updated = queryset.update(profile__is_premium=False)
+        self.message_user(request, f'{updated} user(s) had premium removed.')
+    remove_premium.short_description = 'Remove Premium from selected users'
+
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ('avatar_preview', 'user', 'vendor_access_code', 'weight_class', 'stance', 'phone', 'is_premium', 'messaging_enabled')
+    list_display = ('avatar_preview', 'user', 'role', 'vendor_access_code', 'weight_class', 'stance', 'phone', 'is_premium', 'premium_expiry', 'messaging_enabled')
     list_filter = ('is_premium', 'weight_class', 'stance')
     search_fields = ('user__email', 'business_name', 'vendor_access_code')
     list_editable = ('is_premium',)
     readonly_fields = ('avatar_preview', 'vendor_access_code')
+    fieldsets = (
+        (None, {'fields': ('user', 'avatar_preview', 'avatar', 'bio', 'phone')}),
+        ('Fighter Info', {'fields': ('weight_class', 'height_ft', 'height_in', 'reach_in', 'stance'), 'classes': ('collapse',)}),
+        ('Premium', {'fields': ('is_premium', 'premium_trial_started', 'premium_trial_used', 'premium_expires_at', 'premium_grace_end', 'show_views_publicly'), 'classes': ('expand',)}),
+        ('Settings', {'fields': ('messaging_enabled', 'phone_verified', 'accepted_terms', 'accepted_terms_at')}),
+    )
 
     def avatar_preview(self, obj):
         if obj.avatar:
             return format_html('<img src="{}" width="60" height="60" style="object-fit:cover;border-radius:8px" />', obj.avatar.url)
         return ''
     avatar_preview.short_description = 'Avatar'
+
+    def role(self, obj):
+        return obj.user.role
+    role.short_description = 'Role'
+
+    def premium_expiry(self, obj):
+        if obj.is_premium:
+            if obj.premium_grace_end and obj.premium_grace_end > timezone.now():
+                return f'Grace: {obj.premium_grace_end.strftime("%Y-%m-%d")}'
+            if obj.premium_expires_at:
+                return obj.premium_expires_at.strftime('%Y-%m-%d')
+        return '-'
+    premium_expiry.short_description = 'Premium Expiry'
 
 
 @admin.register(UsernameChange)

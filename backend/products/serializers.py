@@ -7,11 +7,41 @@ from accounts.serializers import PublicUserSerializer, resolve_avatar
 class VendorInfoSerializer(serializers.Serializer):
     id = serializers.IntegerField(source='vendor.id')
     username = serializers.CharField(source='vendor.username')
-    business_name = serializers.CharField(source='vendor.profile.business_name', default='')
-    business_location = serializers.CharField(source='vendor.profile.business_location', default='')
-    business_description = serializers.CharField(source='vendor.profile.business_description', default='')
-    latitude = serializers.FloatField(source='vendor.profile.latitude', default=None)
-    longitude = serializers.FloatField(source='vendor.profile.longitude', default=None)
+    business_name = serializers.SerializerMethodField()
+    business_location = serializers.SerializerMethodField()
+    business_description = serializers.SerializerMethodField()
+    latitude = serializers.SerializerMethodField()
+    longitude = serializers.SerializerMethodField()
+
+    def get_business_name(self, obj):
+        try:
+            return obj.vendor.vendor_profile.business_name
+        except Exception:
+            return ''
+
+    def get_business_location(self, obj):
+        try:
+            return obj.vendor.vendor_profile.business_location
+        except Exception:
+            return ''
+
+    def get_business_description(self, obj):
+        try:
+            return obj.vendor.vendor_profile.business_description
+        except Exception:
+            return ''
+
+    def get_latitude(self, obj):
+        try:
+            return obj.vendor.vendor_profile.latitude
+        except Exception:
+            return None
+
+    def get_longitude(self, obj):
+        try:
+            return obj.vendor.vendor_profile.longitude
+        except Exception:
+            return None
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -27,13 +57,14 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 
 class ProductListSerializer(serializers.ModelSerializer):
+    category = serializers.IntegerField(source='category_id', read_only=True)
     category_name = serializers.CharField(source='category.name', default='')
     is_favorited = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ('id', 'name', 'slug', 'brand', 'category_name', 'price', 'images',
+        fields = ('id', 'name', 'slug', 'brand', 'category', 'category_name', 'price', 'images',
                   'stock', 'limited_edition', 'featured', 'created_at', 'is_favorited',
                   'discount_active', 'discount_percent')
 
@@ -89,16 +120,27 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     def get_vendor_info(self, obj):
         if not obj.vendor or obj.vendor.role != 'vendor':
             return None
-        p = obj.vendor.profile
-        return {
-            'id': obj.vendor.id,
-            'username': obj.vendor.username or '',
-            'business_name': p.business_name or '',
-            'business_location': p.business_location or '',
-            'business_description': p.business_description or '',
-            'latitude': p.latitude,
-            'longitude': p.longitude,
-        }
+        try:
+            vp = obj.vendor.vendor_profile
+            return {
+                'id': obj.vendor.id,
+                'username': obj.vendor.username or '',
+                'business_name': vp.business_name or '',
+                'business_location': vp.business_location or '',
+                'business_description': vp.business_description or '',
+                'latitude': vp.latitude,
+                'longitude': vp.longitude,
+            }
+        except Exception:
+            return {
+                'id': obj.vendor.id,
+                'username': obj.vendor.username or '',
+                'business_name': '',
+                'business_location': '',
+                'business_description': '',
+                'latitude': None,
+                'longitude': None,
+            }
 
     def get_images(self, obj):
         request = self.context.get('request')
@@ -113,83 +155,6 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             else:
                 result.append(request.build_absolute_uri(f'{settings.MEDIA_URL}{img}') if request else f'{settings.MEDIA_URL}{img}')
         return result
-
-
-class VendorProductSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Product
-        fields = '__all__'
-        read_only_fields = ('vendor', 'created_at', 'updated_at')
-        extra_kwargs = {
-            'slug': {'required': False},
-        }
-
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        request = self.context.get('request')
-        images = data.get('images')
-        if not images:
-            data['images'] = []
-        else:
-            resolved = []
-            for img in images:
-                if not img:
-                    continue
-                if img.startswith('http://') or img.startswith('https://'):
-                    resolved.append(img)
-                else:
-                    resolved.append(request.build_absolute_uri(f'{settings.MEDIA_URL}{img}') if request else f'{settings.MEDIA_URL}{img}')
-            data['images'] = resolved
-        return data
-
-    def validate_images(self, value):
-        if value is None or value == "":
-            return []
-        if isinstance(value, str):
-            try:
-                import json
-                return json.loads(value)
-            except:
-                return [value.strip()] if value.strip() else []
-        if not isinstance(value, list):
-            return [str(value)] if value else []
-        return [img.strip() for img in value if img and str(img).strip()]
-
-    def validate(self, data):
-        from django.utils.text import slugify
-        
-        # 1. Handle Name and Slug
-        name = data.get('name', 'product')
-        if not name:
-            name = 'product'
-        
-        slug = data.get('slug', '').strip()
-        if not slug:
-            slug = slugify(name)
-            
-        import random
-        import string
-        while Product.objects.filter(slug=slug).exists():
-            random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
-            slug = f"{slugify(name)}-{random_str}"
-        data['slug'] = slug
-
-        # 2. Force numeric types to prevent 400 errors from string-numbers
-        for field in ['price', 'stock', 'discount_percent']:
-            if field in data and data[field] is not None:
-                try:
-                    data[field] = float(data[field])
-                except (ValueError, TypeError):
-                    data[field] = 0.0 if field == 'price' else 0
-
-        return data
-
-    def create(self, validated_data):
-        request = self.context.get('request')
-        if request and request.user:
-            validated_data['vendor'] = request.user
-        return super().create(validated_data)
-
 
 
 

@@ -34,10 +34,11 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     stock = models.IntegerField(default=0)
     limited_edition = models.BooleanField(default=False)
-    serial_number = models.CharField(max_length=100, blank=True)
+    serial_number = models.CharField(max_length=50, unique=True, blank=True)
     drop_date = models.DateTimeField(null=True, blank=True)
     featured = models.BooleanField(default=False)
     vendor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
+    is_visible = models.BooleanField(default=True)
     discount_active = models.BooleanField(default=False)
     discount_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -54,6 +55,17 @@ class Product(models.Model):
         if not self.slug:
             from django.utils.text import slugify
             self.slug = slugify(self.name)
+        if not self.serial_number and self.vendor_id:
+            vendor_prefix = f"CS-{self.vendor_id:04d}"
+            last_product = Product.objects.filter(
+                vendor_id=self.vendor_id,
+                serial_number__startswith=vendor_prefix,
+            ).order_by('id').last()
+            if last_product and last_product.serial_number:
+                last_seq = int(last_product.serial_number.split('-')[-1])
+                self.serial_number = f"{vendor_prefix}-{last_seq + 1:04d}"
+            else:
+                self.serial_number = f"{vendor_prefix}-0001"
         super().save(*args, **kwargs)
 
     def __str__(self):

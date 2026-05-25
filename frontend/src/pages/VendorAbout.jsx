@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTheme } from '../providers/ThemeProvider'
-import api from '../utils/api'
+import api, { getToken } from '../utils/api'
 import Spinner from '../components/ui/Spinner'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { mediaUrl } from '../utils/media'
+const SHOP_URL = import.meta.env.VITE_SHOP_URL || 'http://localhost:5174'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -48,9 +49,9 @@ export default function VendorAbout() {
       {/* Header */}
       <div className={'border-b ' + borderClass}>
         <div className="max-w-6xl mx-auto px-6 py-8">
-          <Link to="/shop" className={'text-xs tracking-widest uppercase font-bold transition-colors ' + mutedClass + ' hover:' + (isLight ? 'text-nike-black' : 'text-white')}>
+          <a href={`${SHOP_URL}?token=${getToken('access_token') || ''}`} target="_blank" rel="noopener noreferrer" className={'text-xs tracking-widest uppercase font-bold transition-colors ' + mutedClass + ' hover:' + (isLight ? 'text-nike-black' : 'text-white')}>
             ← Back to Shop
-          </Link>
+          </a>
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mt-4">
             <div className="flex items-center gap-5">
               <div className="w-20 h-20 rounded-2xl overflow-hidden bg-nike-gray/20">
@@ -90,10 +91,12 @@ export default function VendorAbout() {
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {products.map((product) => (
-                  <Link
+                  <a
                     key={product.id}
-                    to={'/shop/' + product.id}
-                    className={'group rounded-xl overflow-hidden border transition-all hover:scale-[1.02] ' + borderClass + ' ' + cardBg}
+                    href={`${SHOP_URL}?token=${getToken('access_token') || ''}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={'group rounded-xl overflow-hidden border transition-all hover:scale-[1.02] ' + borderClass + ' ' + cardBg + ' block'}
                   >
                     <div className="aspect-square overflow-hidden">
                       <img src={product.images?.[0] || ''} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
@@ -102,7 +105,7 @@ export default function VendorAbout() {
                       <p className={'text-xs font-bold truncate ' + textClass}>{product.name}</p>
                       <p className="text-xs font-black text-nike-red mt-1">${parseFloat(product.price).toFixed(2)}</p>
                     </div>
-                  </Link>
+                  </a>
                 ))}
               </div>
             )}

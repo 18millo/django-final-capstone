@@ -17,15 +17,8 @@ import PostDetail from './pages/PostDetail'
 import CreatePost from './pages/CreatePost'
 import Messages from './pages/Messages'
 import PublicProfile from './pages/PublicProfile'
-import Shop from './pages/Shop'
-import ProductDetail from './pages/ProductDetail'
-import Cart from './pages/Cart'
-import Checkout from './pages/Checkout'
 import OrderHistory from './pages/OrderHistory'
 import OrderDetail from './pages/OrderDetail'
-import SellerOrders from './pages/SellerOrders'
-import VendorDashboard from './pages/VendorDashboard'
-import VendorProductForm from './pages/VendorProductForm'
 import CoachDashboard from './pages/CoachDashboard'
 import GymOwnerDashboard from './pages/GymOwnerDashboard'
 import VerifyLogin from './pages/VerifyLogin'
@@ -45,6 +38,10 @@ import Newsletter from './pages/Newsletter'
 import ContactUs from './pages/ContactUs'
 import Help from './pages/Help'
 import AdminPage from './pages/AdminPage'
+import Events from './pages/Events'
+import EventDetail from './pages/EventDetail'
+import EventForm from './pages/EventForm'
+import MyEvents from './pages/MyEvents'
 import Spinner from './components/ui/Spinner'
 
 function ProtectedRoute({ children, requireVerified }) {
@@ -119,16 +116,8 @@ export default function AppRoutes() {
         <Route path="/profile" element={<ProtectedRoute><ProfileView /></ProtectedRoute>} />
         <Route path="/profile/:id" element={<ProtectedRoute><PublicProfile /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute requireVerified={false}><Settings /></ProtectedRoute>} />
-        <Route path="/shop" element={<Shop />} />
-        <Route path="/shop/:id" element={<ProductDetail />} />
-        <Route path="/cart" element={<AthleteRoute><Cart /></AthleteRoute>} />
-        <Route path="/checkout" element={<AthleteRoute><Checkout /></AthleteRoute>} />
-        <Route path="/orders" element={<AthleteRoute><OrderHistory /></AthleteRoute>} />
-        <Route path="/orders/:id" element={<AthleteRoute><OrderDetail /></AthleteRoute>} />
-        <Route path="/seller/orders" element={<ProtectedRoute><SellerOrders /></ProtectedRoute>} />
-        <Route path="/vendor" element={<SellerRoute><VendorDashboard /></SellerRoute>} />
-        <Route path="/vendor/products/new" element={<VendorRoute><VendorProductForm /></VendorRoute>} />
-        <Route path="/vendor/products/:id/edit" element={<VendorRoute><VendorProductForm /></VendorRoute>} />
+        <Route path="/orders" element={<ProtectedRoute><OrderHistory /></ProtectedRoute>} />
+        <Route path="/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
         <Route path="/vendor/:id" element={<VendorAbout />} />
         <Route path="/coach" element={<CoachRoute><CoachDashboard /></CoachRoute>} />
         <Route path="/gym-dashboard" element={<SellerRoute><GymOwnerDashboard /></SellerRoute>} />
@@ -143,6 +132,11 @@ export default function AppRoutes() {
         <Route path="/groups/:id" element={<ProtectedRoute><NonVendorRoute><GroupDetail /></NonVendorRoute></ProtectedRoute>} />
         <Route path="/2fa/setup" element={<ProtectedRoute><TotpSetup /></ProtectedRoute>} />
         <Route path="/premium/setup" element={<ProtectedRoute><PaymentSetup /></ProtectedRoute>} />
+        <Route path="/events" element={<Events />} />
+        <Route path="/events/new" element={<SellerRoute><EventForm /></SellerRoute>} />
+        <Route path="/events/:id" element={<EventDetail />} />
+        <Route path="/events/:id/edit" element={<SellerRoute><EventForm /></SellerRoute>} />
+        <Route path="/my-events" element={<SellerRoute><MyEvents /></SellerRoute>} />
         <Route path="/newsletter" element={<Newsletter />} />
         <Route path="/verify-email" element={<ProtectedRoute requireVerified={false}><EmailVerify /></ProtectedRoute>} />
         <Route path="/username-setup" element={<PublicRoute><AuthLayout><UsernameSetup /></AuthLayout></PublicRoute>} />

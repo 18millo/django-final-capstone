@@ -1,5 +1,4 @@
 let ctx = null
-let soundEnabled = true
 
 function getCtx() {
   try {
@@ -7,14 +6,6 @@ function getCtx() {
     if (ctx.state === 'suspended') ctx.resume().catch(() => {})
   } catch {}
   return ctx
-}
-
-export function isSoundMuted() {
-  return !soundEnabled
-}
-
-export function setSoundEnabled(on) {
-  soundEnabled = on
 }
 
 function sine(c, freq, dur, vol) {
@@ -53,7 +44,6 @@ function noise(c, dur, vol, lpFreq) {
 }
 
 export function playClick() {
-  if (!soundEnabled) return
   try {
     const c = getCtx()
     sine(c, 1200, 0.04, 0.08)
@@ -62,7 +52,6 @@ export function playClick() {
 }
 
 export function playHover() {
-  if (!soundEnabled) return
   try {
     const c = getCtx()
     sine(c, 1500, 0.03, 0.03)
@@ -70,14 +59,12 @@ export function playHover() {
 }
 
 export function playWhoosh() {
-  if (!soundEnabled) return
   try {
     noise(getCtx(), 0.12, 0.04, 2000)
   } catch {}
 }
 
 export function playBell() {
-  if (!soundEnabled) return
   try {
     const c = getCtx()
     sine(c, 880, 0.8, 0.12)
@@ -87,7 +74,6 @@ export function playBell() {
 }
 
 export function playSuccess() {
-  if (!soundEnabled) return
   try {
     const c = getCtx()
     sine(c, 1047, 0.1, 0.1)
@@ -97,73 +83,9 @@ export function playSuccess() {
 }
 
 export function playError() {
-  if (!soundEnabled) return
   try {
     const c = getCtx()
     sine(c, 300, 0.15, 0.08)
     setTimeout(() => sine(c, 200, 0.2, 0.08), 100)
-  } catch {}
-}
-
-let ambientNode = null
-let ambientGain = null
-
-const STORAGE_KEY = 'combathub_ambient'
-
-export function isAmbientEnabled() {
-  return localStorage.getItem(STORAGE_KEY) === 'true'
-}
-
-export function toggleAmbient() {
-  const on = !isAmbientEnabled()
-  localStorage.setItem(STORAGE_KEY, on ? 'true' : 'false')
-  soundEnabled = on
-  if (on) playAmbient()
-  else stopAmbient()
-  return on
-}
-
-export function playAmbient() {
-  try {
-    if (ambientNode) return
-    const c = getCtx()
-    const dur = 4
-    const len = c.sampleRate * dur
-    const b = c.createBuffer(1, len, c.sampleRate)
-    const d = b.getChannelData(0)
-    for (let i = 0; i < d.length; i++) {
-      const t = i / c.sampleRate
-      d[i] = (Math.random() * 2 - 1) * 0.15
-        + Math.sin(t * 55) * 0.08
-        + Math.sin(t * 85) * 0.05
-    }
-    const s = c.createBufferSource()
-    ambientGain = c.createGain()
-    const f = c.createBiquadFilter()
-    s.loop = true
-    s.buffer = b
-    f.type = 'lowpass'
-    f.frequency.setValueAtTime(250, c.currentTime)
-    f.Q.setValueAtTime(0.5, c.currentTime)
-    ambientGain.gain.setValueAtTime(0.025, c.currentTime)
-    s.connect(f)
-    f.connect(ambientGain)
-    ambientGain.connect(c.destination)
-    s.start(c.currentTime)
-    ambientNode = s
-  } catch {}
-}
-
-export function stopAmbient() {
-  try {
-    if (ambientGain) {
-      ambientGain.gain.exponentialRampToValueAtTime(0.001, getCtx().currentTime + 0.5)
-      setTimeout(() => {
-        if (ambientNode) {
-          try { ambientNode.stop() } catch {}
-          ambientNode = null
-        }
-      }, 500)
-    }
   } catch {}
 }

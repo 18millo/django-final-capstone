@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../providers/AuthProvider'
 import { useTheme } from '../providers/ThemeProvider'
-import api from '../utils/api'
+import api, { getToken } from '../utils/api'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Spinner from '../components/ui/Spinner'
 import Reveal from '../components/ui/Reveal'
 import { toast } from '../components/ui/Toast'
 import { playSuccess, playClick } from '../utils/sounds'
+const SHOP_URL = import.meta.env.VITE_SHOP_URL || 'http://localhost:5174'
 import { mediaUrl } from '../utils/media'
 import QRCode from 'qrcode'
 import MapPicker from '../components/ui/MapPicker'
@@ -143,9 +144,9 @@ function VendorProducts() {
               {products.map((p) => (
                 <div key={p.id} className={'flex items-center gap-4 p-4 rounded-xl border transition-all hover:scale-[1.002] ' + borderClass} style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)' }}>
                   <div
-                    onClick={() => navigate('/shop/' + p.id)}
+                    onClick={() => window.open(`${SHOP_URL}?token=${getToken('access_token') || ''}`, '_blank')}
                     className="w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-nike-gray/20 cursor-pointer"
-                    title="View as customer"
+                    title="View in Shop"
                   >
                     {p.images?.[0] ? (
                       <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover" />
@@ -167,9 +168,9 @@ function VendorProducts() {
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button
-                      onClick={() => navigate('/shop/' + p.id)}
+                      onClick={() => window.open(`${SHOP_URL}?token=${getToken('access_token') || ''}`, '_blank')}
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] transition-all" style={{ backgroundColor: 'var(--color-nike-gray)', color: 'var(--color-nike-light)' }}
-                      title="View as customer"
+                      title="View in Shop"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     </button>

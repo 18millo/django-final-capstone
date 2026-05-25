@@ -4,7 +4,8 @@ import gsap from 'gsap'
 import Reveal from '../components/ui/Reveal'
 import { useTheme } from '../providers/ThemeProvider'
 import { useAuth } from '../providers/AuthProvider'
-import api from '../utils/api'
+import api, { getToken } from '../utils/api'
+const SHOP_URL = import.meta.env.VITE_SHOP_URL || 'http://localhost:5174'
 import { mediaUrl } from '../utils/media'
 import { playBell } from '../utils/sounds'
 import { ROLE_ICONS, ROLE_LABELS, ROLE_COLORS } from '../utils/roles'
@@ -267,15 +268,15 @@ function HomeMarketing() {
                 <span className="text-nike-red text-xs tracking-widest uppercase font-bold">Featured Gear</span>
                 <h2 className="text-3xl md:text-4xl font-black tracking-tight mt-1">Top Rated Equipment</h2>
               </div>
-              <Link to="/shop" className={'hidden md:flex items-center gap-2 text-xs tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')}>
+              <a href={`${SHOP_URL}?token=${getToken('access_token') || ''}`} target="_blank" rel="noopener noreferrer" className={'hidden md:flex items-center gap-2 text-xs tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')}>
                 View All <span>→</span>
-              </Link>
+              </a>
             </div>
           </Reveal>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {featuredProducts.map((p, i) => (
               <Reveal key={p.id} delay={i * 100} gsap>
-                <Link to={'/shop/' + p.id} className={'group relative rounded-2xl overflow-hidden border transition-all duration-300 hover:scale-[1.02] liquid-glass-card ' + (isLight
+                <a href={`${SHOP_URL}?token=${getToken('access_token') || ''}`} target="_blank" rel="noopener noreferrer" className={'group relative rounded-2xl overflow-hidden border transition-all duration-300 hover:scale-[1.02] liquid-glass-card block ' + (isLight
                   ? 'bg-white border-nike-gray shadow-sm'
                   : 'bg-nike-dark border-white/5'
                 )}>
@@ -290,14 +291,14 @@ function HomeMarketing() {
                     <p className={'text-[10px] ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{p.brand}</p>
                     <p className="text-sm font-black text-nike-red mt-1">${parseFloat(p.price).toFixed(2)}</p>
                   </div>
-                </Link>
+                </a>
               </Reveal>
             ))}
           </div>
           <div className="mt-8 text-center md:hidden">
-            <Link to="/shop" className="inline-flex items-center gap-2 bg-nike-red text-white hover:bg-white hover:text-nike-black px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">
+            <a href={`${SHOP_URL}?token=${getToken('access_token') || ''}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-nike-red text-white hover:bg-white hover:text-nike-black px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">
               View All Gear <span>→</span>
-            </Link>
+            </a>
           </div>
         </div>
       </section>
@@ -488,9 +489,7 @@ function HomeDashboard() {
                   <p className={'mt-2 text-sm ' + (isLight ? 'text-nike-light' : 'text-white/40')}>{user.email} · {user.role.replace('_', ' ')}</p>
                    <div className={'flex gap-4 mt-3 text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
                      <span><strong className={'font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{user.follower_count ?? 0}</strong> followers</span>
-                     {user.role === 'athlete' && (
-                       <span><strong className={'font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{user.following_count ?? 0}</strong> following</span>
-                     )}
+                     <span><strong className={'font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{user.following_count ?? 0}</strong> following</span>
                    </div>
                 </div>
               </div>
@@ -583,9 +582,9 @@ function HomeDashboard() {
             <div className={'mb-12 p-6 rounded-2xl border backdrop-blur-sm liquid-glass-card ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xs tracking-widest uppercase font-bold">{isVendor ? 'My Products' : 'Trending Gear'}</h2>
-                <Link to={isVendor ? '/vendor/products/new' : '/shop'} className={'text-[10px] tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')}>
+                <a href={`${SHOP_URL}?token=${getToken('access_token') || ''}`} target="_blank" rel="noopener noreferrer" className={'text-[10px] tracking-widest uppercase font-bold transition-colors ' + (isLight ? 'text-nike-light hover:text-nike-black' : 'text-white/40 hover:text-white')}>
                   {isVendor ? 'Add New →' : 'Shop All →'}
-                </Link>
+                </a>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {loadingProducts ? (
@@ -595,17 +594,13 @@ function HomeDashboard() {
                 ) : products.map((p) => (
                     <div
                     key={p.id}
-                    onClick={() => navigate('/shop/' + p.id)}
-                    className={'cursor-pointer group relative rounded-xl overflow-hidden border transition-all duration-200 hover:scale-[1.02] liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray' : 'bg-nike-black/60 border-white/5')}
-                  >
-                    {isVendor && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); navigate('/vendor/products/' + p.id + '/edit') }}
-                        className={'absolute top-2 right-2 z-10 w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity ' + (isLight ? 'bg-white/90 text-nike-black shadow-sm' : 'bg-nike-dark/90 text-white')}
+                      onClick={() => window.open(`${SHOP_URL}?token=${getToken('access_token') || ''}`, '_blank')}
+                      className={'cursor-pointer group relative rounded-xl overflow-hidden border transition-all duration-200 hover:scale-[1.02] liquid-glass-card ' + (isLight ? 'bg-white border-nike-gray' : 'bg-nike-black/60 border-white/5')}
+                    >
+                      <button className={'absolute top-2 right-2 z-10 w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity ' + (isLight ? 'bg-white/90 text-nike-black shadow-sm' : 'bg-nike-dark/90 text-white')}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       </button>
-                    )}
                     <div className="aspect-square overflow-hidden bg-nike-gray/20">
                       <img src={p.images?.[0] || ''} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                     </div>

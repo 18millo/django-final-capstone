@@ -6,7 +6,7 @@ from rest_framework import serializers
 from .models import User, Profile, UsernameChange, SiteContent, Follow, Notification, Message, Post, PostLike, PostComment, GalleryItem, GalleryLike, GalleryComment, Bookmark, Report, BlockedUser, PostCommentLike, PaymentInfo, Group, GroupMember, GroupMessage, VendorAccessCode
 
 
-ACCESS_CODE_ROLES = {'vendor', 'coach', 'gym_owner'}
+ACCESS_CODE_ROLES = {'coach', 'gym_owner'}
 
 def generate_access_code():
     return ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
@@ -113,6 +113,10 @@ class RegisterSerializer(serializers.ModelSerializer):
                     code_obj.is_active = False
                     code_obj.save(update_fields=['used_by', 'is_active'])
         profile.save()
+
+        if user.role == 'vendor':
+            from shop.models import VendorProfile
+            VendorProfile.ensure_for_user(user)
 
         return user
 

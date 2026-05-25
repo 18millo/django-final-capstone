@@ -25,6 +25,8 @@ export default function Login() {
         navigate('/verify-login', { state: { email: data.email } })
       } else if (data.requires_access_code) {
         navigate('/verify-access-code', { state: { email: data.email } })
+      } else if (!data.user?.email_verified) {
+        navigate('/verify-email')
       } else {
         navigate('/')
       }

@@ -105,6 +105,13 @@ export default function CoachDashboard() {
                 Browse Athletes
               </button>
               <button
+                onClick={() => { playClick(); navigate('/events/new') }}
+                className={'flex items-center gap-2 px-5 py-3 rounded-xl text-xs tracking-widest uppercase font-bold border transition-all duration-300 ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-gray/50' : 'border-white/10 text-white/40 hover:bg-white/10')}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                New Event
+              </button>
+              <button
                 onClick={() => { playClick(); navigate('/forum') }}
                 className={'flex items-center gap-2 px-5 py-3 rounded-xl text-xs tracking-widest uppercase font-bold border transition-all duration-300 ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-gray/50' : 'border-white/10 text-white/40 hover:bg-white/10')}
               >
