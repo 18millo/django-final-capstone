@@ -5,8 +5,11 @@ import { useTheme } from '../providers/ThemeProvider'
 import api from '../utils/api'
 import Spinner from '../components/ui/Spinner'
 import { mediaUrl } from '../utils/media'
-import { playClick, playSuccess } from '../utils/sounds'
+import { playClick } from '../utils/sounds'
 import { toast } from '../components/ui/Toast'
+import Reveal from '../components/ui/Reveal'
+import { IconCheck, IconTicket, IconUser } from '../components/Icons'
+
 
 const TYPE_ICONS = {
   competition: '🏆',
@@ -38,22 +41,6 @@ export default function EventDetail() {
       .catch(() => navigate('/events'))
       .finally(() => setLoading(false))
   }, [id])
-
-  const handleRegister = async () => {
-    if (!user) { navigate('/login'); return }
-    setRegistering(true)
-    try {
-      await api.post(`/events/${id}/register/`)
-      playSuccess()
-      toast('Registered for event!', 'success')
-      const { data } = await api.get(`/events/${id}/`)
-      setEvent(data)
-    } catch (err) {
-      toast(err.response?.data?.error || 'Registration failed', 'error')
-    } finally {
-      setRegistering(false)
-    }
-  }
 
   const handleUnregister = async () => {
     setRegistering(true)
@@ -95,6 +82,7 @@ export default function EventDetail() {
   const isPast = startDate < new Date()
   const isOwner = user && event.organizer === user.id
   const canManage = isOwner || user?.role === 'coach' || user?.role === 'gym_owner'
+  const ticketsAvail = event.tickets_available
 
   return (
     <div className={'min-h-[calc(100vh-4rem)] ' + (isLight ? 'bg-nike-gray/20' : 'bg-nike-black')}>
@@ -212,6 +200,31 @@ export default function EventDetail() {
                 </div>
               </div>
             </Reveal>
+
+            {event.participants && event.participants.length > 0 && (
+              <Reveal delay={140}>
+                <div className={'p-6 rounded-2xl border ' + borderClass + ' ' + cardBg}>
+                  <h3 className={'text-xs tracking-widest uppercase font-bold mb-4 ' + mutedClass}>
+                    Participants ({event.participants.length})
+                  </h3>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {event.participants.map((p) => (
+                      <div key={p.id} className="flex items-center gap-2">
+                        <div className={'w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold ' + (isLight ? 'bg-nike-gray/50 text-nike-light' : 'bg-white/10 text-white/40')}>
+                          <IconUser className="w-3.5 h-3.5" />
+                        </div>
+                        <span className={'text-sm ' + textClass}>{p.name}</span>
+                        {p.t_shirt_size && (
+                          <span className={'text-[10px] px-1.5 py-0.5 rounded ' + (isLight ? 'bg-nike-gray/50 text-nike-light' : 'bg-white/10 text-white/40')}>
+                            {p.t_shirt_size}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Reveal>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -228,6 +241,16 @@ export default function EventDetail() {
                       {event.max_participants ? ` / ${event.max_participants}` : ''}
                     </span>
                   </div>
+
+                  {ticketsAvail !== null && ticketsAvail !== undefined && (
+                    <div className="flex items-center justify-between">
+                      <span className={'text-xs ' + mutedClass}>Tickets Available</span>
+                      <span className={'text-sm font-bold ' + (ticketsAvail <= 5 && ticketsAvail > 0 ? 'text-nike-red' : textClass)}>
+                        <IconTicket className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />
+                        {ticketsAvail}
+                      </span>
+                    </div>
+                  )}
 
                   {event.entry_fee && (
                     <div className="flex items-center justify-between">
@@ -256,27 +279,36 @@ export default function EventDetail() {
                     ) : isPast ? (
                       <div className={'text-center text-xs ' + mutedClass}>This event has already taken place</div>
                     ) : event.is_registered ? (
-                      <button
-                        onClick={handleUnregister}
-                        disabled={registering}
-                        className={'w-full px-5 py-3 rounded-xl text-xs tracking-widest uppercase font-bold border transition-all ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-gray/50' : 'border-white/10 text-white/40 hover:bg-white/10')}
-                      >
-                        {registering ? '...' : 'Unregister'}
-                      </button>
+                      <>
+                        <Link
+                          to={`/events/${id}/register`}
+                          className={'w-full flex items-center justify-center px-5 py-3 rounded-xl text-xs tracking-widest uppercase font-bold border transition-all mb-3 ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-gray/50' : 'border-white/10 text-white/40 hover:bg-white/10')}
+                        >
+                          View Registration
+                        </Link>
+                        <button
+                          onClick={handleUnregister}
+                          disabled={registering}
+                          className={'w-full px-5 py-3 rounded-xl text-xs tracking-widest uppercase font-bold border transition-all ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-gray/50' : 'border-white/10 text-white/40 hover:bg-white/10')}
+                        >
+                          {registering ? '...' : 'Unregister'}
+                        </button>
+                      </>
+                    ) : ticketsAvail === 0 ? (
+                      <div className={'text-center text-xs ' + mutedClass}>Sold Out</div>
                     ) : (
-                      <button
-                        onClick={handleRegister}
-                        disabled={registering}
-                        className="w-full bg-nike-red text-white hover:bg-white hover:text-nike-black px-5 py-3 rounded-xl text-xs tracking-widest uppercase font-bold transition-all duration-300 shadow-lg shadow-nike-red/30"
+                      <Link
+                        to={`/events/${id}/register`}
+                        className="w-full flex items-center justify-center bg-nike-red text-white hover:bg-white hover:text-nike-black px-5 py-3 rounded-xl text-xs tracking-widest uppercase font-bold transition-all duration-300 shadow-lg shadow-nike-red/30"
                       >
-                        {registering ? 'Registering...' : 'Register Now'}
-                      </button>
+                        Register Now
+                      </Link>
                     )}
                   </div>
 
                   {event.is_registered && (
                     <div className={'text-center text-xs text-emerald-400 bg-emerald-400/10 px-3 py-2 rounded-xl border border-emerald-400/20'}>
-                      ✓ You are registered for this event
+                      <IconCheck className="w-4 h-4" /> You are registered for this event
                     </div>
                   )}
                 </div>

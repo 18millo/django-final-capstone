@@ -1,4 +1,6 @@
 import { useTheme } from '../providers/ThemeProvider'
+import { IconClipboard } from '../components/Icons'
+
 
 const guidelines = [
   {
@@ -45,7 +47,7 @@ export default function CommunityGuidelines() {
     <div className={'min-h-[calc(100vh-4rem)] ' + (isLight ? 'bg-nike-gray/20' : 'bg-nike-black')}>
       <div className={'border-b ' + borderClass}>
         <div className="max-w-4xl mx-auto px-6 py-12 text-center">
-          <div className="text-5xl mb-4">📋</div>
+          <div className="text-5xl mb-4"><IconClipboard className="w-4 h-4" /></div>
           <h1 className={'text-3xl font-black tracking-tight ' + textClass}>Community Guidelines</h1>
           <p className={'text-sm mt-3 max-w-lg mx-auto ' + mutedClass}>
             CombatHub is built on respect, safety, and authenticity. These guidelines keep our community strong.

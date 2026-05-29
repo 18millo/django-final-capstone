@@ -8,6 +8,8 @@ import Reveal from '../components/ui/Reveal'
 import { mediaUrl } from '../utils/media'
 import { playClick, playSuccess } from '../utils/sounds'
 import { toast } from '../components/ui/Toast'
+import { IconBoxingGlove } from '../components/Icons'
+
 
 export default function Groups() {
   const { user } = useAuth()
@@ -20,6 +22,7 @@ export default function Groups() {
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ name: '', description: '', is_private: false })
   const [joining, setJoining] = useState(null)
+  const [leaving, setLeaving] = useState(null)
 
   const textClass = isLight ? 'text-nike-black' : 'text-white'
   const mutedClass = isLight ? 'text-nike-light' : 'text-white/40'
@@ -31,7 +34,7 @@ export default function Groups() {
   const fetchGroups = () => {
     setLoading(true)
     api.get('/auth/groups/')
-      .then((res) => setGroups(res.data.results || res.data || []))
+      .then((res) => setGroups((res.data.results || res.data || []).filter((g) => !g.is_private)))
       .catch(() => toast('Failed to load groups', 'error'))
       .finally(() => setLoading(false))
   }
@@ -70,6 +73,36 @@ export default function Groups() {
     }
   }
 
+  const handleLeave = async (groupId) => {
+    if (!confirm('Leave this group?')) return
+    playClick()
+    setLeaving(groupId)
+    try {
+      await api.post('/auth/groups/' + groupId + '/leave/')
+      playSuccess()
+      toast('You left the group', 'success')
+      fetchGroups()
+    } catch (err) {
+      toast(err.response?.data?.detail || 'Failed to leave', 'error')
+    } finally {
+      setLeaving(null)
+    }
+  }
+
+  const handleDeclineInvite = async (groupId) => {
+    playClick()
+    setJoining(groupId)
+    try {
+      await api.post('/auth/groups/' + groupId + '/respond-invite/', { action: 'decline' })
+      toast('Invitation declined', 'success')
+      fetchGroups()
+    } catch (err) {
+      toast(err.response?.data?.error || 'Failed to decline', 'error')
+    } finally {
+      setJoining(null)
+    }
+  }
+
   return (
     <div className={'min-h-[calc(100vh-4rem)] ' + (isLight ? 'bg-nike-gray/20' : 'bg-nike-black')}>
       <div className={'border-b ' + borderClass}>
@@ -96,7 +129,7 @@ export default function Groups() {
           <div className="flex justify-center py-20"><Spinner /></div>
         ) : groups.length === 0 ? (
           <div className={'text-center py-20 rounded-2xl border ' + borderClass + ' ' + cardBg}>
-            <div className="text-5xl mb-4">🥊</div>
+            <div className="text-5xl mb-4"><IconBoxingGlove className="w-4 h-4" /></div>
             <p className={'text-lg font-bold ' + textClass}>No groups yet</p>
             <p className={'text-sm mt-1 ' + mutedClass}>
               {canCreate ? 'Create the first group to bring your squad together!' : 'No groups available. Check back later!'}
@@ -130,14 +163,40 @@ export default function Groups() {
                             </div>
                           </div>
                         </div>
-                        <div className="shrink-0">
+                        <div className="shrink-0 flex items-center gap-2">
                           {g.is_member ? (
-                            <Link
-                              to={'/groups/' + g.id}
-                              className="text-xs font-bold px-3 py-1.5 rounded-lg bg-nike-red text-white transition-all hover:bg-nike-red/80"
-                            >
-                              Open
-                            </Link>
+                            <>
+                              <button
+                                onClick={() => handleLeave(g.id)}
+                                disabled={leaving === g.id}
+                                className={'text-xs font-bold px-2.5 py-1.5 rounded-lg border transition-all ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-red hover:text-white hover:border-nike-red' : 'border-white/10 text-white/40 hover:bg-nike-red hover:text-white hover:border-nike-red')}
+                              >
+                                {leaving === g.id ? '...' : 'Leave'}
+                              </button>
+                              <Link
+                                to={'/groups/' + g.id}
+                                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-nike-red text-white transition-all hover:bg-nike-red/80"
+                              >
+                                Open
+                              </Link>
+                            </>
+                          ) : g.my_status === 'invited' ? (
+                            <>
+                              <button
+                                onClick={() => handleDeclineInvite(g.id)}
+                                disabled={joining === g.id}
+                                className={'text-xs font-bold px-2.5 py-1.5 rounded-lg border transition-all ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-red hover:text-white hover:border-nike-red' : 'border-white/10 text-white/40 hover:bg-nike-red hover:text-white hover:border-nike-red')}
+                              >
+                                {joining === g.id ? '...' : 'Decline'}
+                              </button>
+                              <button
+                                onClick={() => handleJoin(g.id)}
+                                disabled={joining === g.id}
+                                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-nike-red text-white transition-all hover:bg-nike-red/80"
+                              >
+                                {joining === g.id ? '...' : 'Accept'}
+                              </button>
+                            </>
                           ) : g.my_status === 'pending' ? (
                             <span className={'text-xs font-bold px-3 py-1.5 rounded-lg ' + (isLight ? 'bg-nike-amber/10 text-nike-amber' : 'bg-nike-amber/10 text-nike-amber')}>
                               Pending

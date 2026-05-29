@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import api from '../api'
 import { useAuth } from '../providers/AuthProvider'
 import { IconCamera } from '../components/Icons'
@@ -116,9 +117,10 @@ export default function Gallery() {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {items.map((item) => (
-            <div
+            <Link
               key={item.id}
-              className="group relative rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-xl"
+              to={`/vendor/gallery/${item.id}`}
+              className="group relative rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-xl block"
               style={{ background: 'var(--theme-bg-secondary)', border: '1px solid var(--theme-border)' }}
             >
               <div className="aspect-square overflow-hidden">
@@ -148,9 +150,9 @@ export default function Gallery() {
                 {item.caption && (
                   <p className="text-white/80 text-[10px] line-clamp-2 mb-2">{item.caption}</p>
                 )}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3" onClick={(e) => e.preventDefault()}>
                   <button
-                    onClick={() => handleLike(item.id)}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleLike(item.id); }}
                     className="flex items-center gap-1 text-white/60 text-[10px] hover:text-nike-red transition-colors"
                   >
                     <svg width="10" height="10" viewBox="0 0 24 24" fill={item.is_liked ? '#ef4444' : 'none'} stroke={item.is_liked ? '#ef4444' : 'currentColor'} strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
@@ -162,7 +164,7 @@ export default function Gallery() {
                   </span>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

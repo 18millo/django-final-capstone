@@ -6,6 +6,8 @@ import api from '../utils/api'
 import Spinner from '../components/ui/Spinner'
 import { playClick, playSuccess } from '../utils/sounds'
 import { toast } from '../components/ui/Toast'
+import { IconBoxingGlove } from '../components/Icons'
+
 
 export default function VendorProductForm() {
   const { user } = useAuth()
@@ -222,7 +224,7 @@ export default function VendorProductForm() {
             {imageList.map((url, idx) => (
               <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden group bg-nike-gray/20">
                 <img src={url} alt={''} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex' }} />
-                <div className="hidden w-full h-full items-center justify-center text-2xl">🥊</div>
+                <div className="hidden w-full h-full items-center justify-center text-2xl"><IconBoxingGlove className="w-4 h-4" /></div>
                 <button type="button" onClick={() => removeImage(idx)} className="absolute top-1 right-1 w-5 h-5 bg-nike-red text-white rounded-full flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">×</button>
               </div>
             ))}

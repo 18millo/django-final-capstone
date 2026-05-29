@@ -9,6 +9,8 @@ import { playClick, playSuccess } from '../utils/sounds'
 import { mediaUrl } from '../utils/media'
 import { toast } from '../components/ui/Toast'
 import ReportModal from '../components/ui/ReportModal'
+import { IconMegaphone } from '../components/Icons'
+
 
 const BG = 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=1920&q=80'
 
@@ -121,7 +123,7 @@ export default function Forum() {
         ) : posts.length === 0 ? (
           <Reveal>
             <div className={'p-12 rounded-2xl border text-center ' + cardClass}>
-              <div className="text-5xl mb-4">📢</div>
+              <div className="text-5xl mb-4"><IconMegaphone className="w-4 h-4" /></div>
               <p className={'text-lg font-bold mb-1 ' + textClass}>No posts yet</p>
               <p className={'text-sm mb-6 ' + mutedClass}>Be the first to start a discussion!</p>
               <Link to="/forum/new" className="bg-nike-red text-white px-6 py-3 rounded-xl text-xs tracking-widest uppercase font-bold inline-block hover:bg-white hover:text-nike-black transition-all duration-300">

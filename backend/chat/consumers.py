@@ -260,6 +260,9 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     async def notify_follow(self, event):
         await self.send(text_data=json.dumps(event))
 
+    async def notify_group_join(self, event):
+        await self.send(text_data=json.dumps(event))
+
     @database_sync_to_async
     def mark_online(self):
         Profile.objects.filter(user=self.user).update(last_seen=timezone.now())

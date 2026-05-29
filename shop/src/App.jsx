@@ -16,9 +16,11 @@ import VendorPremium from './pages/VendorPremium'
 import Brands from './pages/Brands'
 import VendorEvents from './pages/VendorEvents'
 import Gallery from './pages/Gallery'
+import GalleryDetail from './pages/GalleryDetail'
 import Landing from './pages/Landing'
 import Shop from './pages/Shop'
 import AccessGate from './pages/AccessGate'
+import LoadingScreen from './components/LoadingScreen'
 import ProductView from './pages/ProductView'
 import Categories from './pages/Categories'
 import Contact from './pages/Contact'
@@ -30,7 +32,7 @@ import CustomerOrderDetail from './pages/CustomerOrderDetail'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
-  if (loading) return <div className="h-screen flex items-center justify-center text-[var(--theme-text-secondary)] text-sm">Loading...</div>
+  if (loading) return <LoadingScreen />
   if (!user) return <AccessGate />
   if (user.role === 'vendor') return <Navigate to="/vendor/dashboard" replace />
   return children
@@ -38,7 +40,7 @@ function ProtectedRoute({ children }) {
 
 function VendorRoute({ children }) {
   const { user, loading } = useAuth()
-  if (loading) return <div className="h-screen flex items-center justify-center text-[var(--theme-text-secondary)] text-sm">Loading...</div>
+  if (loading) return <LoadingScreen />
   if (!user) return <Navigate to="/" replace />
   if (user.role !== 'vendor') return <Navigate to="/" replace />
   return children
@@ -46,14 +48,14 @@ function VendorRoute({ children }) {
 
 function GuestRoute({ children }) {
   const { user, loading } = useAuth()
-  if (loading) return <div className="h-screen flex items-center justify-center text-[var(--theme-text-secondary)] text-sm">Loading...</div>
+  if (loading) return <LoadingScreen />
   if (user) return <Navigate to={user.role === 'vendor' ? '/vendor/dashboard' : '/shop'} replace />
   return children
 }
 
 function VendorRedirect({ children }) {
   const { user, loading } = useAuth()
-  if (loading) return <div className="h-screen flex items-center justify-center text-[var(--theme-text-secondary)] text-sm">Loading...</div>
+  if (loading) return <LoadingScreen />
   if (user && user.role === 'vendor') return <Navigate to="/vendor/dashboard" replace />
   return children
 }
@@ -92,6 +94,7 @@ export default function App() {
           <Route path="brands" element={<Brands />} />
           <Route path="events" element={<VendorEvents />} />
           <Route path="gallery" element={<Gallery />} />
+          <Route path="gallery/:id" element={<GalleryDetail />} />
           <Route path="settings" element={<Settings />} />
           <Route path="premium" element={<VendorPremium />} />
         </Route>

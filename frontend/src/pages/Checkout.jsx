@@ -1,36 +1,24 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTheme } from '../providers/ThemeProvider'
 import { useCart } from '../providers/CartProvider'
-import { useAuth } from '../providers/AuthProvider'
 import api from '../utils/api'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Reveal from '../components/ui/Reveal'
 import Spinner from '../components/ui/Spinner'
-import { playClick, playSuccess } from '../utils/sounds'
-import { toast } from '../components/ui/Toast'
+import { playClick } from '../utils/sounds'
+import { IconBoxingGlove, IconCreditCard } from '../components/Icons'
+
 
 const BG = 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=1920&q=80'
 
 export default function Checkout() {
   const { theme } = useTheme()
   const { cart, loading, itemCount } = useCart()
-  const { user } = useAuth()
   const navigate = useNavigate()
   const isLight = theme === 'light'
 
-  const [paymentMethod, setPaymentMethod] = useState('')
-  const [mpesaPhone, setMpesaPhone] = useState('')
-
-  useEffect(() => {
-    if (user?.profile?.phone) {
-      setMpesaPhone(user.profile.phone)
-    }
-  }, [user?.profile?.phone])
-  const [visaCard, setVisaCard] = useState('')
-  const [visaExpiry, setVisaExpiry] = useState('')
-  const [visaCvv, setVisaCvv] = useState('')
   const [address, setAddress] = useState({ line1: '', line2: '', city: '', state: '', zip: '', country: '' })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -52,23 +40,20 @@ export default function Checkout() {
     const required = ['line1', 'city', 'state', 'zip', 'country']
     const missing = required.filter((f) => !address[f]?.trim())
     if (missing.length) { setError('Please fill in all required shipping address fields: ' + missing.join(', ') + '.'); return }
-    if (!paymentMethod) { setError('Select a payment method.'); return }
-    if (paymentMethod === 'mpesa' && (!user?.profile?.phone || user.profile.phone.length < 10)) { setError('Set your phone number in Settings before using M-Pesa.'); return }
-    if (paymentMethod === 'visa' && visaCard.replace(/\s/g, '').length < 16) { setError('Enter a valid card number.'); return }
 
     playClick()
     setSubmitting(true)
     try {
-      const payload = {
-        payment_method: paymentMethod,
-        mpesa_phone: paymentMethod === 'mpesa' ? mpesaPhone : '',
-        visa_last_four: paymentMethod === 'visa' ? visaCard.replace(/\s/g, '').slice(-4) : '',
+      const res = await api.post('/checkout/', {
+        payment_method: 'paystack',
         shipping_address: address,
+      })
+
+      if (res.data.paystack) {
+        sessionStorage.setItem('paystack_ref', res.data.reference)
+        window.location.href = res.data.authorization_url
+        return
       }
-      const res = await api.post('/checkout/', payload)
-      playSuccess()
-      toast('Order placed! Payment is pending.', 'success')
-      navigate('/orders/' + res.data.id)
     } catch (err) {
       const data = err.response?.data
       setError(data?.error || Object.values(data || {}).flat()[0] || 'Checkout failed')
@@ -95,7 +80,6 @@ export default function Checkout() {
         )}
 
         <div className="grid lg:grid-cols-5 gap-8">
-          {/* Left — forms */}
           <div className="lg:col-span-3 space-y-6">
             <Reveal>
               <div className={'p-6 rounded-2xl border ' + borderClass + ' ' + bgClass}>
@@ -117,104 +101,28 @@ export default function Checkout() {
 
             <Reveal>
               <div className={'p-6 rounded-2xl border ' + borderClass + ' ' + bgClass}>
-                <h3 className={'text-sm font-black tracking-tight mb-4 ' + textClass}>Payment Method</h3>
-
-                <div className="space-y-3 mb-6">
-                  <label
-                    onClick={() => setPaymentMethod('mpesa')}
-                    className={'flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all ' +
-                      (paymentMethod === 'mpesa'
-                        ? 'border-nike-red bg-nike-red/5'
-                        : borderClass + ' hover:bg-white/[0.02]')}
-                  >
-                    <div className={'w-5 h-5 rounded-full border-2 flex items-center justify-center ' +
-                      (paymentMethod === 'mpesa' ? 'border-nike-red' : borderClass)}>
-                      {paymentMethod === 'mpesa' && <div className="w-2.5 h-2.5 rounded-full bg-nike-red" />}
+                <h3 className={'text-sm font-black tracking-tight mb-4 ' + textClass}>Payment</h3>
+                <div className={'p-4 rounded-xl border border-dashed ' + borderClass + ' bg-nike-red/5'}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 bg-nike-red/10 rounded-full flex items-center justify-center shrink-0">
+                      <IconCreditCard className="w-5 h-5 text-nike-red" />
                     </div>
-                    <span className="text-2xl">📱</span>
                     <div>
-                      <p className={'text-sm font-bold ' + textClass}>MPesa</p>
-                      <p className={'text-xs ' + mutedClass}>Pay with mobile money</p>
+                      <p className={'text-sm font-bold ' + textClass}>Pay with Paystack</p>
+                      <p className={'text-[10px] ' + mutedClass}>Secured by Paystack</p>
                     </div>
-                  </label>
-
-                  <label
-                    onClick={() => setPaymentMethod('visa')}
-                    className={'flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all ' +
-                      (paymentMethod === 'visa'
-                        ? 'border-nike-red bg-nike-red/5'
-                        : borderClass + ' hover:bg-white/[0.02]')}
-                  >
-                    <div className={'w-5 h-5 rounded-full border-2 flex items-center justify-center ' +
-                      (paymentMethod === 'visa' ? 'border-nike-red' : borderClass)}>
-                      {paymentMethod === 'visa' && <div className="w-2.5 h-2.5 rounded-full bg-nike-red" />}
-                    </div>
-                    <span className="text-2xl">💳</span>
-                    <div>
-                      <p className={'text-sm font-bold ' + textClass}>Visa / Card</p>
-                      <p className={'text-xs ' + mutedClass}>Pay with debit or credit card</p>
-                    </div>
-                  </label>
+                  </div>
+                  <p className={'text-xs ' + mutedClass}>
+                    You will be redirected to Paystack's secure checkout to complete your payment using card, mobile money, or bank transfer.
+                  </p>
                 </div>
-
-                {paymentMethod === 'mpesa' && (
-                  <div className={'p-4 rounded-xl border ' + borderClass + ' bg-white/[0.02]'}>
-                    <Input
-                      label="MPesa Phone Number"
-                      type="tel"
-                      value={mpesaPhone}
-                      disabled
-                      placeholder={user?.profile?.phone ? '' : 'Set phone in Settings first'}
-                    />
-                    <p className={'text-xs mt-1.5 ' + mutedClass}>Uses your profile phone number</p>
-                  </div>
-                )}
-
-                {paymentMethod === 'visa' && (
-                  <div className={'p-4 rounded-xl border ' + borderClass + ' bg-white/[0.02] space-y-3'}>
-                    <Input
-                      label="Card Number"
-                      type="text"
-                      value={visaCard}
-                      onChange={(e) => {
-                        const raw = e.target.value.replace(/\D/g, '').slice(0, 16)
-                        const formatted = raw.replace(/(.{4})/g, '$1 ').trim()
-                        setVisaCard(formatted)
-                      }}
-                      placeholder="4242 4242 4242 4242"
-                    />
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input
-                        label="Expiry"
-                        type="text"
-                        value={visaExpiry}
-                        onChange={(e) => {
-                          let v = e.target.value.replace(/\D/g, '').slice(0, 4)
-                          if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2)
-                          setVisaExpiry(v)
-                        }}
-                        placeholder="MM/YY"
-                      />
-                      <Input
-                        label="CVV"
-                        type="text"
-                        value={visaCvv}
-                        onChange={(e) => setVisaCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                        placeholder="123"
-                      />
-                    </div>
-                    <p className={'text-xs ' + mutedClass}>Payment will be processed later. Your card is not charged yet.</p>
-                  </div>
-                )}
-
                 <p className={'text-xs mt-3 text-center ' + mutedClass}>
-                  💳 No real payments are processed yet — this is a demo.
+                  <IconCreditCard className="w-4 h-4" /> Payments are processed securely via Paystack.
                 </p>
               </div>
             </Reveal>
           </div>
 
-          {/* Right — summary */}
           <div className="lg:col-span-2">
             <Reveal>
               <div className={'p-6 rounded-2xl border ' + borderClass + ' ' + bgClass + ' sticky top-24'}>
@@ -227,7 +135,7 @@ export default function Checkout() {
                         {item.product_image ? (
                           <img src={item.product_image} alt={item.product_name} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-lg">🥊</div>
+                          <div className="w-full h-full flex items-center justify-center text-lg"><IconBoxingGlove className="w-4 h-4" /></div>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -260,7 +168,7 @@ export default function Checkout() {
                   className="w-full mt-6"
                   disabled={items.length === 0}
                 >
-                  Place Order
+                  Pay with Paystack
                 </Button>
 
                 <p className={'text-xs text-center mt-3 ' + mutedClass}>

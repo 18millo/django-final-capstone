@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.db.models import Prefetch
 from django.utils import timezone
@@ -220,27 +221,12 @@ class CheckoutView(APIView):
         if not cart or not cart.items.exists():
             return Response({'error': 'Cart is empty'}, status=400)
 
-        payment_method = request.data.get('payment_method', '')
-        if payment_method not in ['mpesa', 'visa', '']:
-            return Response({'error': 'Invalid payment method.'}, status=400)
-        if not payment_method:
-            return Response({'error': 'Select a payment method.'}, status=400)
-
-        mpesa_phone = request.data.get('mpesa_phone', '')
-        visa_last_four = request.data.get('visa_last_four', '')
         shipping_address = request.data.get('shipping_address', {})
 
         required_address_fields = ['line1', 'city', 'state', 'zip', 'country']
         missing = [f for f in required_address_fields if not shipping_address.get(f, '').strip()]
         if missing:
             return Response({'error': f'Missing shipping address fields: {", ".join(missing)}.'}, status=400)
-
-        if payment_method == 'mpesa' and not mpesa_phone:
-            return Response({'error': 'MPesa phone number is required.'}, status=400)
-        if payment_method == 'mpesa' and request.user.profile.phone != mpesa_phone:
-            return Response({'error': 'M-Pesa number must match your profile phone number.'}, status=400)
-        if payment_method == 'visa' and not visa_last_four:
-            return Response({'error': 'Visa card details are required.'}, status=400)
 
         items_data = []
         total = 0
@@ -257,19 +243,41 @@ class CheckoutView(APIView):
                 'total': str(line_total),
             })
 
+        from payments.models import PaystackTransaction
+        from payments.utils import initialize_transaction
+        ref = f'CH-{uuid.uuid4().hex[:12].upper()}'
+        callback_url = f'{settings.FRONTEND_URL}/payment/callback'
         order = Order.objects.create(
             user=request.user,
             items=items_data,
             subtotal=str(total),
             total=str(total),
             status='pending',
-            payment_method=payment_method,
-            mpesa_phone=mpesa_phone,
-            visa_last_four=visa_last_four,
+            payment_method='paystack',
             shipping_address=shipping_address,
         )
+        result = initialize_transaction(
+            request.user.email,
+            float(total),
+            ref,
+            {'order_id': order.id, 'order_total': str(total), 'context': 'shop'},
+            callback_url,
+        )
+        if not result.get('status'):
+            order.delete()
+            return Response({'error': result.get('message', 'Paystack init failed')}, status=400)
+        data = result['data']
+        PaystackTransaction.objects.create(
+            user=request.user,
+            reference=ref,
+            amount=total,
+            currency='KES',
+            status='pending',
+            metadata={'order_id': order.id, 'order_total': str(total), 'context': 'shop'},
+            access_code=data.get('access_code', ''),
+            authorization_url=data.get('authorization_url', ''),
+        )
 
-        # Notify sellers about the order
         from accounts.models import Notification
         seller_ids = set()
         for item in cart.items.all():
@@ -302,7 +310,12 @@ class CheckoutView(APIView):
                     pass
 
         cart.items.all().delete()
-        return Response(OrderSerializer(order).data, status=201)
+        return Response({
+            'paystack': True,
+            'reference': ref,
+            'authorization_url': data['authorization_url'],
+            'order_id': order.id,
+        }, status=200)
 
 
 class FavoriteListView(APIView):

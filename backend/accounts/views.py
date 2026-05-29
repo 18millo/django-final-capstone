@@ -18,7 +18,7 @@ import pyotp
 
 from django.shortcuts import get_object_or_404
 from common.permissions import IsSeller, IsPremium, IsAdmin
-from .models import User, SiteContent, Follow, Notification, Message, Post, PostLike, PostComment, GalleryItem, GalleryLike, GalleryComment, PostCommentLike, Bookmark, Report, BlockedUser, PaymentInfo, PhoneVerificationCode, Group, GroupMember, GroupMessage
+from .models import User, Profile, SiteContent, Follow, Notification, Message, Post, PostLike, PostComment, GalleryItem, GalleryLike, GalleryComment, PostCommentLike, Bookmark, Report, BlockedUser, PaymentInfo, PhoneVerificationCode, Group, GroupMember, GroupMessage, BlockedGroup
 from .sms import send_sms
 from .serializers import (
     RegisterSerializer, LoginSerializer, GoogleAuthSerializer,
@@ -30,7 +30,7 @@ from .serializers import (
     PostSerializer, PostCommentSerializer,
     GalleryItemSerializer, GalleryCommentSerializer,
     BookmarkSerializer, ReportSerializer, BlockedUserSerializer,
-    GroupSerializer, GroupMemberSerializer, GroupMessageSerializer,
+    GroupSerializer, GroupMemberSerializer, GroupMessageSerializer, GroupInviteSerializer,
 )
 
 
@@ -265,6 +265,33 @@ class LoginView(APIView):
                 'email': user.email,
             })
 
+        ua = request.META.get('HTTP_USER_AGENT', '')
+        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', 'Unknown'))
+        if ip:
+            ip = ip.split(',')[0].strip()
+        device_name = ua.split('/')[0].split(' ')[0] if ua else 'Unknown device'
+
+        try:
+            send_mail(
+                subject=f'New Login — CombatHub',
+                message=(
+                    f'Hi {user.display_name or user.username or user.email},\n\n'
+                    f'A new login was detected on your CombatHub account.\n\n'
+                    f'  Device: {device_name}\n'
+                    f'  Browser: {ua[:100]}\n'
+                    f'  IP Address: {ip}\n'
+                    f'  Time: {timezone.now().strftime("%B %d, %Y at %I:%M %p %Z")}\n\n'
+                    f'If this was you, you can ignore this email.\n'
+                    f'If this was not you, please secure your account immediately.\n\n'
+                    f'- CombatHub Team'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
         tokens = get_tokens_for_user(user)
         return Response({
             'user': UserSerializer(user).data,
@@ -290,8 +317,7 @@ class AccessCodeVerifyView(APIView):
             })
 
         new_code = generate_access_code()
-        user.profile.vendor_access_code = new_code
-        user.profile.save(update_fields=['vendor_access_code'])
+        Profile.objects.filter(user=user).update(vendor_access_code=new_code)
         try:
             send_mail(
                 subject='Your New CombatHub Access Code',
@@ -861,11 +887,16 @@ class ConversationListView(APIView):
                 'unread': unread,
                 'online': online,
             })
-        group_memberships = GroupMember.objects.filter(user=user, status='joined').select_related('group')
+        blocked_group_ids = set(BlockedGroup.objects.filter(user=user).values_list('group_id', flat=True))
+        group_memberships = GroupMember.objects.filter(
+            user=user, status__in=['joined', 'invited']
+        ).select_related('group')
+        group_memberships = [gm for gm in group_memberships if gm.group.id not in blocked_group_ids]
         for gm in group_memberships:
             group = gm.group
             last_msg = GroupMessage.objects.filter(group=group).order_by('-created_at').first()
-            unread = GroupMessage.objects.filter(group=group, created_at__gt=gm.joined_at).exclude(sender=user).count()
+            read_cutoff = gm.last_read_at or gm.joined_at
+            unread = GroupMessage.objects.filter(group=group, created_at__gt=read_cutoff).exclude(sender=user).count()
             avatar = None
             if group.avatar:
                 try:
@@ -881,6 +912,7 @@ class ConversationListView(APIView):
                 'last_message_time': last_msg.created_at if last_msg else group.created_at,
                 'unread': unread,
                 'member_count': group.members.filter(status='joined').count(),
+                'my_status': gm.status,
             })
         conversations.sort(key=lambda c: c['last_message_time'] or '', reverse=True)
         return Response(conversations)
@@ -911,6 +943,10 @@ class SendMessageView(APIView):
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
         if recipient.messaging_blocked:
             return Response({'error': 'This user has been restricted from receiving messages.'}, status=status.HTTP_403_FORBIDDEN)
+        if BlockedUser.objects.filter(blocker=recipient, blocked=user).exists():
+            return Response({'error': 'You cannot message this user.'}, status=status.HTTP_403_FORBIDDEN)
+        if BlockedUser.objects.filter(blocker=user, blocked=recipient).exists():
+            return Response({'error': 'You have blocked this user.'}, status=status.HTTP_403_FORBIDDEN)
         if recipient.role == 'vendor' and not recipient.profile.messaging_enabled:
             return Response({'error': 'This vendor has not enabled messages. Contact them through their products or about page.'}, status=status.HTTP_403_FORBIDDEN)
         content = request.data.get('content', '').strip()
@@ -1235,6 +1271,26 @@ class BlockedUserListView(APIView):
     def get(self, request):
         blocked = BlockedUser.objects.filter(blocker=request.user).select_related('blocked')
         data = [{'id': b.blocked.id, 'username': b.blocked.username or b.blocked.display_name or b.blocked.email} for b in blocked]
+        return Response(data)
+
+
+class BlockGroupView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    def post(self, request, group_id):
+        group = get_object_or_404(Group, id=group_id)
+        GroupMember.objects.filter(group=group, user=request.user).delete()
+        block, created = BlockedGroup.objects.get_or_create(user=request.user, group=group)
+        if not created:
+            block.delete()
+            return Response({'blocked': False})
+        return Response({'blocked': True})
+
+
+class BlockedGroupListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    def get(self, request):
+        blocked = BlockedGroup.objects.filter(user=request.user).select_related('group')
+        data = [{'id': b.group.id, 'name': b.group.name} for b in blocked]
         return Response(data)
 
 
@@ -1616,9 +1672,10 @@ class GroupListView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        blocked_group_ids = set(BlockedGroup.objects.filter(user=user).values_list('group_id', flat=True))
         return Group.objects.filter(
             models.Q(is_private=False) | models.Q(members__user=user)
-        ).distinct().prefetch_related('members__user__profile')
+        ).exclude(id__in=blocked_group_ids).distinct().prefetch_related('members__user__profile')
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -1650,6 +1707,8 @@ class GroupDetailView(generics.RetrieveUpdateDestroyAPIView):
     def perform_destroy(self, instance):
         if instance.created_by != self.request.user:
             raise PermissionDenied('Only the group creator can delete this group')
+        if instance.members.filter(status='joined').exclude(user=instance.created_by).exists():
+            raise PermissionDenied('Remove all members before deleting the group')
         instance.delete()
 
 
@@ -1659,6 +1718,8 @@ class GroupJoinView(APIView):
     def post(self, request, group_id):
         group = get_object_or_404(Group, id=group_id)
         user = request.user
+        if user.role != 'athlete':
+            return Response({'error': 'Only athletes can join groups'}, status=403)
         existing = GroupMember.objects.filter(group=group, user=user).first()
         if existing:
             if existing.status == 'joined':
@@ -1668,6 +1729,19 @@ class GroupJoinView(APIView):
             if existing.status == 'invited':
                 existing.status = 'joined'
                 existing.save(update_fields=['status'])
+                GroupMessage.objects.create(group=group, sender=user, content=f'{user.username} joined the group', is_system=True)
+                join_msg = f'{user.username} joined {group.name}'
+                channel_layer = get_channel_layer()
+                for member in group.members.filter(status='joined').exclude(user=user).select_related('user'):
+                    Notification.objects.create(recipient=member.user, actor=user, notification_type='group_join', message=join_msg)
+                    if channel_layer:
+                        try:
+                            async_to_sync(channel_layer.group_send)(
+                                f'user_{member.user.id}_notifications',
+                                {'type': 'notify_group_join', 'actor': user.id, 'actor_name': user.username or user.email, 'group_name': group.name, 'message': join_msg}
+                            )
+                        except Exception:
+                            pass
                 return Response({'detail': 'You joined the group'})
         if group.members.filter(status='joined').count() >= group.max_members:
             return Response({'error': f'This group has reached its maximum capacity of {group.max_members} members'}, status=400)
@@ -1675,6 +1749,19 @@ class GroupJoinView(APIView):
             GroupMember.objects.create(group=group, user=user, status='pending')
             return Response({'detail': 'Join request sent. Waiting for approval.'})
         GroupMember.objects.create(group=group, user=user, status='joined')
+        GroupMessage.objects.create(group=group, sender=user, content=f'{user.username} joined the group', is_system=True)
+        join_msg = f'{user.username} joined {group.name}'
+        channel_layer = get_channel_layer()
+        for member in group.members.filter(status='joined').exclude(user=user).select_related('user'):
+            Notification.objects.create(recipient=member.user, actor=user, notification_type='group_join', message=join_msg)
+            if channel_layer:
+                try:
+                    async_to_sync(channel_layer.group_send)(
+                        f'user_{member.user.id}_notifications',
+                        {'type': 'notify_group_join', 'actor': user.id, 'actor_name': user.username or user.email, 'group_name': group.name, 'message': join_msg}
+                    )
+                except Exception:
+                    pass
         return Response({'detail': 'You joined the group'})
 
 
@@ -1683,6 +1770,8 @@ class GroupLeaveView(APIView):
 
     def post(self, request, group_id):
         group = get_object_or_404(Group, id=group_id)
+        if group.created_by == request.user:
+            return Response({'error': 'You are the group creator. Delete the group instead.'}, status=400)
         gm = get_object_or_404(GroupMember, group=group, user=request.user, status='joined')
         gm.delete()
         return Response({'detail': 'You left the group'})
@@ -1706,7 +1795,7 @@ class GroupRemoveMemberView(APIView):
         if group.created_by != request.user:
             raise PermissionDenied('Only the group creator can remove members')
         target = get_object_or_404(User, id=user_id)
-        gm = get_object_or_404(GroupMember, group=group, user=target, status='joined')
+        gm = get_object_or_404(GroupMember, group=group, user=target)
         gm.delete()
         return Response({'detail': f'Removed {target.username} from the group'})
 
@@ -1722,6 +1811,17 @@ class GroupRequestsView(generics.ListAPIView):
         return GroupMember.objects.filter(group=group, status='pending').select_related('user__profile')
 
 
+class GroupInvitesListView(generics.ListAPIView):
+    serializer_class = GroupMemberSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        group = get_object_or_404(Group, id=self.kwargs['group_id'])
+        if group.created_by != self.request.user:
+            return GroupMember.objects.none()
+        return GroupMember.objects.filter(group=group, status='invited').select_related('user__profile')
+
+
 class GroupApproveRequestView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -1735,6 +1835,7 @@ class GroupApproveRequestView(APIView):
             return Response({'error': f'Group is full (max {group.max_members} members)'}, status=400)
         gm.status = 'joined'
         gm.save(update_fields=['status'])
+        GroupMessage.objects.create(group=group, sender=gm.user, content=f'{gm.user.username} joined the group', is_system=True)
         return Response({'detail': 'Join request approved'})
 
 
@@ -1759,12 +1860,72 @@ class GroupInviteView(APIView):
             raise PermissionDenied('Only the group creator can invite users')
         username = request.data.get('username', '').strip()
         target = get_object_or_404(User, username=username)
+        if target.role != 'athlete':
+            return Response({'error': 'Only athletes can be invited to groups'}, status=403)
         if GroupMember.objects.filter(group=group, user=target).exists():
             return Response({'error': 'User is already a member or has a pending request'}, status=400)
         if group.members.filter(status='joined').count() >= group.max_members:
             return Response({'error': f'Group is full (max {group.max_members} members)'}, status=400)
         GroupMember.objects.create(group=group, user=target, status='invited')
         return Response({'detail': f'Invited {username} to the group'})
+
+
+class GroupMyInvitesView(generics.ListAPIView):
+    serializer_class = GroupInviteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return GroupMember.objects.filter(
+            user=self.request.user, status='invited'
+        ).select_related('group', 'user__profile')
+
+
+class GroupRespondInviteView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, group_id):
+        gm = get_object_or_404(
+            GroupMember, group_id=group_id, user=request.user, status='invited'
+        )
+        action = request.data.get('action', '').strip().lower()
+        if action == 'accept':
+            group = gm.group
+            if group.members.filter(status='joined').count() >= group.max_members:
+                return Response(
+                    {'error': f'Group is full (max {group.max_members} members)'},
+                    status=400,
+                )
+            gm.status = 'joined'
+            gm.save(update_fields=['status'])
+            GroupMessage.objects.create(group=group, sender=request.user, content=f'{request.user.username} joined the group', is_system=True)
+            join_msg = f'{request.user.username} joined {group.name}'
+            channel_layer = get_channel_layer()
+            for member in group.members.filter(status='joined').exclude(user=request.user).select_related('user'):
+                Notification.objects.create(recipient=member.user, actor=request.user, notification_type='group_join', message=join_msg)
+                if channel_layer:
+                    try:
+                        async_to_sync(channel_layer.group_send)(
+                            f'user_{member.user.id}_notifications',
+                            {'type': 'notify_group_join', 'actor': request.user.id, 'actor_name': request.user.username or request.user.email, 'group_name': group.name, 'message': join_msg}
+                        )
+                    except Exception:
+                        pass
+            return Response({'detail': 'You accepted the invitation'})
+        elif action == 'decline':
+            gm.delete()
+            return Response({'detail': 'You declined the invitation'})
+        else:
+            return Response({'error': 'Invalid action. Use "accept" or "decline".'}, status=400)
+
+
+class GroupMarkReadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, group_id):
+        gm = get_object_or_404(GroupMember, group_id=group_id, user=request.user)
+        gm.last_read_at = timezone.now()
+        gm.save(update_fields=['last_read_at'])
+        return Response({'detail': 'Marked as read'})
 
 
 class GroupMessageListView(generics.ListAPIView):
@@ -1775,6 +1936,7 @@ class GroupMessageListView(generics.ListAPIView):
         group = get_object_or_404(Group, id=self.kwargs['group_id'])
         if not group.members.filter(user=self.request.user, status='joined').exists():
             return GroupMessage.objects.none()
+        GroupMember.objects.filter(group=group, user=self.request.user).update(last_read_at=timezone.now())
         return GroupMessage.objects.filter(group=group).select_related('sender__profile')
 
     def get_serializer_context(self):

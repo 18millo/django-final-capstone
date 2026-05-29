@@ -58,6 +58,33 @@ class ShopLoginView(APIView):
         except Exception:
             pass
 
+        ua = request.META.get('HTTP_USER_AGENT', '')
+        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', 'Unknown'))
+        if ip:
+            ip = ip.split(',')[0].strip()
+        device_name = ua.split('/')[0].split(' ')[0] if ua else 'Unknown device'
+
+        try:
+            send_mail(
+                subject=f'New Login — Combat Shop',
+                message=(
+                    f'Hi {user.display_name or user.username or user.email},\n\n'
+                    f'A new login was detected on your Combat Shop account.\n\n'
+                    f'  Device: {device_name}\n'
+                    f'  Browser: {ua[:100]}\n'
+                    f'  IP Address: {ip}\n'
+                    f'  Time: {timezone.now().strftime("%B %d, %Y at %I:%M %p %Z")}\n\n'
+                    f'If this was you, you can ignore this email.\n'
+                    f'If this was not you, please secure your account immediately.\n\n'
+                    f'- Combat Shop Team'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
         refresh = RefreshToken.for_user(user)
         return Response({
             'access': str(refresh.access_token),
@@ -90,6 +117,33 @@ class ShopSSOView(APIView):
             if profile and profile.avatar:
                 url = profile.avatar.url
                 avatar_url = request.build_absolute_uri(url) if not url.startswith('http') else url
+        except Exception:
+            pass
+
+        ua = request.META.get('HTTP_USER_AGENT', '')
+        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', 'Unknown'))
+        if ip:
+            ip = ip.split(',')[0].strip()
+        device_name = ua.split('/')[0].split(' ')[0] if ua else 'Unknown device'
+
+        try:
+            send_mail(
+                subject=f'New Login — Combat Shop',
+                message=(
+                    f'Hi {user.display_name or user.username or user.email},\n\n'
+                    f'New SSO login via CombatHub detected on your Combat Shop account.\n\n'
+                    f'  Device: {device_name}\n'
+                    f'  Browser: {ua[:100]}\n'
+                    f'  IP Address: {ip}\n'
+                    f'  Time: {timezone.now().strftime("%B %d, %Y at %I:%M %p %Z")}\n\n'
+                    f'If this was you, you can ignore this email.\n'
+                    f'If this was not you, please secure your account immediately.\n\n'
+                    f'- Combat Shop Team'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=True,
+            )
         except Exception:
             pass
 

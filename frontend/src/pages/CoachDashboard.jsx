@@ -6,6 +6,8 @@ import Spinner from '../components/ui/Spinner'
 import Reveal from '../components/ui/Reveal'
 import { playClick } from '../utils/sounds'
 import { mediaUrl } from '../utils/media'
+import { IconWeightLift } from '../components/Icons'
+
 
 export default function CoachDashboard() {
   const { theme } = useTheme()
@@ -134,7 +136,7 @@ export default function CoachDashboard() {
 
             {followers.length === 0 ? (
               <div className={'text-center py-16 rounded-2xl border ' + borderClass + ' ' + cardBg}>
-                <div className="text-6xl mb-4">🏋️</div>
+                <div className="text-6xl mb-4"><IconWeightLift className="w-4 h-4" /></div>
                 <p className={'text-lg font-bold ' + textClass}>No athletes yet</p>
                 <p className={'text-sm mt-1 ' + mutedClass}>When athletes follow you, they'll appear here.</p>
                 <button

@@ -8,6 +8,8 @@ import Spinner from '../components/ui/Spinner'
 import Reveal from '../components/ui/Reveal'
 import { playClick, playSuccess } from '../utils/sounds'
 import { toast } from '../components/ui/Toast'
+import { IconBoxingGlove, IconMessage, IconShop } from '../components/Icons'
+
 
 const BG = 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?auto=format&fit=crop&w=1920&q=80'
 
@@ -129,7 +131,7 @@ export default function ProductDetail() {
                 {images[selectedImage] ? (
                   <img src={images[selectedImage]} alt={product.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-6xl">🥊</div>
+                  <div className="w-full h-full flex items-center justify-center text-6xl"><IconBoxingGlove className="w-4 h-4" /></div>
                 )}
                 {product.discount_active && product.discount_percent && (
                   <div className="absolute top-4 left-4 bg-nike-red text-white text-xs font-black px-3 py-1.5 rounded-full shadow-lg shadow-nike-red/50 animate-pulse">
@@ -163,7 +165,7 @@ export default function ProductDetail() {
                             {product.vendor_info.business_name[0]}
                           </div>
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center">🏪</div>
+                          <div className="w-full h-full flex items-center justify-center"><IconShop className="w-4 h-4" /></div>
                         )}
                       </div>
                       <div>
@@ -347,7 +349,7 @@ export default function ProductDetail() {
             <div className="space-y-4">
               {(product.comments || []).length === 0 ? (
                 <div className={'text-center py-10 ' + mutedClass}>
-                  <div className="text-4xl mb-3">💬</div>
+                  <div className="text-4xl mb-3"><IconMessage className="w-4 h-4" /></div>
                   <p className={'text-sm font-bold ' + textClass}>No comments yet</p>
                   <p className="text-xs mt-1">Be the first to ask a question.</p>
                 </div>

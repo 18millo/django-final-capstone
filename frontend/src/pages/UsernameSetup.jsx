@@ -4,6 +4,8 @@ import { useAuth } from '../providers/AuthProvider'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Reveal from '../components/ui/Reveal'
+import { IconFist } from '../components/Icons'
+
 
 export default function UsernameSetup() {
   const [username, setUsername] = useState('')
@@ -35,7 +37,7 @@ export default function UsernameSetup() {
     <Reveal direction="up">
       <div className="text-center">
         <div className="w-16 h-16 bg-nike-amber/20 rounded-full flex items-center justify-center mx-auto mb-6">
-          <span className="text-3xl">👋</span>
+          <span className="text-3xl"><IconFist className="w-4 h-4" /></span>
         </div>
         <h2 className="text-2xl font-black tracking-tight text-white mb-2">ALMOST THERE!</h2>
         <p className="text-white/40 text-sm mb-8">Choose a username to complete your account.</p>

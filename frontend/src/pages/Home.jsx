@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import gsap from 'gsap'
 import Reveal from '../components/ui/Reveal'
@@ -10,6 +10,8 @@ import { mediaUrl } from '../utils/media'
 import { playBell } from '../utils/sounds'
 import { ROLE_ICONS, ROLE_LABELS, ROLE_COLORS } from '../utils/roles'
 import { useGsapReveal, useCountUp, useGsapParallax } from '../hooks/useGsapReveal'
+import { IconBoxingGlove, IconBulb, IconGem, IconHourglass, IconLightning, IconPackage, IconFire } from '../components/Icons'
+
 
 const IMAGES = {
   dark: {
@@ -44,6 +46,77 @@ const FEATURED_GEAR = [
   { id: 3, name: 'Speed Rope', brand: 'Everlast', price: 20, images: ['https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?auto=format&fit=crop&w=600&q=80'], limited_edition: false },
   { id: 4, name: 'Mouthguard', brand: 'Nike', price: 15, images: ['https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=600&q=80'], limited_edition: false },
 ]
+
+function AutoScrollCarousel({ products, isLight }) {
+  const [index, setIndex] = useState(0)
+  const intervalRef = useRef(null)
+  const [paused, setPaused] = useState(false)
+
+  const start = useCallback(() => {
+    intervalRef.current = setInterval(() => {
+      setIndex((i) => (i + 1) % products.length)
+    }, 3500)
+  }, [products.length])
+
+  const stop = useCallback(() => {
+    clearInterval(intervalRef.current)
+  }, [])
+
+  useEffect(() => {
+    if (!paused && products.length > 1) start()
+    return stop
+  }, [paused, products.length, start, stop])
+
+  if (!products.length) return null
+
+  const p = products[index]
+  if (!p) return null
+
+  return (
+    <div
+      onMouseEnter={() => { setPaused(true); stop() }}
+      onMouseLeave={() => { setPaused(false) }}
+    >
+      <a
+        href={`${SHOP_URL}?token=${getToken('access_token') || ''}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={'group block relative aspect-video md:aspect-[21/9] overflow-hidden border-y transition-all duration-500 ' + (isLight ? 'border-nike-gray hover:border-nike-red/30' : 'border-white/5 hover:border-nike-red/30')}
+      >
+        {p.images?.[0] ? (
+          <img src={p.images[0]} alt={p.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+        ) : (
+          <div className={'absolute inset-0 flex items-center justify-center ' + (isLight ? 'bg-nike-gray/20' : 'bg-zinc-900')}>
+            <IconPackage className={'w-12 h-12 ' + (isLight ? 'text-nike-gray' : 'text-zinc-700')} />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">{p.brand || 'Combat Shop'}</p>
+          <h3 className="text-xl md:text-3xl font-black text-white mt-1">{p.name}</h3>
+          <div className="flex items-center gap-2 mt-2">
+            {p.discount_active ? (
+              <><span className="text-lg font-black text-nike-red">${parseFloat(p.effective_price || p.price).toFixed(2)}</span><span className="text-sm line-through text-zinc-500">${parseFloat(p.price).toFixed(2)}</span></>
+            ) : (
+              <span className="text-lg font-black text-white">${parseFloat(p.price).toFixed(2)}</span>
+            )}
+          </div>
+        </div>
+      </a>
+      {products.length > 1 && (
+        <div className="flex justify-center gap-2 mt-4">
+          {products.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setIndex(i)}
+              className={`w-2 h-2 rounded-full transition-all duration-300 ${i === index ? 'bg-nike-red w-6' : 'bg-zinc-600 hover:bg-zinc-400'}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function HomeMarketing() {
   const { theme } = useTheme()
@@ -83,7 +156,7 @@ function HomeMarketing() {
   }, [])
 
   useEffect(() => {
-    api.get('/products/?limit=4').then((res) => {
+    api.get('/products/?limit=8').then((res) => {
       setFeaturedProducts(res.data.results || res.data || [])
     }).catch(() => {})
   }, [])
@@ -259,7 +332,7 @@ function HomeMarketing() {
         </div>
       </section>
 
-      {/* Featured Gear */}
+      {/* Featured Gear — Auto-scrolling Carousel */}
       <section className={'py-16 md:py-20 border-t ' + (isLight ? 'bg-nike-gray/20 border-nike-gray' : 'bg-nike-dark/50 border-white/5')}>
         <div className="max-w-7xl mx-auto px-6">
           <Reveal gsap>
@@ -273,29 +346,8 @@ function HomeMarketing() {
               </a>
             </div>
           </Reveal>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-            {featuredProducts.map((p, i) => (
-              <Reveal key={p.id} delay={i * 100} gsap>
-                <a href={`${SHOP_URL}?token=${getToken('access_token') || ''}`} target="_blank" rel="noopener noreferrer" className={'group relative rounded-2xl overflow-hidden border transition-all duration-300 hover:scale-[1.02] liquid-glass-card block ' + (isLight
-                  ? 'bg-white border-nike-gray shadow-sm'
-                  : 'bg-nike-dark border-white/5'
-                )}>
-                  <div className="aspect-[4/3] overflow-hidden bg-nike-gray/20">
-                    <img src={p.images?.[0] || ''} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                  </div>
-                  <div className="p-3">
-                    {p.limited_edition && (
-                      <span className="inline-block bg-nike-red/10 text-nike-red text-[9px] tracking-widest uppercase font-bold px-2 py-0.5 rounded-full mb-1.5">Limited</span>
-                    )}
-                    <p className={'text-xs font-bold truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{p.name}</p>
-                    <p className={'text-[10px] ' + (isLight ? 'text-nike-light' : 'text-white/30')}>{p.brand}</p>
-                    <p className="text-sm font-black text-nike-red mt-1">${parseFloat(p.price).toFixed(2)}</p>
-                  </div>
-                </a>
-              </Reveal>
-            ))}
-          </div>
-          <div className="mt-8 text-center md:hidden">
+          <AutoScrollCarousel products={featuredProducts} isLight={isLight} />
+          <div className="mt-6 text-center md:hidden">
             <a href={`${SHOP_URL}?token=${getToken('access_token') || ''}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-nike-red text-white hover:bg-white hover:text-nike-black px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">
               View All Gear <span>→</span>
             </a>
@@ -503,13 +555,13 @@ function HomeDashboard() {
               : 'bg-gradient-to-r from-nike-amber/5 to-transparent border-nike-amber/10'
             )}>
               <div className="w-10 h-10 bg-nike-amber/10 rounded-xl flex items-center justify-center shrink-0">
-                <span className="text-lg">💡</span>
+                <span className="text-lg"><IconBulb className="w-4 h-4" /></span>
               </div>
               <div className="flex-1 min-w-0">
                 <p className={'text-xs tracking-widest uppercase font-bold ' + (isLight ? 'text-nike-amber' : 'text-nike-amber')}>Fighter's Tip</p>
                 <p className={'text-xs mt-0.5 leading-relaxed ' + (isLight ? 'text-nike-light' : 'text-white/50')}>{tip}</p>
               </div>
-              <div className={'text-4xl opacity-10 select-none shrink-0 ' + (isLight ? 'text-nike-amber' : 'text-nike-amber')}>🥊</div>
+              <div className={'text-4xl opacity-10 select-none shrink-0 ' + (isLight ? 'text-nike-amber' : 'text-nike-amber')}><IconBoxingGlove className="w-4 h-4" /></div>
             </div>
           </Reveal>
 
@@ -815,7 +867,7 @@ function HomeDashboard() {
                ) : premiumInfo?.is_premium ? (
                  <div>
                    <div className="flex items-center gap-2 mb-4">
-                     <span className="text-lg">💎</span>
+                     <span className="text-lg"><IconGem className="w-4 h-4" /></span>
                      <h3 className={'text-sm font-bold tracking-wider ' + (isLight ? 'text-nike-black' : 'text-white')}>PREMIUM FEATURES</h3>
                    </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -834,7 +886,7 @@ function HomeDashboard() {
                    {premiumInfo.premium_expires_at && (
                       <p className={'text-xs mt-3 text-center ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
                         {premiumInfo.in_grace_period ? (
-                          <span className="text-nike-amber font-bold">⏳ Grace period ends {new Date(premiumInfo.premium_grace_end).toLocaleDateString()}</span>
+                          <span className="text-nike-amber font-bold"><IconHourglass className="w-4 h-4" /> Grace period ends {new Date(premiumInfo.premium_grace_end).toLocaleDateString()}</span>
                         ) : (
                           <>Premium expires {new Date(premiumInfo.premium_expires_at).toLocaleDateString()} · <span className="text-nike-amber">7-day grace after expiry</span></>
                         )}
@@ -850,7 +902,7 @@ function HomeDashboard() {
                       onClick={() => navigate('/premium/setup')}
                       className="mt-3 inline-flex items-center gap-2 bg-nike-red hover:bg-white hover:text-nike-black text-white px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300"
                     >
-                      ⚡ Start Your Free Month of Premium
+                      <IconLightning className="w-4 h-4" /> Start Your Free Month of Premium
                     </button>
                     <p className={'text-[10px] mt-2 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
                       No credit card required. 7-day grace period after expiry.

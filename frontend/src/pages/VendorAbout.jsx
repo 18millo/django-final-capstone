@@ -7,6 +7,8 @@ import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { mediaUrl } from '../utils/media'
+import { IconShop } from '../components/Icons'
+
 const SHOP_URL = import.meta.env.VITE_SHOP_URL || 'http://localhost:5174'
 
 delete L.Icon.Default.prototype._getIconUrl
@@ -58,7 +60,7 @@ export default function VendorAbout() {
                 {p.avatar ? (
                   <img src={mediaUrl(p.avatar)} className="w-full h-full object-cover" alt="" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-3xl">🏪</div>
+                  <div className="w-full h-full flex items-center justify-center text-3xl"><IconShop className="w-4 h-4" /></div>
                 )}
               </div>
               <div>

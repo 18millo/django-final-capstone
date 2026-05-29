@@ -6,6 +6,8 @@ import Input from '../components/ui/Input'
 import Reveal from '../components/ui/Reveal'
 import { playError, playSuccess } from '../utils/sounds'
 import QRCode from 'qrcode'
+import { IconKey } from '../components/Icons'
+
 
 export default function TotpSetup() {
   const { user, setupTotp, verifyTotp } = useAuth()
@@ -83,7 +85,7 @@ export default function TotpSetup() {
   return (
     <Reveal direction="up">
       <div className="text-center mb-6">
-        <div className="text-5xl mb-4">🔑</div>
+        <div className="text-5xl mb-4"><IconKey className="w-4 h-4" /></div>
         <h2 className={'text-2xl font-black tracking-tight ' + textClass}>SET UP TWO-FACTOR AUTH</h2>
         <p className={'text-sm mt-2 ' + mutedClass}>Scan the QR code with your authenticator app.</p>
       </div>

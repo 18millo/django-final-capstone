@@ -176,6 +176,7 @@ class Notification(models.Model):
         PREMIUM_EXPIRING = 'premium_expiring', 'Premium Expiring'
         PREMIUM_EXPIRED = 'premium_expired', 'Premium Expired'
         ACCESS_CODE_SENT = 'access_code_sent', 'Access Code Sent'
+        GROUP_JOIN = 'group_join', 'Group Join'
 
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
     actor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='actor_notifications')
@@ -564,6 +565,7 @@ class GroupMember(models.Model):
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='member')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='joined')
     joined_at = models.DateTimeField(auto_now_add=True)
+    last_read_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ('group', 'user')
@@ -577,6 +579,7 @@ class GroupMessage(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='group_messages')
     content = models.TextField(blank=True)
     image = models.ImageField(upload_to='group_message_images/', blank=True)
+    is_system = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -584,3 +587,16 @@ class GroupMessage(models.Model):
 
     def __str__(self):
         return f'{self.sender.email} in {self.group.name}'
+
+
+class BlockedGroup(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocked_groups')
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='blocked_by')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'group')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.user.email} blocked group {self.group.name}'

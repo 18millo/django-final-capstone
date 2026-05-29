@@ -40,8 +40,10 @@ import Help from './pages/Help'
 import AdminPage from './pages/AdminPage'
 import Events from './pages/Events'
 import EventDetail from './pages/EventDetail'
+import EventRegister from './pages/EventRegister'
 import EventForm from './pages/EventForm'
 import MyEvents from './pages/MyEvents'
+import PaymentCallback from './pages/PaymentCallback'
 import Spinner from './components/ui/Spinner'
 
 function ProtectedRoute({ children, requireVerified }) {
@@ -135,8 +137,10 @@ export default function AppRoutes() {
         <Route path="/events" element={<Events />} />
         <Route path="/events/new" element={<SellerRoute><EventForm /></SellerRoute>} />
         <Route path="/events/:id" element={<EventDetail />} />
+        <Route path="/events/:id/register" element={<ProtectedRoute><EventRegister /></ProtectedRoute>} />
         <Route path="/events/:id/edit" element={<SellerRoute><EventForm /></SellerRoute>} />
         <Route path="/my-events" element={<SellerRoute><MyEvents /></SellerRoute>} />
+        <Route path="/payment/callback" element={<ProtectedRoute><PaymentCallback /></ProtectedRoute>} />
         <Route path="/newsletter" element={<Newsletter />} />
         <Route path="/verify-email" element={<ProtectedRoute requireVerified={false}><EmailVerify /></ProtectedRoute>} />
         <Route path="/username-setup" element={<PublicRoute><AuthLayout><UsernameSetup /></AuthLayout></PublicRoute>} />

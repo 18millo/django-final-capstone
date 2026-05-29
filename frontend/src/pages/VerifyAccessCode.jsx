@@ -5,6 +5,8 @@ import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Reveal from '../components/ui/Reveal'
 import { playError, playSuccess } from '../utils/sounds'
+import { IconKey } from '../components/Icons'
+
 
 export default function VerifyAccessCode() {
   const location = useLocation()
@@ -58,7 +60,7 @@ export default function VerifyAccessCode() {
   return (
     <Reveal direction="up">
       <div className="text-center mb-8">
-        <div className="text-5xl mb-4">🔑</div>
+        <div className="text-5xl mb-4"><IconKey className="w-4 h-4" /></div>
         <h2 className="text-2xl font-black tracking-tight text-white">ACCESS CODE REQUIRED</h2>
         <p className="text-white/40 text-sm mt-2">
           Enter your 8-character access code to sign in.

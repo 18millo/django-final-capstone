@@ -759,17 +759,45 @@ class GroupSerializer(serializers.ModelSerializer):
         return resolve_avatar(obj.created_by.profile, request)
 
 
+class GroupInviteSerializer(serializers.ModelSerializer):
+    group_id = serializers.IntegerField(source='group.id', read_only=True)
+    group_name = serializers.CharField(source='group.name', read_only=True)
+    group_avatar = serializers.SerializerMethodField()
+    invited_by = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GroupMember
+        fields = ('id', 'group_id', 'group_name', 'group_avatar', 'invited_by', 'status', 'joined_at')
+
+    def get_group_avatar(self, obj):
+        if not obj.group.avatar:
+            return None
+        request = self.context.get('request')
+        url = obj.group.avatar.url
+        if url.startswith('http'):
+            return url
+        return request.build_absolute_uri(url) if request else url
+
+    def get_invited_by(self, obj):
+        creator = obj.group.created_by
+        return {
+            'id': creator.id,
+            'username': creator.username,
+        }
+
+
 class GroupMessageSerializer(serializers.ModelSerializer):
-    sender_name = serializers.SerializerMethodField()
+    sender_username = serializers.SerializerMethodField()
     sender_avatar = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = GroupMessage
-        fields = ('id', 'group', 'sender', 'sender_name', 'sender_avatar', 'content', 'image', 'image_url', 'created_at')
-        read_only_fields = ('id', 'sender', 'created_at')
+        fields = ('id', 'group', 'sender', 'sender_username', 'sender_avatar',
+                  'content', 'image_url', 'is_system', 'created_at')
+        read_only_fields = ('id', 'created_at')
 
-    def get_sender_name(self, obj):
+    def get_sender_username(self, obj):
         return obj.sender.username or obj.sender.display_name or obj.sender.email
 
     def get_sender_avatar(self, obj):

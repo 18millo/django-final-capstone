@@ -8,6 +8,9 @@ import EmojiPicker from '../components/ui/EmojiPicker'
 import { mediaUrl } from '../utils/media'
 import { playClick, playSuccess } from '../utils/sounds'
 import { toast } from '../components/ui/Toast'
+import { IconBell, IconGroup, IconMessage, IconPhoto } from '../components/Icons'
+import ScrollProgressBar from '../components/ui/ScrollProgressBar'
+
 
 const BG = 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=1920&q=80'
 const WS_BASE = 'ws://localhost:8000'
@@ -63,7 +66,15 @@ export default function Messages() {
   const [groupDetail, setGroupDetail] = useState(null)
   const [groupMembers, setGroupMembers] = useState([])
   const [updatingGroup, setUpdatingGroup] = useState(false)
+  const [groupEditName, setGroupEditName] = useState('')
+  const [groupEditDescription, setGroupEditDescription] = useState('')
+  const [savingGroupEdit, setSavingGroupEdit] = useState(false)
+  const [showEditGroup, setShowEditGroup] = useState(false)
   const [showAddMember, setShowAddMember] = useState(false)
+  const [groupEditAvatar, setGroupEditAvatar] = useState(null)
+  const [groupEditAvatarPreview, setGroupEditAvatarPreview] = useState(null)
+  const [showPendingInvites, setShowPendingInvites] = useState(false)
+  const [pendingInvites, setPendingInvites] = useState([])
   const [memberSearch, setMemberSearch] = useState('')
   const [memberResults, setMemberResults] = useState([])
   const [searchingMembers, setSearchingMembers] = useState(false)
@@ -77,11 +88,17 @@ export default function Messages() {
   const [imagePreview, setImagePreview] = useState(null)
   const [viewOnce, setViewOnce] = useState(false)
   const fileInputRef = useRef(null)
+  const groupAvatarInputRef = useRef(null)
+  const messagesRef = useRef(null)
+  const sidebarRef = useRef(null)
+  const newChatRef = useRef(null)
+  const settingsRef = useRef(null)
   const [lightboxUrl, setLightboxUrl] = useState(null)
   const [conversationFilter, setConversationFilter] = useState('all')
   const [showNotificationsTab, setShowNotificationsTab] = useState(false)
   const [notificationsList, setNotificationsList] = useState([])
   const [notifLoading, setNotifLoading] = useState(false)
+  const [inviteActionLoading, setInviteActionLoading] = useState(false)
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('chat-opened'))
@@ -92,45 +109,30 @@ export default function Messages() {
   }, [])
 
   useEffect(() => {
-    const poll = setInterval(() => {
+    const fetch = () => {
       api.get('/auth/conversations/')
         .then((res) => {
           setConversations((prev) => {
             const key = (c) => c.type === 'group' ? 'g' + c.group_id : 'u' + c.user_id
             const serverMap = new Map(res.data.map((c) => [key(c), c]))
-            const merged = prev.map((local) => {
+            return prev.map((local) => {
               const k = key(local)
               const server = serverMap.get(k)
-              if (!server) return local
+              if (!server) return null
               serverMap.delete(k)
-              return { ...server, unread: local.unread }
-            })
-            return [...merged, ...serverMap.values()]
+              return server
+            }).filter(Boolean).concat([...serverMap.values()])
           })
         })
         .catch(() => {})
-    }, 30000)
-    api.get('/auth/conversations/')
-      .then((res) => {
-        setConversations((prev) => {
-          const key = (c) => c.type === 'group' ? 'g' + c.group_id : 'u' + c.user_id
-          const serverMap = new Map(res.data.map((c) => [key(c), c]))
-          const merged = prev.map((local) => {
-            const k = key(local)
-            const server = serverMap.get(k)
-            if (!server) return local
-            serverMap.delete(k)
-            return { ...server, unread: local.unread }
-          })
-          return [...merged, ...serverMap.values()]
-        })
-      })
-      .catch(() => {})
+    }
+    fetch()
+    const poll = setInterval(fetch, 30000)
     return () => clearInterval(poll)
   }, [])
 
   useEffect(() => {
-    if (!activeId) { setMessages([]); return }
+    if (!activeId) return
     setChatLoading(true)
     const url = activeChatType === 'group'
       ? '/auth/groups/' + activeId + '/messages/'
@@ -139,15 +141,26 @@ export default function Messages() {
       .then((res) => {
         const data = res.data?.results || res.data || []
         setMessages(data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
+        api.get('/auth/conversations/').then((r) => setConversations(r.data || [])).catch(() => {})
       })
       .catch(() => setMessages([]))
       .finally(() => setChatLoading(false))
   }, [activeId, activeChatType])
 
   useEffect(() => {
-    if (activeId && activeChatType === 'user' && wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'mark_read' }))
+    if (!activeId) return
+    if (activeChatType === 'user') {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'mark_read' }))
+      }
+      api.get('/auth/conversations/' + activeId + '/').catch(() => {})
+    } else if (activeChatType === 'group') {
+      api.post('/auth/groups/' + activeId + '/read/').catch(() => {})
     }
+    setConversations((prev) => prev.map((c) => {
+      const match = activeChatType === 'group' ? c.group_id === activeId : c.user_id === activeId
+      return match ? { ...c, unread: 0 } : c
+    }))
   }, [activeId, activeChatType])
 
   useEffect(() => {
@@ -505,12 +518,16 @@ export default function Messages() {
   const fetchGroupDetail = async () => {
     if (!activeId || activeChatType !== 'group') return
     try {
-      const [detailRes, membersRes] = await Promise.all([
+      const [detailRes, membersRes, invitesRes] = await Promise.all([
         api.get('/auth/groups/' + activeId + '/'),
         api.get('/auth/groups/' + activeId + '/members/'),
+        api.get('/auth/groups/' + activeId + '/invites/').catch(() => ({ data: { results: [] } })),
       ])
       setGroupDetail(detailRes.data)
+      setGroupEditName(detailRes.data.name || '')
+      setGroupEditDescription(detailRes.data.description || '')
       setGroupMembers(membersRes.data.results || membersRes.data || [])
+      setPendingInvites(invitesRes.data.results || invitesRes.data || [])
     } catch {}
   }
 
@@ -520,11 +537,45 @@ export default function Messages() {
     try {
       const res = await api.patch('/auth/groups/' + activeId + '/', { is_private: !groupDetail.is_private })
       setGroupDetail(res.data)
+      const { data } = await api.get('/auth/conversations/')
+      setConversations(data || [])
       toast('Group set to ' + (res.data.is_private ? 'private' : 'public'), 'success')
     } catch (err) {
       toast(err.response?.data?.detail || 'Failed to update group', 'error')
     } finally {
       setUpdatingGroup(false)
+    }
+  }
+
+  const handleSaveGroupEdit = async () => {
+    if (!activeId || !groupEditName.trim()) return toast('Name is required', 'error')
+    setSavingGroupEdit(true)
+    try {
+      const hasAvatar = groupEditAvatar instanceof File
+      if (hasAvatar) {
+        const fd = new FormData()
+        fd.append('name', groupEditName.trim())
+        fd.append('description', groupEditDescription.trim())
+        fd.append('avatar', groupEditAvatar)
+        const res = await api.patch('/auth/groups/' + activeId + '/', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+        setGroupDetail(res.data)
+      } else {
+        const res = await api.patch('/auth/groups/' + activeId + '/', {
+          name: groupEditName.trim(),
+          description: groupEditDescription.trim(),
+        })
+        setGroupDetail(res.data)
+      }
+      setShowEditGroup(false)
+      setGroupEditAvatar(null)
+      setGroupEditAvatarPreview(null)
+      toast('Group updated', 'success')
+    } catch (err) {
+      toast(err.response?.data?.detail || 'Failed to update group', 'error')
+    } finally {
+      setSavingGroupEdit(false)
     }
   }
 
@@ -535,10 +586,27 @@ export default function Messages() {
   const removeMember = async (userId) => {
     try {
       await api.delete('/auth/groups/' + activeId + '/members/' + userId + '/')
-      setGroupMembers((prev) => prev.filter((m) => m.user !== userId))
+      const [detailRes, membersRes, convRes] = await Promise.all([
+        api.get('/auth/groups/' + activeId + '/'),
+        api.get('/auth/groups/' + activeId + '/members/'),
+        api.get('/auth/conversations/'),
+      ])
+      setGroupDetail(detailRes.data)
+      setGroupMembers(membersRes.data.results || membersRes.data || [])
+      setConversations(convRes.data || [])
       toast('Member removed', 'success')
     } catch (err) {
       toast(err.response?.data?.detail || 'Failed to remove member', 'error')
+    }
+  }
+
+  const cancelInvite = async (userId) => {
+    try {
+      await api.delete('/auth/groups/' + activeId + '/members/' + userId + '/')
+      setPendingInvites((prev) => prev.filter((m) => m.user !== userId))
+      toast('Invitation cancelled', 'success')
+    } catch (err) {
+      toast(err.response?.data?.detail || 'Failed to cancel invite', 'error')
     }
   }
 
@@ -549,7 +617,8 @@ export default function Messages() {
       const res = await api.get('/auth/users/' + queryParam)
       const all = res.data.results || res.data || []
       const memberIds = new Set(groupMembers.map((m) => m.user))
-      const filtered = all.filter((u) => u.id !== user.id && !memberIds.has(u.id))
+      const invitedIds = new Set(pendingInvites.map((m) => m.user))
+      const filtered = all.filter((u) => u.id !== user.id && !memberIds.has(u.id) && !invitedIds.has(u.id))
       setMemberResults(filtered)
     } catch {
       setMemberResults([])
@@ -560,8 +629,8 @@ export default function Messages() {
 
   const inviteMember = async (username) => {
     try {
-      await api.post('/auth/groups/' + activeId + '/invite/', { username })
-      toast('Member added', 'success')
+      const res = await api.post('/auth/groups/' + activeId + '/invite/', { username })
+      toast(res.data?.detail || 'Invitation sent to ' + username, 'success')
       setShowAddMember(false)
       setMemberSearch('')
       setMemberResults([])
@@ -570,6 +639,101 @@ export default function Messages() {
       setConversations(data || [])
     } catch (err) {
       toast(err.response?.data?.detail || 'Failed to add member', 'error')
+    }
+  }
+
+  const handleAcceptInvite = async () => {
+    if (!activeId) return
+    setInviteActionLoading(true)
+    try {
+      const res = await api.post('/auth/groups/' + activeId + '/respond-invite/', { action: 'accept' })
+      toast(res.data?.detail || 'You accepted the invitation and are now part of the group', 'success')
+      await Promise.all([
+        fetchGroupDetail(),
+        api.get('/auth/conversations/').then((r) => setConversations(r.data || [])),
+        api.get('/auth/groups/' + activeId + '/messages/').then((r) => setMessages(r.data?.results || r.data || [])),
+      ])
+    } catch (err) {
+      toast(err.response?.data?.error || 'Failed to accept invite', 'error')
+    } finally {
+      setInviteActionLoading(false)
+    }
+  }
+
+  const handleDeclineInvite = async () => {
+    if (!activeId) return
+    setInviteActionLoading(true)
+    try {
+      await api.post('/auth/groups/' + activeId + '/respond-invite/', { action: 'decline' })
+      toast('Invitation declined', 'success')
+      setConversations((prev) => prev.filter((c) => !(c.type === 'group' && c.group_id === activeId)))
+      setActiveId(null)
+      setActiveChatType('user')
+    } catch (err) {
+      toast(err.response?.data?.error || 'Failed to decline invite', 'error')
+    } finally {
+      setInviteActionLoading(false)
+    }
+  }
+
+  const handleBlockGroup = async () => {
+    if (!activeId || activeChatType !== 'group') return
+    try {
+      await api.post('/auth/groups/' + activeId + '/block/')
+      toast('Group blocked', 'success')
+      setShowGroupSettings(false)
+      setConversations((prev) => prev.filter((c) => !(c.type === 'group' && c.group_id === activeId)))
+      setActiveId(null)
+      setActiveChatType('user')
+    } catch (err) {
+      toast(err.response?.data?.detail || 'Failed to block group', 'error')
+    }
+  }
+
+  const handleLeaveGroup = async () => {
+    if (!activeId || activeChatType !== 'group') return
+    if (!confirm('Leave this group?')) return
+    try {
+      await api.post('/auth/groups/' + activeId + '/leave/')
+      toast('You left the group', 'success')
+      setShowGroupSettings(false)
+      setConversations((prev) => prev.filter((c) => !(c.type === 'group' && c.group_id === activeId)))
+      setActiveId(null)
+      setActiveChatType('user')
+    } catch (err) {
+      toast(err.response?.data?.detail || 'Failed to leave group', 'error')
+    }
+  }
+
+  const handleDeleteGroup = async () => {
+    if (!activeId || activeChatType !== 'group') return
+    const otherMemberCount = groupMembers.filter((m) => m.user !== user?.id).length
+    if (otherMemberCount > 0) {
+      if (!confirm('Remove all other members before deleting the group.')) return
+      return toast('Remove all members first, then delete again', 'error')
+    }
+    if (!confirm('Delete this group permanently? This cannot be undone.')) return
+    try {
+      await api.delete('/auth/groups/' + activeId + '/')
+      toast('Group deleted', 'success')
+      setShowGroupSettings(false)
+      setConversations((prev) => prev.filter((c) => !(c.type === 'group' && c.group_id === activeId)))
+      setActiveId(null)
+      setActiveChatType('user')
+    } catch (err) {
+      toast(err.response?.data?.detail || 'Failed to delete group', 'error')
+    }
+  }
+
+  const handleBlockUser = async () => {
+    if (!activeId || activeChatType !== 'user') return
+    try {
+      const res = await api.post('/auth/users/' + activeId + '/block/')
+      toast(res.data.blocked ? 'User blocked' : 'User unblocked', 'success')
+      setConversations((prev) => prev.filter((c) => !(c.type !== 'group' && c.user_id === activeId)))
+      setActiveId(null)
+    } catch (err) {
+      toast(err.response?.data?.error || 'Failed to block user', 'error')
     }
   }
 
@@ -668,13 +832,14 @@ export default function Messages() {
             ))}
           </div>
           )}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto relative" ref={sidebarRef}>
+            <ScrollProgressBar scrollRef={sidebarRef} />
             {showNotificationsTab ? (
               notifLoading ? (
                 <div className="flex justify-center py-10"><Spinner /></div>
               ) : notificationsList.length === 0 ? (
                 <div className={'text-center py-12 px-4 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>
-                  <div className="text-3xl mb-2">🔔</div>
+                  <div className="text-3xl mb-2"><IconBell className="w-4 h-4" /></div>
                   <p className="text-xs">No notifications yet</p>
                 </div>
               ) : (
@@ -688,9 +853,22 @@ export default function Messages() {
                         : (isLight ? 'text-nike-black bg-nike-red/5' : 'text-white bg-white/5')
                       )}
                     >
-                      <span className="text-base shrink-0 mt-0.5">
-                        {n.notification_type === 'follow' ? '👊' : n.notification_type === 'message' ? '💬' : '🔔'}
-                      </span>
+                      <div className="shrink-0 mt-0.5">
+                        {n.notification_type === 'follow' ? (
+                          <svg className="w-5 h-5" style={{ color: 'var(--color-nike-red)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                          </svg>
+                        ) : n.notification_type === 'group_join' ? (
+                          <svg className="w-5 h-5" style={{ color: 'var(--color-nike-red)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 7v2m0 0v2m0-2h-2m2 0h2" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5" style={{ color: 'var(--color-nike-light)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                          </svg>
+                        )}
+                      </div>
                       <div className="min-w-0">
                         <p className={n.read ? '' : 'font-bold'}>{n.message}</p>
                         <p className={'mt-0.5 ' + (isLight ? 'text-nike-black/40' : 'text-white/40')}>{new Date(n.created_at).toLocaleDateString()}</p>
@@ -711,7 +889,7 @@ export default function Messages() {
               <div className="flex justify-center py-10"><Spinner /></div>
             ) : conversations.filter((c) => conversationFilter === 'all' || (conversationFilter === 'personal' ? !c.type : c.type === 'group')).length === 0 ? (
               <div className={'text-center py-12 px-4 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>
-                <div className="text-3xl mb-2">💬</div>
+                <div className="text-3xl mb-2"><IconMessage className="w-4 h-4" /></div>
                 <p className="text-xs">{conversationFilter === 'groups' ? 'No groups yet' : 'No conversations yet'}</p>
                 {conversationFilter !== 'groups' && (
                   <button onClick={openNewChat} className="mt-3 text-xs tracking-widest uppercase font-bold bg-nike-red text-white px-4 py-2 rounded-full hover:bg-white hover:text-nike-black transition-all duration-300">
@@ -807,7 +985,16 @@ export default function Messages() {
                         </button>
                       </div>
                     ) : (
-                      <div className={'w-1.5 h-1.5 rounded-full ' + (activeConv?.online ? 'bg-green-500' : 'bg-red-500')} />
+                      <>
+                        <div className={'w-1.5 h-1.5 rounded-full ' + (activeConv?.online ? 'bg-green-500' : 'bg-red-500')} />
+                        <button
+                          onClick={handleBlockUser}
+                          className={'ml-auto w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/40 hover:text-white')}
+                          title="Block User"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                        </button>
+                      </>
                     )}
                   </div>
                   {activeChatType !== 'group' && (
@@ -818,8 +1005,33 @@ export default function Messages() {
                 </div>
               </div>
 
+              {/* Invite banner */}
+              {activeChatType === 'group' && activeConv?.my_status === 'invited' && (
+                <div className={'p-4 text-center border-b ' + (isLight ? 'border-nike-gray' : 'border-white/5')}>
+                  <p className={'text-sm font-bold mb-1 ' + (isLight ? 'text-nike-black' : 'text-white')}>You've been invited to this group</p>
+                  <p className={'text-xs mb-3 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Accept to join and start chatting</p>
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      onClick={handleAcceptInvite}
+                      disabled={inviteActionLoading}
+                      className="px-5 py-2 bg-nike-red text-white rounded-xl text-xs font-bold tracking-widest uppercase hover:bg-white hover:text-nike-black transition-all disabled:opacity-50"
+                    >
+                      {inviteActionLoading ? '...' : 'Accept Invite'}
+                    </button>
+                    <button
+                      onClick={handleDeclineInvite}
+                      disabled={inviteActionLoading}
+                      className={'px-5 py-2 rounded-xl text-xs font-bold tracking-widest uppercase border transition-all disabled:opacity-50 ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-gray/30' : 'border-white/10 text-white/40 hover:bg-white/10')}
+                    >
+                      {inviteActionLoading ? '...' : 'Decline'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Messages */}
-              <div className={'flex-1 overflow-y-auto p-4 space-y-1 ' + (isLight ? 'bg-white/70' : 'bg-nike-black/40')}>
+              <div className={'flex-1 overflow-y-auto p-4 space-y-1 relative ' + (isLight ? 'bg-white/70' : 'bg-nike-black/40')} ref={messagesRef}>
+                <ScrollProgressBar scrollRef={messagesRef} />
                 {chatLoading ? (
                   <div className="flex justify-center py-10"><Spinner /></div>
                 ) : messages.length === 0 ? (
@@ -841,7 +1053,14 @@ export default function Messages() {
                     const hasImage = !!item.image_url
                     const isViewOnce = !!item.view_once
                     const isViewed = !!item.viewed
-                    const senderName = activeChatType === 'group' && item.sender_name ? item.sender_name : null
+                    const senderName = activeChatType === 'group' ? (item.sender_username || item.sender_name || null) : null
+                    if (item.is_system) {
+                      return (
+                        <div key={item.id} className="flex justify-center py-2">
+                          <span className={'text-xs font-medium px-4 py-1.5 rounded-full ' + (isLight ? 'bg-nike-gray/20 text-nike-light' : 'bg-white/5 text-white/40')}>{item.content}</span>
+                        </div>
+                      )
+                    }
                     return (
                       <div key={item.id} className={activeChatType === 'group' ? 'flex flex-col ' : ''}>
                         {activeChatType === 'group' && !isMe && (
@@ -871,7 +1090,7 @@ export default function Messages() {
                           {hasImage && isViewOnce && isMe && (
                             <div className="flex flex-col items-center justify-center gap-2 p-8 w-full min-h-[120px]">
                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8 opacity-60"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                              <span className="text-xs opacity-80 text-center">📷 View once photo<br/>Sent</span>
+                              <span className="text-xs opacity-80 text-center"><IconPhoto className="w-4 h-4" /> View once photo<br/>Sent</span>
                             </div>
                           )}
                           {hasImage && !isViewOnce && (
@@ -924,6 +1143,12 @@ export default function Messages() {
 
               {/* Input */}
               <div className={'p-4 border-t liquid-glass-card ' + (isLight ? 'border-nike-gray' : '')} style={!isLight ? { borderTopColor: 'rgba(255,255,255,0.05)' } : {}}>
+                {activeChatType === 'group' && activeConv?.my_status === 'invited' ? (
+                  <div className={'text-center py-3 text-xs ' + (isLight ? 'text-nike-light' : 'text-white/30')}>
+                    Accept the invitation above to start chatting
+                  </div>
+                ) : (
+                <>
                 {imagePreview && (
                   <div className="relative mb-2 inline-block">
                     <img src={imagePreview} alt="Preview" className="h-20 w-20 object-cover rounded-xl" />
@@ -992,12 +1217,14 @@ export default function Messages() {
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                   </button>
                 </div>
+                </>
+                )}
               </div>
             </>
           ) : (
             <div className={'flex-1 flex items-center justify-center ' + (isLight ? 'bg-white/70' : 'bg-nike-black/40')}>
               <div className="text-center max-w-sm">
-                <div className="text-6xl mb-4">💬</div>
+                <div className="text-6xl mb-4"><IconMessage className="w-4 h-4" /></div>
                 <p className={'text-lg font-black tracking-tight ' + (isLight ? 'text-nike-black' : 'text-white')}>Your Messages</p>
                 <p className={'text-sm mt-2 leading-relaxed ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
                   Select a conversation from the sidebar or start a new one with someone in your squad.
@@ -1027,12 +1254,13 @@ export default function Messages() {
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
-            <div className="max-h-96 overflow-y-auto">
+            <div className="max-h-96 overflow-y-auto relative" ref={newChatRef}>
+              <ScrollProgressBar scrollRef={newChatRef} />
               {contactsLoading ? (
                 <div className="flex justify-center py-10"><Spinner /></div>
               ) : contacts.length === 0 ? (
                 <div className={'text-center py-12 px-6 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>
-                  <div className="text-3xl mb-2">👥</div>
+                  <div className="text-3xl mb-2"><IconGroup className="w-4 h-4" /></div>
                   <p className="text-sm font-bold">No contacts yet</p>
                   <p className="text-xs mt-1">Follow other fighters to start a conversation.</p>
                 </div>
@@ -1127,18 +1355,19 @@ export default function Messages() {
       {/* Group Settings Modal */}
       {showGroupSettings && groupDetail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setShowGroupSettings(false); setShowAddMember(false); setMemberSearch(''); setMemberResults([]) }} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setShowGroupSettings(false); setShowAddMember(false); setShowEditGroup(false); setGroupEditAvatar(null); setGroupEditAvatarPreview(null); setMemberSearch(''); setMemberResults([]) }} />
           <div className={'relative w-full max-w-lg mx-4 rounded-2xl shadow-2xl overflow-hidden liquid-glass-card'}>
             <div className={'px-6 py-5 border-b flex items-center justify-between ' + (isLight ? 'border-nike-gray' : 'border-white/5')}>
               <div>
                 <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{groupDetail.name}</p>
                 <p className={'text-xs mt-0.5 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Group Settings</p>
               </div>
-              <button onClick={() => { setShowGroupSettings(false); setShowAddMember(false); setMemberSearch(''); setMemberResults([]) }} className={'w-8 h-8 rounded-xl flex items-center justify-center transition-colors ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/40')}>
+              <button onClick={() => { setShowGroupSettings(false); setShowAddMember(false); setShowEditGroup(false); setGroupEditAvatar(null); setGroupEditAvatarPreview(null); setMemberSearch(''); setMemberResults([]) }} className={'w-8 h-8 rounded-xl flex items-center justify-center transition-colors ' + (isLight ? 'hover:bg-nike-gray/30 text-nike-light' : 'hover:bg-white/10 text-white/40')}>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
-            <div className="p-6 space-y-6 max-h-96 overflow-y-auto">
+            <div className="p-6 space-y-6 max-h-96 overflow-y-auto relative" ref={settingsRef}>
+              <ScrollProgressBar scrollRef={settingsRef} />
               {/* Privacy toggle */}
               <div className="flex items-center justify-between">
                 <div>
@@ -1223,6 +1452,159 @@ export default function Messages() {
                     </div>
                   ))}
                 </div>
+
+                {/* Pending Invites */}
+                {pendingInvites.length > 0 && (
+                  <div className={'mt-4 pt-4 border-t ' + (isLight ? 'border-nike-gray' : 'border-white/5')}>
+                    <button
+                      onClick={() => setShowPendingInvites(!showPendingInvites)}
+                      className="flex items-center justify-between w-full text-left"
+                    >
+                      <p className={'text-xs tracking-widest uppercase font-bold ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Pending Invites ({pendingInvites.length})</p>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={'w-4 h-4 transition-transform ' + (showPendingInvites ? 'rotate-180' : '') + ' ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </button>
+                    {showPendingInvites && (
+                      <div className="space-y-1 mt-3 max-h-40 overflow-y-auto">
+                        {pendingInvites.map((m) => (
+                          <div key={m.id || m.user} className={'flex items-center justify-between p-3 rounded-xl transition-colors ' + (isLight ? 'hover:bg-nike-gray/20' : 'hover:bg-white/5')}>
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-nike-gray/30 flex items-center justify-center text-xs font-bold" style={{ color: 'var(--color-nike-light)' }}>
+                                {m.avatar ? <img src={mediaUrl(m.avatar)} className="w-full h-full object-cover" alt="" /> : (m.username || '?')[0].toUpperCase()}
+                              </div>
+                              <p className={'text-sm font-bold truncate ' + (isLight ? 'text-nike-black' : 'text-white')}>{m.username || 'User'}</p>
+                            </div>
+                            <button
+                              onClick={() => cancelInvite(m.user)}
+                              className={'text-xs px-2.5 py-1.5 rounded-lg font-bold transition-all border ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-red hover:text-white hover:border-nike-red' : 'border-white/10 text-white/40 hover:bg-nike-red hover:text-white hover:border-nike-red')}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Edit name/description (creator only) */}
+              {groupDetail.created_by === user?.id && (
+                <div className={'pb-4 border-b ' + (isLight ? 'border-nike-gray' : 'border-white/5')}>
+                  <button
+                    onClick={() => setShowEditGroup(!showEditGroup)}
+                    className="flex items-center gap-2 text-xs tracking-widest uppercase font-bold transition-colors"
+                    style={{ color: 'var(--theme-text-secondary)' }}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit Group
+                    <svg className={'w-3 h-3 ml-auto transition-transform ' + (showEditGroup ? 'rotate-180' : '')} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {showEditGroup && (
+                    <div className="mt-3 space-y-3">
+                      {/* Avatar */}
+                      <div className="flex items-center gap-4">
+                        <button
+                          type="button"
+                          onClick={() => groupAvatarInputRef.current?.click()}
+                          className={'relative w-14 h-14 rounded-xl overflow-hidden shrink-0 flex items-center justify-center font-bold text-lg ring-2 transition-all hover:ring-nike-red/50 ' + (isLight ? 'ring-nike-gray bg-nike-gray/20' : 'ring-white/10 bg-white/5')}
+                        >
+                          {groupEditAvatarPreview ? (
+                            <img src={groupEditAvatarPreview} className="w-full h-full object-cover" alt="" />
+                          ) : groupDetail.avatar ? (
+                            <img src={mediaUrl(groupDetail.avatar)} className="w-full h-full object-cover" alt="" />
+                          ) : (
+                            <span className={'text-base ' + (isLight ? 'text-nike-light' : 'text-white/40')}>{(groupDetail.name || 'G')[0].toUpperCase()}</span>
+                          )}
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                          </div>
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <p className={'text-xs font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>Group Avatar</p>
+                          <p className={'text-[10px] mt-0.5 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>Click to upload a new image</p>
+                        </div>
+                        <input
+                          ref={groupAvatarInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              setGroupEditAvatar(file)
+                              setGroupEditAvatarPreview(URL.createObjectURL(file))
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        {groupEditAvatarPreview && (
+                          <button
+                            onClick={() => { setGroupEditAvatar(null); setGroupEditAvatarPreview(null) }}
+                            className={'text-xs px-2 py-1 rounded-lg transition-colors ' + (isLight ? 'text-nike-light hover:bg-nike-gray/30' : 'text-white/40 hover:bg-white/10')}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        value={groupEditName}
+                        onChange={(e) => setGroupEditName(e.target.value)}
+                        placeholder="Group name"
+                        className={'w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition-all ' + (isLight ? 'bg-nike-gray/30 text-nike-black border-nike-gray focus:border-nike-red/50' : 'bg-white/5 text-white border-white/10 focus:border-white/40')}
+                      />
+                      <textarea
+                        value={groupEditDescription}
+                        onChange={(e) => setGroupEditDescription(e.target.value)}
+                        placeholder="Group description"
+                        rows={2}
+                        className={'w-full px-4 py-2.5 rounded-xl text-sm outline-none border resize-none transition-all ' + (isLight ? 'bg-nike-gray/30 text-nike-black border-nike-gray focus:border-nike-red/50' : 'bg-white/5 text-white border-white/10 focus:border-white/40')}
+                      />
+                      <button
+                        onClick={handleSaveGroupEdit}
+                        disabled={savingGroupEdit}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-nike-red text-white hover:bg-white hover:text-nike-black transition-all disabled:opacity-50"
+                      >
+                        {savingGroupEdit ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Leave / Delete / Block group */}
+              <div className={'pt-4 border-t flex gap-3 ' + (isLight ? 'border-nike-gray' : 'border-white/5')}>
+                {groupDetail.created_by === user?.id ? (
+                  <button
+                    onClick={handleDeleteGroup}
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold tracking-widest uppercase border border-nike-red/30 text-nike-red hover:bg-nike-red hover:text-white transition-all"
+                  >
+                    Delete Group
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleLeaveGroup}
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold tracking-widest uppercase border border-nike-red/30 text-nike-red hover:bg-nike-red hover:text-white transition-all"
+                  >
+                    Leave Group
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    if (!confirm('Block this group? You will leave it and it will be hidden.')) return
+                    handleBlockGroup()
+                  }}
+                  className={'flex-1 py-2.5 rounded-xl text-xs font-bold tracking-widest uppercase border transition-all ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-red hover:text-white hover:border-nike-red' : 'border-white/10 text-white/40 hover:bg-nike-red hover:text-white hover:border-nike-red')}
+                >
+                  Block Group
+                </button>
               </div>
             </div>
           </div>

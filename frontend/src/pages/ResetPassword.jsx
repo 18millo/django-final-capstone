@@ -4,6 +4,8 @@ import api from '../utils/api'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Reveal from '../components/ui/Reveal'
+import { IconCheck } from '../components/Icons'
+
 
 export default function ResetPassword() {
   const { token } = useParams()
@@ -39,7 +41,7 @@ export default function ResetPassword() {
       <Reveal direction="up">
         <div className="text-center">
           <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-3xl text-green-400">✓</span>
+            <span className="text-3xl text-green-400"><IconCheck className="w-4 h-4" /></span>
           </div>
           <h2 className="text-2xl font-black tracking-tight text-white mb-2">PASSWORD RESET!</h2>
           <p className="text-white/40 text-sm mb-8">Your password has been updated successfully.</p>

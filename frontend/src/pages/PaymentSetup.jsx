@@ -5,6 +5,8 @@ import { useAuth } from '../providers/AuthProvider'
 import api from '../utils/api'
 import { toast } from '../components/ui/Toast'
 import Spinner from '../components/ui/Spinner'
+import { IconCreditCard, IconGem, IconMail, IconPhone } from '../components/Icons'
+
 
 export default function PaymentSetup() {
   const { user, refreshUser } = useAuth()
@@ -141,7 +143,7 @@ export default function PaymentSetup() {
         <div className="relative z-10 w-full max-w-lg mx-4">
           <div className={'rounded-3xl border p-8 backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray shadow-xl' : 'bg-nike-dark/80 border-white/5')}>
             <div className="text-center mb-6">
-              <div className="text-4xl mb-3">💎</div>
+              <div className="text-4xl mb-3"><IconGem className="w-4 h-4" /></div>
               <h1 className={'text-2xl font-black tracking-tight ' + (isLight ? 'text-nike-black' : 'text-white')}>Manage Premium</h1>
               <p className={'text-sm mt-2 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
                 Your premium subscription details
@@ -236,7 +238,7 @@ export default function PaymentSetup() {
       <div className="relative z-10 w-full max-w-lg mx-4">
         <div className={'rounded-3xl border p-8 backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray shadow-xl' : 'bg-nike-dark/80 border-white/5')}>
             <div className="text-center mb-6">
-              <div className="text-4xl mb-3">💎</div>
+              <div className="text-4xl mb-3"><IconGem className="w-4 h-4" /></div>
               <h1 className={'text-2xl font-black tracking-tight ' + (isLight ? 'text-nike-black' : 'text-white')}>Set Up Payment</h1>
               <p className={'text-sm mt-2 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
                 {plan === 'yearly' ? 'Subscribe yearly and save 15%' : 'Subscribe monthly — cancel anytime'}
@@ -246,7 +248,7 @@ export default function PaymentSetup() {
             {!emailVerified && (
               <div className={'rounded-2xl border p-5 mb-6 bg-nike-amber/10 border-nike-amber/30 liquid-glass-card'}>
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">📧</span>
+                  <span className="text-2xl"><IconMail className="w-4 h-4" /></span>
                   <div>
                     <p className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>Verify your email first</p>
                     <p className={'text-xs mt-1 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
@@ -265,7 +267,7 @@ export default function PaymentSetup() {
                 : (isLight ? 'border-nike-gray text-nike-light hover:border-nike-red/30' : 'border-white/10 text-white/40 hover:border-white/30')
               )}
             >
-              <div className="text-2xl mb-1">📱</div>
+              <div className="text-2xl mb-1"><IconPhone className="w-4 h-4" /></div>
               M-Pesa
             </button>
             <button
@@ -275,7 +277,7 @@ export default function PaymentSetup() {
                 : (isLight ? 'border-nike-gray text-nike-light hover:border-nike-red/30' : 'border-white/10 text-white/40 hover:border-white/30')
               )}
             >
-              <div className="text-2xl mb-1">💳</div>
+              <div className="text-2xl mb-1"><IconCreditCard className="w-4 h-4" /></div>
               Card
             </button>
           </div>

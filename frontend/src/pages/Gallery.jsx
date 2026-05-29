@@ -7,6 +7,8 @@ import { useTheme } from '../providers/ThemeProvider'
 import PremiumBadge from '../components/ui/PremiumBadge'
 import { toast } from '../components/ui/Toast'
 import { useGsapStagger, useGsapReveal } from '../hooks/useGsapReveal'
+import { IconCamFlash } from '../components/Icons'
+
 
 export default function Gallery() {
   const { user } = useAuth()
@@ -133,7 +135,7 @@ export default function Gallery() {
           </div>
         ) : items.length === 0 ? (
           <div className={'text-center py-20 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>
-            <div className="text-5xl mb-4">📸</div>
+            <div className="text-5xl mb-4"><IconCamFlash className="w-4 h-4" /></div>
             <p className="text-sm">No gallery posts yet.</p>
           {user && (
               <button onClick={() => setShowUpload(true)} className="mt-4 text-nike-red text-xs tracking-widest uppercase font-bold hover:underline">

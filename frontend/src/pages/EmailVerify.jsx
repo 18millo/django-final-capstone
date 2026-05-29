@@ -4,6 +4,8 @@ import { useTheme } from '../providers/ThemeProvider'
 import { useAuth } from '../providers/AuthProvider'
 import api from '../utils/api'
 import { toast } from '../components/ui/Toast'
+import { IconMail } from '../components/Icons'
+
 
 const BG = 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1920&q=80'
 
@@ -59,7 +61,7 @@ export default function EmailVerify() {
       <div className={'fixed inset-0 ' + (isLight ? 'bg-white/85' : 'bg-nike-black/85')} />
       <div className="relative z-10 w-full max-w-md mx-4">
         <div className={'rounded-3xl border p-8 text-center backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray shadow-xl' : 'bg-nike-dark/80 border-white/5')}>
-          <div className="text-5xl mb-4">📧</div>
+          <div className="text-5xl mb-4"><IconMail className="w-4 h-4" /></div>
           <h1 className={'text-2xl font-black tracking-tight mb-3 ' + (isLight ? 'text-nike-black' : 'text-white')}>
             Verify Your Email
           </h1>

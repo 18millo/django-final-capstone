@@ -198,6 +198,11 @@ body::-webkit-scrollbar, *::-webkit-scrollbar {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
+@keyframes boxingBob {
+  0% { transform: translateY(0) rotate(-3deg); }
+  100% { transform: translateY(-4px) rotate(3deg); }
+}
+
 @media (max-width: 1023px) {
   .liquid-glass, .liquid-glass-card {
     backdrop-filter: blur(16px) saturate(1.2);

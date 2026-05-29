@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { useTheme } from '../providers/ThemeProvider'
 import { useAuth } from '../providers/AuthProvider'
 import { getToken } from '../utils/api'
+import { IconBoxingGlove, IconCheck, IconGem, IconHourglass, IconInfo, IconMail, IconRun, IconShop, IconWeightLift } from '../components/Icons'
+
 const SHOP_URL = import.meta.env.VITE_SHOP_URL || 'http://localhost:5174'
 
 const BG = 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1920&q=80'
@@ -152,7 +154,7 @@ export default function Premium() {
       <div className="relative z-10 max-w-5xl mx-auto px-4 py-16 md:py-24">
         {/* Hero */}
         <div className="text-center mb-16">
-          <div className="text-6xl mb-6">💎</div>
+          <div className="text-6xl mb-6"><IconGem className="w-4 h-4" /></div>
           <h1 className={'text-4xl md:text-6xl font-black tracking-tight mb-4 ' + (isLight ? 'text-nike-black' : 'text-white')}>
             CombatHub <span className="text-nike-red">Premium</span>
           </h1>
@@ -172,7 +174,7 @@ export default function Premium() {
                 to="/settings"
                 className="inline-flex items-center gap-2 bg-nike-amber hover:bg-white hover:text-nike-black text-white px-8 py-4 rounded-full text-sm tracking-widest uppercase font-bold transition-all duration-300"
               >
-                📧 Verify Email to Access Premium
+                <IconMail className="w-4 h-4" /> Verify Email to Access Premium
               </Link>
             )
           ) : (
@@ -185,21 +187,21 @@ export default function Premium() {
             )}
             {(!isAthlete || !user) && (
               <a href={`${SHOP_URL}?token=${getToken('access_token') || ''}`} target="_blank" rel="noopener noreferrer" className={cardClass(true)}>
-                <div className="text-3xl mb-3">🏪</div>
+                <div className="text-3xl mb-3"><IconShop className="w-4 h-4" /></div>
                 <h3 className={'font-bold text-sm tracking-widest uppercase mb-2 ' + (isLight ? 'text-nike-black' : 'text-white')}>Vendors</h3>
                 <p className={'text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Sell products, manage inventory, view sales stats</p>
               </a>
             )}
             {(!isAthlete || !user) && (
               <Link to="/community" className={cardClass(true)}>
-                <div className="text-3xl mb-3">🥊</div>
+                <div className="text-3xl mb-3"><IconBoxingGlove className="w-4 h-4" /></div>
                 <h3 className={'font-bold text-sm tracking-widest uppercase mb-2 ' + (isLight ? 'text-nike-black' : 'text-white')}>Coaches</h3>
                 <p className={'text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Showcase certifications, manage clients, track growth</p>
               </Link>
             )}
             {(!isAthlete || !user) && (
               <Link to="/community" className={cardClass(true)}>
-                <div className="text-3xl mb-3">🏋️</div>
+                <div className="text-3xl mb-3"><IconWeightLift className="w-4 h-4" /></div>
                 <h3 className={'font-bold text-sm tracking-widest uppercase mb-2 ' + (isLight ? 'text-nike-black' : 'text-white')}>Gym Owners</h3>
                 <p className={'text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Manage gym profile, showcase facility, attract members</p>
               </Link>
@@ -209,7 +211,7 @@ export default function Premium() {
                 e.preventDefault()
                 document.getElementById('athlete-features')?.scrollIntoView({ behavior: 'smooth' })
               }}>
-                <div className="text-3xl mb-3">🏃</div>
+                <div className="text-3xl mb-3"><IconRun className="w-4 h-4" /></div>
                 <h3 className={'font-bold text-sm tracking-widest uppercase mb-2 ' + (isLight ? 'text-nike-black' : 'text-white')}>Athletes</h3>
                 <p className={'text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Enhanced profiles, analytics, priority access, ad-free browsing</p>
               </a>
@@ -227,7 +229,7 @@ export default function Premium() {
         {(!isBusiness || !user) && (
         <div id="athlete-features" className={'rounded-3xl border p-8 md:p-12 mb-12 backdrop-blur-sm scroll-mt-24 ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
           <h2 className={'text-xl font-black tracking-tight mb-2 text-center ' + (isLight ? 'text-nike-black' : 'text-white')}>
-            🏃 Premium for Athletes
+            <IconRun className="w-4 h-4" /> Premium for Athletes
           </h2>
           <p className={'text-sm text-center mb-8 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
             Even if you&apos;re not selling or coaching, Premium gives you more.
@@ -250,7 +252,7 @@ export default function Premium() {
         {(!isAthlete || !user) && (
         <div className={'rounded-3xl border p-8 md:p-12 mb-12 backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
           <h2 className={'text-xl font-black tracking-tight mb-2 text-center ' + (isLight ? 'text-nike-black' : 'text-white')}>
-            🏪 Business Tools
+            <IconShop className="w-4 h-4" /> Business Tools
           </h2>
           <p className={'text-sm text-center mb-8 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
             Vendors, coaches, and gym owners — required access for your business features.
@@ -292,15 +294,15 @@ export default function Premium() {
               <div className={'text-xs mb-4 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>/30 days</div>
               <ul className={'text-xs space-y-2 mb-6 flex-1 text-left ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 shrink-0">✓</span>
+                  <span className="text-emerald-400 shrink-0"><IconCheck className="w-4 h-4" /></span>
                   <span>Full access to all premium features</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 shrink-0">✓</span>
+                  <span className="text-emerald-400 shrink-0"><IconCheck className="w-4 h-4" /></span>
                   <span>No charges during trial</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 shrink-0">✓</span>
+                  <span className="text-emerald-400 shrink-0"><IconCheck className="w-4 h-4" /></span>
                   <span>7-day grace extension after expiry</span>
                 </li>
               </ul>
@@ -329,23 +331,23 @@ export default function Premium() {
               <div className={'text-xs mb-4 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>/month</div>
               <ul className={'text-xs space-y-2 mb-6 flex-1 text-left ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 shrink-0">✓</span>
+                  <span className="text-emerald-400 shrink-0"><IconCheck className="w-4 h-4" /></span>
                   <span>Sell products in the marketplace</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 shrink-0">✓</span>
+                  <span className="text-emerald-400 shrink-0"><IconCheck className="w-4 h-4" /></span>
                   <span>Business dashboard & analytics</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 shrink-0">✓</span>
+                  <span className="text-emerald-400 shrink-0"><IconCheck className="w-4 h-4" /></span>
                   <span>Gallery & community posting</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 shrink-0">✓</span>
+                  <span className="text-emerald-400 shrink-0"><IconCheck className="w-4 h-4" /></span>
                   <span>Cancel anytime</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-nike-amber shrink-0">⏳</span>
+                  <span className="text-nike-amber shrink-0"><IconHourglass className="w-4 h-4" /></span>
                   <span><span className="text-nike-amber font-bold">7-day grace period</span> after expiry</span>
                 </li>
               </ul>
@@ -378,23 +380,23 @@ export default function Premium() {
               <div className={'text-xs mb-4 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>/year (15% off)</div>
               <ul className={'text-xs space-y-2 mb-6 flex-1 text-left ' + (isLight ? 'text-nike-light' : 'text-white/40')}>
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 shrink-0">✓</span>
+                  <span className="text-emerald-400 shrink-0"><IconCheck className="w-4 h-4" /></span>
                   <span>Everything in Monthly</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 shrink-0">✓</span>
+                  <span className="text-emerald-400 shrink-0"><IconCheck className="w-4 h-4" /></span>
                   <span>15% discount vs monthly</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 shrink-0">✓</span>
+                  <span className="text-emerald-400 shrink-0"><IconCheck className="w-4 h-4" /></span>
                   <span>Priority support</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-emerald-400 shrink-0">✓</span>
+                  <span className="text-emerald-400 shrink-0"><IconCheck className="w-4 h-4" /></span>
                   <span>Cancel anytime</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-nike-amber shrink-0">⏳</span>
+                  <span className="text-nike-amber shrink-0"><IconHourglass className="w-4 h-4" /></span>
                   <span><span className="text-nike-amber font-bold">7-day grace period</span> after expiry</span>
                 </li>
               </ul>
@@ -427,7 +429,7 @@ export default function Premium() {
           </h2>
             <div className={'max-w-2xl mx-auto p-6 rounded-2xl border liquid-glass-card ' + (isLight ? 'bg-nike-gray/20 border-nike-gray' : 'bg-white/5 border-white/10')}>
             <div className="flex items-start gap-4">
-              <div className="text-2xl shrink-0">ℹ️</div>
+              <div className="text-2xl shrink-0"><IconInfo className="w-4 h-4" /></div>
               <div>
                 <h3 className={'font-bold text-sm tracking-wide mb-2 ' + (isLight ? 'text-nike-black' : 'text-white')}>No Commitments, Cancel Anytime</h3>
                 <p className={'text-xs mb-3 ' + (isLight ? 'text-nike-light' : 'text-white/40')}>

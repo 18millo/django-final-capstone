@@ -6,6 +6,8 @@ import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import Reveal from '../components/ui/Reveal'
 import { toast } from '../components/ui/Toast'
+import { IconPackage } from '../components/Icons'
+
 
 const STATUS_STYLES = {
   pending: 'bg-nike-amber/10 text-nike-amber border-nike-amber/20',
@@ -82,7 +84,7 @@ export default function SellerOrders() {
       <div className="max-w-5xl mx-auto px-6 py-8">
         {filtered.length === 0 ? (
           <div className={'text-center py-20 rounded-2xl border ' + borderClass + ' ' + (isLight ? 'bg-white' : 'bg-nike-dark/80')}>
-            <div className="text-6xl mb-4">📦</div>
+            <div className="text-6xl mb-4"><IconPackage className="w-4 h-4" /></div>
             <p className={'text-lg font-bold ' + textClass}>{tab === 'incoming' ? 'No incoming orders' : 'No confirmed orders'}</p>
             <p className={'text-sm mt-1 ' + mutedClass}>{tab === 'incoming' ? 'Orders for your products will appear here.' : 'Confirmed orders will appear here.'}</p>
           </div>

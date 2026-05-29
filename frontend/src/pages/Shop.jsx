@@ -8,6 +8,8 @@ import Spinner from '../components/ui/Spinner'
 import Reveal from '../components/ui/Reveal'
 import { playClick, playSuccess } from '../utils/sounds'
 import { toast } from '../components/ui/Toast'
+import { IconBoxingGlove, IconSearch } from '../components/Icons'
+
 
 const BG = 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&w=1920&q=80'
 
@@ -138,7 +140,7 @@ export default function Shop() {
             <div className="flex justify-center py-20"><Spinner /></div>
           ) : products.length === 0 ? (
             <div className={'text-center py-20 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>
-              <div className="text-5xl mb-4">🔍</div>
+              <div className="text-5xl mb-4"><IconSearch className="w-4 h-4" /></div>
               <p className={'text-lg font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>No products found</p>
               <p className="text-sm mt-1">Try adjusting your filters.</p>
               <button onClick={clearFilters} className="mt-6 bg-nike-red text-white px-6 py-3 rounded-full text-xs tracking-widest uppercase font-bold hover:bg-white hover:text-nike-black transition-all duration-300">Clear Filters</button>
@@ -155,7 +157,7 @@ export default function Shop() {
                           {p.images?.[0] ? (
                             <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-4xl">🥊</div>
+                            <div className="w-full h-full flex items-center justify-center text-4xl"><IconBoxingGlove className="w-4 h-4" /></div>
                           )}
                         </div>
                       </Link>

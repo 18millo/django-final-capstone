@@ -61,12 +61,14 @@ class ProductListSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', default='')
     is_favorited = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
+    effective_price = serializers.SerializerMethodField()
+    sport_tags = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = ('id', 'name', 'slug', 'brand', 'category', 'category_name', 'price', 'images',
                   'stock', 'limited_edition', 'featured', 'created_at', 'is_favorited',
-                  'discount_active', 'discount_percent')
+                  'discount_active', 'discount_percent', 'effective_price', 'sport_tags')
 
     def get_is_favorited(self, obj):
         request = self.context.get('request')
@@ -90,6 +92,14 @@ class ProductListSerializer(serializers.ModelSerializer):
             else:
                 result.append(request.build_absolute_uri(f'{settings.MEDIA_URL}{img}') if request else f'{settings.MEDIA_URL}{img}')
         return result
+
+    def get_effective_price(self, obj):
+        if obj.discount_active and obj.discount_percent:
+            return str(obj.effective_price)
+        return str(obj.price)
+
+    def get_sport_tags(self, obj):
+        return obj.sport_tags or []
 
 
 class ProductDetailSerializer(serializers.ModelSerializer):

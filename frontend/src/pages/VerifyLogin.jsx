@@ -5,6 +5,8 @@ import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Reveal from '../components/ui/Reveal'
 import { playError, playSuccess } from '../utils/sounds'
+import { IconLock } from '../components/Icons'
+
 
 export default function VerifyLogin() {
   const location = useLocation()
@@ -54,7 +56,7 @@ export default function VerifyLogin() {
   return (
     <Reveal direction="up">
       <div className="text-center mb-8">
-        <div className="text-5xl mb-4">🔐</div>
+        <div className="text-5xl mb-4"><IconLock className="w-4 h-4" /></div>
         <h2 className="text-2xl font-black tracking-tight text-white">TWO-FACTOR AUTHENTICATION</h2>
         <p className="text-white/40 text-sm mt-2">
           Enter the 6-digit code from your authenticator app.

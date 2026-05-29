@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=True, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*', cast=Csv())
 
 INSTALLED_APPS = [
     'daphne',
@@ -33,6 +33,8 @@ INSTALLED_APPS = [
     'subscriptions',
     'common',
     'shop',
+    'payments',
+    'drf_yasg',
 ]
 
 MIDDLEWARE = [
@@ -195,6 +197,9 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = config('FROM_EMAIL')
 
 GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID')
+
+PAYSTACK_SECRET_KEY = config('PAYSTACK_SECRET_KEY')
+PAYSTACK_PUBLIC_KEY = config('PAYSTACK_PUBLIC_KEY')
 
 CKEDITOR_5_CONFIGS = {
     'default': {

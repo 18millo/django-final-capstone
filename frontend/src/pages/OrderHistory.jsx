@@ -4,6 +4,8 @@ import { useTheme } from '../providers/ThemeProvider'
 import api, { getToken } from '../utils/api'
 import Spinner from '../components/ui/Spinner'
 import Reveal from '../components/ui/Reveal'
+import { IconPackage } from '../components/Icons'
+
 const SHOP_URL = import.meta.env.VITE_SHOP_URL || 'http://localhost:5174'
 
 const BG = 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=1920&q=80'
@@ -42,7 +44,7 @@ export default function OrderHistory() {
 
         {orders.length === 0 ? (
           <div className={'text-center py-20 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>
-            <div className="text-6xl mb-4">📦</div>
+            <div className="text-6xl mb-4"><IconPackage className="w-4 h-4" /></div>
             <p className={'text-lg font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>No orders yet</p>
             <p className="text-sm mt-1">Your purchases will appear here.</p>
             <a href={`${SHOP_URL}?token=${getToken('access_token') || ''}`} target="_blank" rel="noopener noreferrer" className="inline-block mt-6 bg-nike-red text-white hover:bg-white hover:text-nike-black px-8 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">Start Shopping</a>

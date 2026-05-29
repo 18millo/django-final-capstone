@@ -72,10 +72,11 @@ def notify_and_flag_profile_update(sender, instance, **kwargs):
         )
     try:
         send_mail(
-            subject='CombatHub — Profile Updated',
+            subject='Profile Updated — CombatHub',
             message=(
                 f'Hi {instance.user.username or instance.user.email},\n\n'
-                f'Your CombatHub profile has been updated successfully.\n\n'
+                f'Your CombatHub profile was recently updated.\n\n'
+                f'If you made these changes, no further action is needed.\n'
                 f'If you did not make these changes, please contact support immediately.\n\n'
                 f'- The CombatHub Team'
             ),

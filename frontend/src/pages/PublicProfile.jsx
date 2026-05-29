@@ -9,6 +9,8 @@ import { mediaUrl } from '../utils/media'
 import { playClick } from '../utils/sounds'
 import { toast } from '../components/ui/Toast'
 import { ROLE_ICONS, ROLE_LABELS, ROLE_COLORS } from '../utils/roles'
+import { IconUser } from '../components/Icons'
+
 
 const BG = 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&w=1920&q=80'
 
@@ -84,7 +86,7 @@ export default function PublicProfile() {
                 {p.avatar ? (
                   <img src={mediaUrl(p.avatar)} className="w-full h-full object-cover" alt="" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: 'var(--color-nike-light)' }}>👤</div>
+                  <div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: 'var(--color-nike-light)' }}><IconUser className="w-4 h-4" /></div>
                 )}
               </div>
               <div className="flex-1">

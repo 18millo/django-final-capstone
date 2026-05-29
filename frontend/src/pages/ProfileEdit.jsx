@@ -7,6 +7,8 @@ import { mediaUrl } from '../utils/media'
 import { toast } from '../components/ui/Toast'
 import { playClick } from '../utils/sounds'
 import { ROLE_ICONS, ROLE_LABELS, ROLE_COLORS } from '../utils/roles'
+import { IconUser } from '../components/Icons'
+
 
 const WEIGHT_LABELS = {
   strawweight: 'Strawweight (115 lbs / 52 kg)',
@@ -84,7 +86,7 @@ export default function ProfileView() {
                   {p.avatar ? (
                     <img src={mediaUrl(p.avatar)} className="w-full h-full object-cover" alt="avatar" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: 'var(--color-nike-light)' }}>👤</div>
+                    <div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: 'var(--color-nike-light)' }}><IconUser className="w-4 h-4" /></div>
                   )}
                 </div>
                 <div>

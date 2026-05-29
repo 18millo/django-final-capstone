@@ -4,6 +4,8 @@ import api from '../utils/api'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Reveal from '../components/ui/Reveal'
+import { IconMail } from '../components/Icons'
+
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -30,7 +32,7 @@ export default function ForgotPassword() {
       <Reveal direction="up">
         <div className="text-center">
           <div className="w-16 h-16 bg-nike-red/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-3xl">📧</span>
+            <span className="text-3xl"><IconMail className="w-4 h-4" /></span>
           </div>
           <h2 className="text-2xl font-black tracking-tight text-white mb-2">CHECK YOUR EMAIL</h2>
           <p className="text-white/40 text-sm mb-8 leading-relaxed">

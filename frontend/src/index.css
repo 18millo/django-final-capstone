@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* hide scrollbars globally */
+/* hide scrollbars globally — use gradient progress indicator instead */
 html {
   scrollbar-width: none;
   scroll-behavior: smooth;

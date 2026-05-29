@@ -13,6 +13,8 @@ const SHOP_URL = import.meta.env.VITE_SHOP_URL || 'http://localhost:5174'
 import { mediaUrl } from '../utils/media'
 import QRCode from 'qrcode'
 import MapPicker from '../components/ui/MapPicker'
+import { IconBoxingGlove, IconCheck, IconGear, IconGem, IconHourglass, IconMail, IconPackage, IconPhone, IconPin, IconQuestion, IconUser } from '../components/Icons'
+
 
 const BG = 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&w=1920&q=80'
 
@@ -135,7 +137,7 @@ function VendorProducts() {
             <div className="flex justify-center py-12"><Spinner /></div>
           ) : products.length === 0 ? (
             <div className={'text-center py-12 ' + mutedClass}>
-              <p className="text-4xl mb-3">📦</p>
+              <p className="text-4xl mb-3"><IconPackage className="w-4 h-4" /></p>
               <p className="font-bold" style={{ color: 'var(--color-nike-white)' }}>No products yet</p>
               <p className="text-sm mt-1">Add your first product to get started selling on CombatHub.</p>
             </div>
@@ -151,7 +153,7 @@ function VendorProducts() {
                     {p.images?.[0] ? (
                       <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-2xl">🥊</div>
+                      <div className="w-full h-full flex items-center justify-center text-2xl"><IconBoxingGlove className="w-4 h-4" /></div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -200,7 +202,7 @@ function VendorProducts() {
             </div>
           )}
         </div>
-      </Reveal>
+              </Reveal>
     </div>
   )
 }
@@ -216,7 +218,11 @@ function EmailVerification() {
   const [changingEmail, setChangingEmail] = useState(false)
   const [newEmail, setNewEmail] = useState('')
   const [changing, setChanging] = useState(false)
-  const [message, setMessage] = useState('')
+  const [message, setMessageObj] = useState({ text: '', type: '' })
+  const setMessage = (val) => {
+    if (typeof val === 'string') setMessageObj({ text: val, type: '' })
+    else setMessageObj(val)
+  }
 
   const handleSendCode = async () => {
     setSending(true)
@@ -226,58 +232,52 @@ function EmailVerification() {
       setCodeSent(true)
       setMessage('Verification code sent to your email.')
     } catch (err) {
-      setMessage(err?.response?.data?.error || 'Failed to send code')
+      setMessage(err.response?.data?.error || 'Failed to send code')
     } finally {
       setSending(false)
     }
   }
 
   const handleVerify = async () => {
-    if (code.length !== 6) return
+    if (code.length < 6) return
     setVerifying(true)
-    setMessage('')
     try {
       await api.post('/auth/email/verify/', { code })
-      setMessage('✅ Email verified successfully!')
       await refreshUser()
+      setMessage('Email verified successfully!')
     } catch (err) {
-      setMessage(err?.response?.data?.error || 'Invalid code')
+      setMessage(err.response?.data?.error || 'Invalid code')
     } finally {
       setVerifying(false)
     }
   }
 
   const handleChangeEmail = async () => {
-    if (!newEmail.trim() || !newEmail.includes('@')) return
+    if (!newEmail.includes('@')) return toast('Invalid email', 'error')
     setChanging(true)
-    setMessage('')
     try {
-      await api.post('/auth/email/change/', { email: newEmail.trim() })
-      setMessage('Email updated. Verification code sent to your new email.')
-      setChangingEmail(false)
+      await api.post('/auth/email/change/', { email: newEmail })
       setCodeSent(true)
-      setCode('')
-      await refreshUser()
+      setMessage('Verification code sent to ' + newEmail)
     } catch (err) {
-      setMessage(err?.response?.data?.error || 'Failed to change email')
+      setMessage(err.response?.data?.error || 'Failed to change email')
     } finally {
       setChanging(false)
     }
   }
 
   return (
-    <div className="space-y-4">
-      {message && (
-        <div className={'text-sm px-4 py-3 rounded-xl ' + (message.includes('✅') ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : message.includes('updated') ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400' : 'bg-nike-red/10 border border-nike-red/20 text-nike-red')}>
-          {message}
+    <div>
+      {message.text && (
+        <div className={'px-5 py-4 rounded-xl mb-8 text-sm border ' + (message.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-nike-red/10 border-nike-red/20 text-nike-red')}>
+          {message.text}
         </div>
       )}
-
       <div>
         <label className={'text-xs tracking-widest uppercase font-bold mb-1.5 block ' + (isLight ? 'text-nike-light' : 'text-white/40')}>Current Email</label>
         <div className="flex items-center gap-2">
           <span className={'text-sm font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>{user?.email}</span>
-          {user?.email_verified && <span className="text-[10px] text-emerald-400 font-bold">✓ Verified</span>}
+          {user?.email_verified && <span className="text-[10px] text-emerald-400 font-bold"><IconCheck className="w-4 h-4" /> Verified</span>}
         </div>
       </div>
 
@@ -384,7 +384,7 @@ function EnableTotp() {
   if (step === 'done') {
     return (
       <div className="text-center py-4">
-        <div className="text-4xl mb-3">✅</div>
+        <div className="text-4xl mb-3"><IconCheck className="w-4 h-4" /></div>
         <p className="font-bold" style={{ color: 'var(--color-nike-white)' }}>2FA Enabled Successfully!</p>
         <p className="text-sm mt-1" style={{ color: 'var(--color-nike-light)' }}>You'll now need a code from your authenticator app to sign in.</p>
       </div>
@@ -503,7 +503,7 @@ function DisableTotp() {
 
 export default function Settings() {
   const { user, updateUser, logout } = useAuth()
-  const { theme, toggleTheme, appVersion } = useTheme()
+  const { theme, toggleTheme, font: appFont, changeFont, fonts, appVersion } = useTheme()
   const [tab, setTab] = useState('profile')
   const [openFaq, setOpenFaq] = useState(null)
   const [form, setForm] = useState({
@@ -667,7 +667,7 @@ export default function Settings() {
                         ) : user.profile?.avatar ? (
                           <img src={mediaUrl(user.profile.avatar)} className="w-full h-full object-cover" alt="avatar" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: 'var(--color-nike-light)' }}>👤</div>
+                          <div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: 'var(--color-nike-light)' }}><IconUser className="w-4 h-4" /></div>
                         )}
                       </div>
                       <label className="absolute bottom-0 right-0 bg-nike-red text-white rounded-full w-7 h-7 flex items-center justify-center cursor-pointer hover:bg-white hover:text-nike-black transition-all duration-300 text-sm font-bold shadow-lg">
@@ -909,6 +909,31 @@ export default function Settings() {
                   </div>
                 </div>
               </Reveal>
+
+              <Reveal>
+                <div className="p-8 rounded-2xl backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-dark) 90%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-lg" style={{ color: 'var(--color-nike-white)' }}>Font</h3>
+                      <p className="text-sm mt-1" style={{ color: 'var(--color-nike-light)' }}>
+                        {appFont || 'Inter'}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {fonts.map((f) => (
+                        <button
+                          key={f.value}
+                          onClick={() => changeFont(f.value)}
+                          className={'px-4 py-2 rounded-xl text-sm font-bold transition-all border ' + (appFont === f.value ? 'bg-nike-red text-white border-nike-red' : 'hover:bg-white/10 border-white/10')}
+                          style={{ fontFamily: f.family, color: appFont === f.value ? '#fff' : 'var(--color-nike-light)' }}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </Reveal>
             </div>
           )}
 
@@ -990,7 +1015,7 @@ export default function Settings() {
               <Reveal delay={50}>
                 <div className="p-8 rounded-2xl backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-dark) 90%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
                   <div className="flex items-center gap-3 mb-6">
-                    <div className="text-2xl">💎</div>
+                    <div className="text-2xl"><IconGem className="w-4 h-4" /></div>
                     <div>
                       <h3 className="font-bold text-lg" style={{ color: 'var(--color-nike-white)' }}>Pricing Plans</h3>
                       <p className="text-xs mt-0.5" style={{ color: 'var(--color-nike-light)' }}>Start with a free trial, then choose a plan.</p>
@@ -1004,7 +1029,7 @@ export default function Settings() {
                         <span className="text-xs" style={{ color: 'var(--color-nike-light)' }}>/30 days</span>
                       </div>
                       <p className="text-xs mt-2" style={{ color: 'var(--color-nike-light)' }}>Full access to all premium features. No charges during trial.</p>
-                      <p className="text-[10px] mt-2" style={{ color: 'var(--color-nike-amber)' }}>⏳ Includes 7-day grace period after expiry</p>
+                      <p className="text-[10px] mt-2" style={{ color: 'var(--color-nike-amber)' }}><IconHourglass className="w-4 h-4" /> Includes 7-day grace period after expiry</p>
                     </div>
                     <div className="relative p-6 rounded-xl flex flex-col" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '2px solid var(--color-nike-red)' }}>
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] uppercase tracking-widest font-bold bg-nike-red text-white">Popular</div>
@@ -1014,7 +1039,7 @@ export default function Settings() {
                         <span className="text-xs" style={{ color: 'var(--color-nike-light)' }}>/month</span>
                       </div>
                       <p className="text-xs mt-2" style={{ color: 'var(--color-nike-light)' }}>Billed monthly. Cancel anytime.</p>
-                      <p className="text-[10px] mt-2" style={{ color: 'var(--color-nike-amber)' }}>⏳ 7-day grace period if payment fails</p>
+                      <p className="text-[10px] mt-2" style={{ color: 'var(--color-nike-amber)' }}><IconHourglass className="w-4 h-4" /> 7-day grace period if payment fails</p>
                       <Link to="/premium/setup?plan=monthly" className="mt-4 w-full py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest text-white bg-nike-red hover:bg-nike-red/80 transition-colors text-center block">Subscribe</Link>
                     </div>
                     <div className="relative p-6 rounded-xl flex flex-col" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
@@ -1028,7 +1053,7 @@ export default function Settings() {
                         <span className="text-green-400 font-bold">Save $63</span>
                       </div>
                       <p className="text-xs mt-1" style={{ color: 'var(--color-nike-light)' }}>15% off vs monthly billing.</p>
-                      <p className="text-[10px] mt-2" style={{ color: 'var(--color-nike-amber)' }}>⏳ 7-day grace period if payment fails</p>
+                      <p className="text-[10px] mt-2" style={{ color: 'var(--color-nike-amber)' }}><IconHourglass className="w-4 h-4" /> 7-day grace period if payment fails</p>
                       <Link to="/premium/setup?plan=yearly" className="mt-4 w-full py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest text-white bg-nike-red hover:bg-nike-red/80 transition-colors text-center block">Subscribe</Link>
                     </div>
                   </div>
@@ -1038,7 +1063,7 @@ export default function Settings() {
               <Reveal delay={100}>
                 <div className="p-8 rounded-2xl backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-dark) 90%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="text-2xl">⚙️</div>
+                    <div className="text-2xl"><IconGear className="w-4 h-4" /></div>
                     <div>
                       <h3 className="font-bold text-lg" style={{ color: 'var(--color-nike-white)' }}>Manage Premium</h3>
                       <p className="text-xs mt-0.5" style={{ color: 'var(--color-nike-light)' }}>View or cancel your premium subscription.</p>
@@ -1067,7 +1092,7 @@ export default function Settings() {
                     <a href="https://mail.google.com/mail/?view=cm&fs=1&to=mungailevi1@gmail.com" target="_blank" rel="noopener noreferrer" className="group relative p-6 rounded-2xl flex flex-col items-center text-center transition-all duration-500 hover:scale-[1.03] hover:-translate-y-1 cursor-pointer overflow-hidden" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
                       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" style={{ background: 'linear-gradient(135deg, rgba(220,38,38,0.15), transparent)' }} />
                       <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center mb-4 text-3xl transition-transform duration-500 group-hover:scale-110 group-hover:rotate-[-8deg]" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-red) 20%, transparent)' }}>
-                        <span>📧</span>
+                        <span><IconMail className="w-4 h-4" /></span>
                       </div>
                       <p className="relative text-[10px] uppercase tracking-[0.15em] font-bold mb-2" style={{ color: 'var(--color-nike-light)' }}>Email</p>
                       <p className="relative text-sm font-bold transition-colors duration-300 group-hover:text-nike-red" style={{ color: 'var(--color-nike-white)' }}>mungailevi1@gmail.com</p>
@@ -1075,7 +1100,7 @@ export default function Settings() {
                     <a href="tel:+254729624970" className="group relative p-6 rounded-2xl flex flex-col items-center text-center transition-all duration-500 hover:scale-[1.03] hover:-translate-y-1 cursor-pointer overflow-hidden" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
                       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.15), transparent)' }} />
                       <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center mb-4 text-3xl transition-transform duration-500 group-hover:scale-110 group-hover:rotate-[-8deg]" style={{ backgroundColor: 'color-mix(in srgb, rgb(34,197,94) 20%, transparent)' }}>
-                        <span>📱</span>
+                        <span><IconPhone className="w-4 h-4" /></span>
                       </div>
                       <p className="relative text-[10px] uppercase tracking-[0.15em] font-bold mb-2" style={{ color: 'var(--color-nike-light)' }}>Phone</p>
                       <p className="relative text-sm font-bold transition-colors duration-300 group-hover:text-emerald-400" style={{ color: 'var(--color-nike-white)' }}>+254 729 624 970</p>
@@ -1083,7 +1108,7 @@ export default function Settings() {
                     <div className="group relative p-6 rounded-2xl flex flex-col items-center text-center transition-all duration-500 hover:scale-[1.03] hover:-translate-y-1 overflow-hidden" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-black) 80%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
                       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl" style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.15), transparent)' }} />
                       <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center mb-4 text-3xl transition-transform duration-500 group-hover:scale-110 group-hover:rotate-[-8deg]" style={{ backgroundColor: 'color-mix(in srgb, rgb(59,130,246) 20%, transparent)' }}>
-                        <span>📍</span>
+                        <span><IconPin className="w-4 h-4" /></span>
                       </div>
                       <p className="relative text-[10px] uppercase tracking-[0.15em] font-bold mb-2" style={{ color: 'var(--color-nike-light)' }}>Location</p>
                       <p className="relative text-sm font-bold" style={{ color: 'var(--color-nike-white)' }}>Nairobi, Chiromo<br />Parklands Plaza, 5th Floor</p>
@@ -1127,7 +1152,7 @@ export default function Settings() {
               <Reveal delay={100}>
                 <div className="p-8 rounded-2xl backdrop-blur-md overflow-hidden" style={{ backgroundColor: 'color-mix(in srgb, var(--color-nike-dark) 90%, transparent)', border: '1px solid var(--color-nike-gray)' }}>
                   <div className="flex items-center gap-3 mb-6">
-                    <div className="text-2xl">❓</div>
+                    <div className="text-2xl"><IconQuestion className="w-4 h-4" /></div>
                     <div>
                       <h3 className="font-bold text-lg" style={{ color: 'var(--color-nike-white)' }}>Frequently Asked Questions</h3>
                       <p className="text-xs mt-0.5" style={{ color: 'var(--color-nike-light)' }}>Everything you need to know about CombatHub.</p>

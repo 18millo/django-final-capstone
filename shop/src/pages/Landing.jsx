@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import api from '../api'
 import { useTheme } from '../providers/ThemeProvider'
 import { useAuth } from '../providers/AuthProvider'
+import LoadingScreen from '../components/LoadingScreen'
 import logo from '../images/logo.svg'
 import { IconPackage } from '../components/Icons'
 
@@ -22,12 +23,6 @@ const getSportIcon = (sport) => {
       return null
   }
 }
-
-const songGlob = import.meta.glob('/songs/*.mp3', { eager: true, query: '?url' })
-const songs = Object.entries(songGlob).map(([path, mod]) => {
-  const name = decodeURIComponent(path.split('/').pop().replace(/\.mp3$/i, ''))
-  return { url: mod.default, name }
-})
 
 const videoGlob = import.meta.glob('/videos/*.{mp4,webm,mov,avi,mkv}', { eager: true, query: '?url' })
 const videos = Object.values(videoGlob).map((m) => m.default)
@@ -102,14 +97,6 @@ function AutoScrollCarousel({ products }) {
   )
 }
 
-let playlist = buildPlaylist()
-
-function pickSong() {
-  const song = getCurrentSong(playlist)
-  playlist = advancePlaylist(playlist)
-  return song
-}
-
 function shuffle(arr) {
   const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
@@ -117,23 +104,6 @@ function shuffle(arr) {
     [a[i], a[j]] = [a[j], a[i]]
   }
   return a
-}
-
-function buildPlaylist() {
-  const shuffled = shuffle(songs)
-  return { list: shuffled.length ? shuffled : songs, index: 0 }
-}
-
-function getCurrentSong(playlist) {
-  return playlist.list[playlist.index] || null
-}
-
-function advancePlaylist(playlist) {
-  const next = playlist.index + 1
-  if (next >= playlist.list.length) {
-    return { list: shuffle(songs), index: 0 }
-  }
-  return { ...playlist, index: next }
 }
 
 function pickVideos(count) {
@@ -149,11 +119,10 @@ export default function Landing() {
   const { user, loading } = useAuth()
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
-  const [musicOn, setMusicOn] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [currentSong, setCurrentSong] = useState(pickSong)
+  const [videoMuted, setVideoMuted] = useState(true)
   const [heroVideo, statsVideo] = initialVideos
-  const audioRef = useRef(null)
+  const videoRef = useRef(null)
 
   useEffect(() => {
     Promise.all([
@@ -161,6 +130,12 @@ export default function Landing() {
       api.get('/categories/').then(({ data }) => setCategories(data.results || data)),
     ]).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    const el = videoRef.current
+    if (!el) return
+    el.volume = 0.15
+  }, [heroVideo])
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -177,66 +152,12 @@ export default function Landing() {
     return () => observer.disconnect()
   }, [products, categories])
 
-  useEffect(() => {
-    if (!audioRef.current || !currentSong?.url) return
-    const audio = audioRef.current
-    audio.volume = 0.15
-    const playPromise = audio.play()
-    if (playPromise !== undefined) {
-      playPromise.then(() => setMusicOn(true)).catch(() => {
-        const handler = () => {
-          audio.play().then(() => setMusicOn(true)).catch(() => {})
-          document.removeEventListener('click', handler, { capture: true })
-          document.removeEventListener('touchstart', handler, { capture: true })
-        }
-        document.addEventListener('click', handler, { capture: true, once: true })
-        document.addEventListener('touchstart', handler, { capture: true, once: true })
-      })
-    }
-  }, [currentSong?.url])
-
-  const toggleMusic = () => {
-    if (!audioRef.current) return
-    if (musicOn) {
-      audioRef.current.pause()
-      setMusicOn(false)
-    } else {
-      audioRef.current.currentTime = 0
-      audioRef.current.play().then(() => setMusicOn(true)).catch(() => {})
-    }
-  }
-
-  const handleSongEnd = () => {
-    const next = pickSong()
-    if (next) {
-      setCurrentSong(next)
-    }
-  }
-
   const sports = [...new Set(categories.map((c) => c.sport_tag).filter(Boolean))]
   const justIn = products.slice(0, 8)
 
   return (
     <div style={{ background: 'var(--theme-bg)' }}>
-      {/* SSO processing overlay */}
-      {loading && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center animate-fadeIn" style={{ background: 'var(--theme-bg)' }}>
-          <div className="text-center">
-            <div className="flex justify-center mb-4">
-              <svg className="w-8 h-8 text-nike-red animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            </div>
-            <p className="text-sm" style={{ color: 'var(--theme-text-secondary)' }}>Signing you in...</p>
-          </div>
-        </div>
-      )}
-
-      {/* ── Background audio ── */}
-      <audio ref={audioRef} preload="auto" key={currentSong?.url} onEnded={handleSongEnd}>
-        {currentSong?.url && <source src={currentSong.url} type="audio/mpeg" />}
-      </audio>
+      {loading && <LoadingScreen text="Signing you in" />}
 
       {/* ═══ NAVBAR ═══ */}
       <header className="fixed top-0 left-0 right-0 z-50 liquid-glass" style={{ borderBottom: '1px solid var(--theme-border)' }}>
@@ -262,24 +183,6 @@ export default function Landing() {
           </nav>
 
           <div className="flex items-center gap-2">
-            {/* Music toggle */}
-            <button
-              onClick={toggleMusic}
-              className="text-[var(--theme-text-secondary)] hover:text-[var(--theme-text)] transition-colors duration-300 p-2"
-              title={musicOn ? 'Mute music' : 'Play music'}
-            >
-              {musicOn ? (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                </svg>
-              )}
-            </button>
-
             {/* Theme toggle */}
             <button onClick={toggleTheme} className="text-[var(--theme-text-secondary)] hover:text-[var(--theme-text)] transition-colors duration-300 p-2" title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
               {theme === 'dark' ? (
@@ -357,7 +260,9 @@ export default function Landing() {
       {/* ═══ HERO ═══ */}
       <section className="relative h-screen min-h-[600px] overflow-hidden">
         <video
-          autoPlay muted loop playsInline
+          ref={videoRef}
+          autoPlay loop playsInline
+          muted
           preload="auto"
           poster="https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?w=1920&q=80"
           className="absolute inset-0 w-full h-full object-cover animate-slowZoom"
@@ -400,23 +305,38 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Music toggle (hero) */}
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleMusic}
-              className={`px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 ${musicOn ? 'bg-nike-red text-white shadow-lg shadow-nike-red/20' : 'bg-zinc-800/60 text-zinc-300 hover:bg-nike-red hover:text-white'}`}
-            >
-              {musicOn ? <><svg className="w-3.5 h-3.5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> Now Playing</> : <><svg className="w-3.5 h-3.5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}/></svg> Play Music</>}
-            </button>
-
-          </div>
-          {musicOn && currentSong?.name && (
-            <span className="text-[10px] text-zinc-400 tracking-wider animate-fadeIn max-w-[240px] text-center truncate">
-              {currentSong.name}
-            </span>
+        {/* Mute toggle */}
+        <button
+          onClick={() => {
+            const el = videoRef.current
+            if (!el) return
+            if (el.muted) {
+              el.muted = false
+              el.volume = 0.15
+            } else {
+              el.muted = true
+            }
+            setVideoMuted(el.muted)
+          }}
+          className="absolute bottom-8 right-8 z-10 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md border transition-all hover:scale-110"
+          style={{
+            background: 'rgba(0,0,0,0.5)',
+            borderColor: 'var(--theme-border)',
+            color: 'var(--theme-text-secondary)',
+          }}
+          title={videoMuted ? 'Unmute video' : 'Mute video'}
+        >
+          {videoMuted ? (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+            </svg>
           )}
-        </div>
+        </button>
 
         {/* Scroll indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-floatUp">

@@ -7,6 +7,8 @@ import Reveal from '../components/ui/Reveal'
 import { playClick, playSuccess } from '../utils/sounds'
 import { toast } from '../components/ui/Toast'
 import { mediaUrl } from '../utils/media'
+import { IconBoxingGlove, IconPackage } from '../components/Icons'
+
 
 export default function VendorDashboard() {
   const { theme } = useTheme()
@@ -251,7 +253,7 @@ export default function VendorDashboard() {
 
             {products.length === 0 ? (
               <div className={'text-center py-20 rounded-2xl border ' + borderClass + ' ' + cardBg}>
-                <div className="text-6xl mb-4">📦</div>
+                <div className="text-6xl mb-4"><IconPackage className="w-4 h-4" /></div>
                 <p className={'text-lg font-bold ' + textClass}>No products yet</p>
                 <p className={'text-sm mt-1 ' + mutedClass}>Add your first product to get started.</p>
                 <button
@@ -271,7 +273,7 @@ export default function VendorDashboard() {
                           {p.images?.[0] ? (
                             <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover" />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-3xl">🥊</div>
+                            <div className="w-full h-full flex items-center justify-center text-3xl"><IconBoxingGlove className="w-4 h-4" /></div>
                           )}
                         </div>
                         <div className="flex-1 min-w-0">

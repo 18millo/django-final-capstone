@@ -12,6 +12,8 @@ import { burstConfetti } from '../utils/confetti'
 import { ROLE_ICONS, ROLE_LABELS, ROLE_COLORS } from '../utils/roles'
 import ReportModal from '../components/ui/ReportModal'
 import { toast } from '../components/ui/Toast'
+import { IconBoxingGlove, IconCrown, IconFlag, IconMessage } from '../components/Icons'
+
 
 const BG = 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=1920&q=80'
 
@@ -56,7 +58,7 @@ function GroupPreviewList() {
   const [loading, setLoading] = useState(true)
   useEffect(() => {
     api.get('/auth/groups/')
-      .then((res) => setGroups((res.data.results || res.data || []).slice(0, 4)))
+      .then((res) => setGroups((res.data.results || res.data || []).filter((g) => !g.is_private).slice(0, 4)))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -393,7 +395,7 @@ export default function Community() {
           ) : filtered.length === 0 ? (
             <Reveal>
               <div className={'text-center py-20 rounded-2xl border backdrop-blur-md ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
-                <div className="text-5xl mb-4">🥊</div>
+                <div className="text-5xl mb-4"><IconBoxingGlove className="w-4 h-4" /></div>
                 <p className={'text-sm font-bold mb-1 ' + (isLight ? 'text-nike-black' : 'text-white')}>{search ? 'No fighters match your search' : 'The squad is empty'}</p>
                 <p className={'text-xs ' + (isLight ? 'text-nike-light' : 'text-white/40')}>{search ? 'Try a different name or role.' : 'Invite your crew to join CombatHub!'}</p>
               </div>
@@ -407,7 +409,7 @@ export default function Community() {
                 {filtered.map((u, i) => (
                   <Reveal key={u.id} delay={(i % 20) * 60}>
                     <div className={'group relative rounded-2xl p-5 border backdrop-blur-md transition-all duration-300 hover:scale-[1.02] hover:shadow-xl ' + (isLight ? 'bg-white/90 border-nike-gray shadow-sm' : 'bg-nike-dark/80 border-white/5 hover:border-white/20')}>
-                      {i === 0 && !roleFilter && <div className="absolute -top-2 -right-2 w-8 h-8 bg-nike-amber rounded-full flex items-center justify-center text-xs font-black shadow-lg">👑</div>}
+                      {i === 0 && !roleFilter && <div className="absolute -top-2 -right-2 w-8 h-8 bg-nike-amber rounded-full flex items-center justify-center text-xs font-black shadow-lg"><IconCrown className="w-4 h-4" /></div>}
                       {i === 1 && !roleFilter && <div className="absolute -top-2 -right-2 w-8 h-8 bg-nike-gray rounded-full flex items-center justify-center text-xs font-black shadow-lg">🥈</div>}
                       {i === 2 && !roleFilter && <div className="absolute -top-2 -right-2 w-8 h-8 bg-nike-orange/60 rounded-full flex items-center justify-center text-xs font-black shadow-lg">🥉</div>}
 
@@ -447,14 +449,14 @@ export default function Community() {
                                 className={'text-xs font-bold px-3 py-2 rounded-full border transition-all duration-200 ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-gray/50' : 'border-white/10 text-white/40 hover:bg-white/10')}
                                 onClick={playClick}
                               >
-                                💬
+                                <IconMessage className="w-4 h-4" />
                               </Link>
                               <button
                                 onClick={() => { playClick(); setReportTarget({ type: 'user', id: u.id }) }}
                                 className={'text-xs px-2.5 py-2 rounded-full border transition-all duration-200 ' + (isLight ? 'border-nike-gray text-nike-light hover:bg-nike-gray/50' : 'border-white/10 text-white/40 hover:bg-white/10')}
                                 title="Report"
                               >
-                                🚩
+                                <IconFlag className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => blockUser(u.id)}

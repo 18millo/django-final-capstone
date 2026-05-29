@@ -3,6 +3,8 @@ import { useTheme } from '../providers/ThemeProvider'
 import { useCart } from '../providers/CartProvider'
 import Spinner from '../components/ui/Spinner'
 import { playClick } from '../utils/sounds'
+import { IconBoxingGlove, IconCart } from '../components/Icons'
+
 
 const BG = 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=1920&q=80'
 
@@ -37,7 +39,7 @@ export default function Cart() {
 
         {items.length === 0 ? (
           <div className={'text-center py-20 ' + (isLight ? 'text-nike-light' : 'text-white/30')}>
-            <div className="text-6xl mb-4">🛒</div>
+            <div className="text-6xl mb-4"><IconCart className="w-4 h-4" /></div>
             <p className={'text-lg font-bold ' + (isLight ? 'text-nike-black' : 'text-white')}>Your cart is empty</p>
             <p className="text-sm mt-1">Add some gear to get started.</p>
             <Link to="/shop" className="inline-block mt-6 bg-nike-red text-white hover:bg-white hover:text-nike-black px-8 py-3 rounded-full text-xs tracking-widest uppercase font-bold transition-all duration-300">Shop Now</Link>
@@ -50,7 +52,7 @@ export default function Cart() {
                   {item.product_image ? (
                     <img src={item.product_image} alt={item.product_name} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-2xl">🥊</div>
+                    <div className="w-full h-full flex items-center justify-center text-2xl"><IconBoxingGlove className="w-4 h-4" /></div>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">

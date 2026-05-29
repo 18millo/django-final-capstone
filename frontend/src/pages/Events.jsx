@@ -7,6 +7,8 @@ import EventCard from '../components/ui/EventCard'
 import Spinner from '../components/ui/Spinner'
 import Reveal from '../components/ui/Reveal'
 import { playClick } from '../utils/sounds'
+import { IconCalendar } from '../components/Icons'
+
 
 const EVENT_TYPES = [
   { value: '', label: 'All Events' },
@@ -120,7 +122,7 @@ export default function Events() {
           <div className="flex justify-center py-20"><Spinner /></div>
         ) : events.length === 0 ? (
           <div className={'text-center py-20 rounded-2xl border ' + borderClass + ' ' + cardBg}>
-            <div className="text-6xl mb-4">📅</div>
+            <div className="text-6xl mb-4"><IconCalendar className="w-4 h-4" /></div>
             <p className={'text-lg font-bold ' + textClass}>No events found</p>
             <p className={'text-sm mt-1 ' + mutedClass}>Try adjusting your filters or check back later.</p>
             {canManage && (

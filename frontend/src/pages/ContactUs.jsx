@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useTheme } from '../providers/ThemeProvider'
 import Reveal from '../components/ui/Reveal'
+import { IconMail, IconPhone, IconPhoneCall, IconPin, IconQuestion } from '../components/Icons'
+
 
 const BG = 'https://images.unsplash.com/photo-1423666639041-f56000c27a9a?auto=format&fit=crop&w=1920&q=80'
 
@@ -39,7 +41,7 @@ export default function ContactUs() {
       <div className="relative z-10 max-w-4xl mx-auto px-4 py-16 md:py-20">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="text-5xl mb-4">📞</div>
+          <div className="text-5xl mb-4"><IconPhoneCall className="w-4 h-4" /></div>
           <h1 className={'text-4xl md:text-5xl font-black tracking-tight mb-3 ' + textClass}>
             Contact <span className="text-nike-red">Us</span>
           </h1>
@@ -52,7 +54,7 @@ export default function ContactUs() {
         <div className="grid md:grid-cols-3 gap-4 mb-12">
           <Reveal delay={50}>
             <div className={'p-6 rounded-2xl border text-center ' + borderClass + ' ' + cardBg}>
-              <div className="text-3xl mb-3">📧</div>
+              <div className="text-3xl mb-3"><IconMail className="w-4 h-4" /></div>
               <h3 className={'font-bold text-sm tracking-widest uppercase mb-2 ' + textClass}>Email</h3>
               <a href="https://mail.google.com/mail/?view=cm&fs=1&to=mungailevi1@gmail.com" target="_blank" rel="noopener noreferrer" className={'text-sm hover:text-nike-red transition-colors ' + mutedClass}>
                 mungailevi1@gmail.com
@@ -61,7 +63,7 @@ export default function ContactUs() {
           </Reveal>
           <Reveal delay={100}>
             <div className={'p-6 rounded-2xl border text-center ' + borderClass + ' ' + cardBg}>
-              <div className="text-3xl mb-3">📱</div>
+              <div className="text-3xl mb-3"><IconPhone className="w-4 h-4" /></div>
               <h3 className={'font-bold text-sm tracking-widest uppercase mb-2 ' + textClass}>Phone</h3>
               <a href="tel:+254729624970" className={'text-sm hover:text-nike-red transition-colors ' + mutedClass}>
                 0729624970
@@ -70,7 +72,7 @@ export default function ContactUs() {
           </Reveal>
           <Reveal delay={150}>
             <div className={'p-6 rounded-2xl border text-center ' + borderClass + ' ' + cardBg}>
-              <div className="text-3xl mb-3">📍</div>
+              <div className="text-3xl mb-3"><IconPin className="w-4 h-4" /></div>
               <h3 className={'font-bold text-sm tracking-widest uppercase mb-2 ' + textClass}>Office</h3>
               <p className={'text-sm ' + mutedClass}>
                 Nairobi, Chiromo<br />Parklands Plaza, 5th Floor
@@ -83,7 +85,7 @@ export default function ContactUs() {
         <Reveal delay={200}>
           <div className={'rounded-2xl border p-6 md:p-8 backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
             <div className="flex items-center gap-3 mb-6">
-              <div className="text-2xl">❓</div>
+              <div className="text-2xl"><IconQuestion className="w-4 h-4" /></div>
               <div>
                 <h2 className={'text-lg font-black tracking-tight ' + textClass}>Frequently Asked Questions</h2>
                 <p className={'text-xs mt-0.5 ' + mutedClass}>Everything you need to know about CombatHub.</p>

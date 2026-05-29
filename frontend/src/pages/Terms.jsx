@@ -1,6 +1,8 @@
 import { useTheme } from '../providers/ThemeProvider'
 import GSAP from 'gsap'
 import { useEffect, useRef } from 'react'
+import { IconScale } from '../components/Icons'
+
 
 const sections = [
   {
@@ -81,7 +83,7 @@ export default function Terms() {
     <div className={'min-h-[calc(100vh-4rem)] ' + (isLight ? 'bg-nike-gray/20' : 'bg-nike-black')}>
       <div className={'border-b ' + borderClass}>
         <div ref={headerRef} className="max-w-4xl mx-auto px-6 py-14 text-center">
-          <div className="text-5xl mb-4">⚖️</div>
+          <div className="text-5xl mb-4"><IconScale className="w-4 h-4" /></div>
           <h1 className={'text-3xl md:text-4xl font-black tracking-tight ' + textClass}>Terms & Conditions</h1>
           <p className={'text-sm mt-3 max-w-lg mx-auto ' + mutedClass}>
             Last updated: May 2026. These terms govern your use of the CombatHub platform.

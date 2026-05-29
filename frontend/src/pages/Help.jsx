@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTheme } from '../providers/ThemeProvider'
 import Reveal from '../components/ui/Reveal'
+import { IconBook, IconInfo, IconPhoneCall, IconQuestion } from '../components/Icons'
+
 
 const BG = 'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?auto=format&fit=crop&w=1920&q=80'
 
@@ -53,21 +55,21 @@ export default function Help() {
         <div className="grid md:grid-cols-3 gap-4 mb-12">
           <Reveal delay={50}>
             <Link to="/contact" className={'block p-6 rounded-2xl border text-center transition-all duration-300 hover:border-nike-red/30 hover:scale-[1.02] ' + borderClass + ' ' + cardBg}>
-              <div className="text-3xl mb-2">📞</div>
+              <div className="text-3xl mb-2"><IconPhoneCall className="w-4 h-4" /></div>
               <h3 className={'font-bold text-sm tracking-widest uppercase mb-1 ' + textClass}>Contact Us</h3>
               <p className={'text-xs ' + mutedClass}>Get in touch with our team</p>
             </Link>
           </Reveal>
           <Reveal delay={100}>
             <Link to="/guidelines" className={'block p-6 rounded-2xl border text-center transition-all duration-300 hover:border-nike-red/30 hover:scale-[1.02] ' + borderClass + ' ' + cardBg}>
-              <div className="text-3xl mb-2">📖</div>
+              <div className="text-3xl mb-2"><IconBook className="w-4 h-4" /></div>
               <h3 className={'font-bold text-sm tracking-widest uppercase mb-1 ' + textClass}>Guidelines</h3>
               <p className={'text-xs ' + mutedClass}>Community rules & standards</p>
             </Link>
           </Reveal>
           <Reveal delay={150}>
             <Link to="/about" className={'block p-6 rounded-2xl border text-center transition-all duration-300 hover:border-nike-red/30 hover:scale-[1.02] ' + borderClass + ' ' + cardBg}>
-              <div className="text-3xl mb-2">ℹ️</div>
+              <div className="text-3xl mb-2"><IconInfo className="w-4 h-4" /></div>
               <h3 className={'font-bold text-sm tracking-widest uppercase mb-1 ' + textClass}>About</h3>
               <p className={'text-xs ' + mutedClass}>Learn about CombatHub</p>
             </Link>
@@ -78,7 +80,7 @@ export default function Help() {
         <Reveal delay={200}>
           <div className={'rounded-2xl border p-6 md:p-8 backdrop-blur-sm ' + (isLight ? 'bg-white/90 border-nike-gray' : 'bg-nike-dark/80 border-white/5')}>
             <div className="flex items-center gap-3 mb-6">
-              <div className="text-2xl">❓</div>
+              <div className="text-2xl"><IconQuestion className="w-4 h-4" /></div>
               <div>
                 <h2 className={'text-lg font-black tracking-tight ' + textClass}>Frequently Asked Questions</h2>
                 <p className={'text-xs mt-0.5 ' + mutedClass}>Everything you need to know about CombatHub.</p>
